@@ -1,0 +1,55 @@
+[dotenv@17.2.3] injecting env (29) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+Connected to MongoDB
+
+Total Products: 2674
+
+--- Sample Broadcaster: CBN ---
+Products Count: 4
+
+Products:
+  - Comercial 5s: R$ 15.00 (5s, Rotativo)
+  - Comercial 15s: R$ 45.00 (15s, Rotativo)
+  - Comercial 30s: R$ 90.00 (30s, Rotativo)
+  - Comercial 60s: R$ 180.00 (60s, Rotativo)
+
+--- Product Type Breakdown ---
+Comercial Products: 2200
+Testemunhal Products: 474
+
+--- Sample Products ---
+{
+  "_id": "6980b395c6f410c66dc23419",
+  "broadcasterId": "6980b3161f466b25c235e10c",
+  "spotType": "Comercial 5s",
+  "duration": 5,
+  "timeSlot": "Rotativo",
+  "pricePerInsertion": 15,
+  "isActive": true,
+  "__v": 0,
+  "createdAt": "2026-02-02T14:24:21.971Z",
+  "updatedAt": "2026-02-02T14:24:21.971Z"
+}
+{
+  "_id": "6980b395c6f410c66dc2341a",
+  "broadcasterId": "6980b3161f466b25c235e10c",
+  "spotType": "Comercial 15s",
+  "duration": 15,
+  "timeSlot": "Rotativo",
+  "pricePerInsertion": 45,
+  "isActive": true,
+  "__v": 0,
+  "createdAt": "2026-02-02T14:24:21.972Z",
+  "updatedAt": "2026-02-02T14:24:21.972Z"
+}
+{
+  "_id": "6980b395c6f410c66dc2341b",
+  "broadcasterId": "6980b3161f466b25c235e10c",
+  "spotType": "Comercial 30s",
+  "duration": 30,
+  "timeSlot": "Rotativo",
+  "pricePerInsertion": 90,
+  "isActive": true,
+  "__v": 0,
+  "createdAt": "2026-02-02T14:24:21.972Z",
+  "updatedAt": "2026-02-02T14:24:21.972Z"
+}

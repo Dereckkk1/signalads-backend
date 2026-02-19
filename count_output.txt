@@ -1,0 +1,28 @@
+[dotenv@17.2.3] injecting env (29) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Total Catalog Broadcasters: 1264
+Total Active Products: 5520
+Broadcasters with at least one active product: 1172
+Catalog Broadcasters WITH products: 1172
+Catalog Broadcasters WITHOUT products: 92
+Sample IDs: [
+  new ObjectId('6980b8a81f466b25c235e8ea'),
+  new ObjectId('6980b8a81f466b25c235e8eb'),
+  new ObjectId('6980b8a81f466b25c235e8ec'),
+  new ObjectId('6980b8a81f466b25c235e8ed'),
+  new ObjectId('6980b8a81f466b25c235e8ee'),
+  new ObjectId('6980b8a81f466b25c235e8ef'),
+  new ObjectId('6980b8a81f466b25c235e8f0'),
+  new ObjectId('6980b8a81f466b25c235e8f1'),
+  new ObjectId('6980b8a81f466b25c235e8f2'),
+  new ObjectId('6980b8a81f466b25c235e8f3'),
+  new ObjectId('6980b8a91f466b25c235e8f4'),
+  new ObjectId('6980b8a91f466b25c235e8f5'),
+  new ObjectId('6980b8a91f466b25c235e8f6'),
+  new ObjectId('6980b8a91f466b25c235e8f7'),
+  new ObjectId('6980b8a91f466b25c235e8f8'),
+  new ObjectId('6980b8a91f466b25c235e8f9'),
+  new ObjectId('6980b8a91f466b25c235e8fc'),
+  new ObjectId('6980b8a91f466b25c235e8fd'),
+  new ObjectId('6980b8a91f466b25c235e8fe'),
+  new ObjectId('6980b8a91f466b25c235e900')
+]

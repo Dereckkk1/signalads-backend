@@ -1,0 +1,4 @@
+[dotenv@17.2.3] injecting env (29) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+Connected to MongoDB
+No catalog user found.
+Total Users: 0

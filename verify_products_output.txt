@@ -1,0 +1,52 @@
+[dotenv@17.2.3] injecting env (29) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Connected to MongoDB
+
+Total Products: 1526
+
+--- Sample Broadcaster: ambev ---
+Products Count: 1
+
+Products:
+  - Comercial 30s: R$ 0.11 (30s, Rotativo)
+
+--- Product Type Breakdown ---
+Comercial Products: 1274
+Testemunhal Products: 252
+
+--- Sample Products ---
+{
+  "_id": "6980a4049dcf7d1e2349dbce",
+  "broadcasterId": "69809ee01f466b25c235d5f6",
+  "spotType": "Comercial 10s",
+  "duration": 10,
+  "timeSlot": "Rotativo",
+  "pricePerInsertion": 1111.11,
+  "isActive": true,
+  "createdAt": "2026-02-02T13:17:56.069Z",
+  "updatedAt": "2026-02-02T13:17:56.069Z",
+  "__v": 0
+}
+{
+  "_id": "6980ac749dcf7d1e2349ebbe",
+  "broadcasterId": "6980ac6c9dcf7d1e2349eb82",
+  "spotType": "Comercial 30s",
+  "duration": 30,
+  "timeSlot": "Rotativo",
+  "pricePerInsertion": 0.11,
+  "isActive": true,
+  "createdAt": "2026-02-02T13:53:56.484Z",
+  "updatedAt": "2026-02-02T13:53:56.484Z",
+  "__v": 0
+}
+{
+  "_id": "6980b144b65a5e41fc6d250e",
+  "broadcasterId": "6980b1431f466b25c235def3",
+  "spotType": "Comercial 5s",
+  "duration": 5,
+  "timeSlot": "Rotativo",
+  "pricePerInsertion": 3.125,
+  "isActive": true,
+  "__v": 0,
+  "createdAt": "2026-02-02T14:14:28.062Z",
+  "updatedAt": "2026-02-02T14:14:28.062Z"
+}

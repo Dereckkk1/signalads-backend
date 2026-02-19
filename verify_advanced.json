@@ -1,0 +1,112 @@
+[dotenv@17.2.3] injecting env (29) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+Connected to MongoDB
+--- Sample User with Geo ---
+{
+  "_id": "69809ed61f466b25c235d5c4",
+  "email": "radiosampaiofm@hotmail.com",
+  "__v": 0,
+  "address": {
+    "cep": "",
+    "street": "",
+    "number": "",
+    "complement": "",
+    "neighborhood": "",
+    "city": "Palmeira dos Índios",
+    "state": "AL",
+    "latitude": -9.406159,
+    "longitude": -36.630984
+  },
+  "broadcasterProfile": {
+    "generalInfo": {
+      "stationName": "Sampaio",
+      "dialFrequency": "94.5",
+      "band": "FM"
+    },
+    "logo": "Rádios 2_Images/nib1SRETL5j3XXIpZ6QtX0.Logo.210242.png",
+    "comercialEmail": "radiosampaiofm@hotmail.com",
+    "website": "",
+    "categories": [
+      "Eclético"
+    ],
+    "audienceProfile": {
+      "gender": {
+        "female": 52,
+        "male": 48
+      },
+      "ageRange": "86% 24+",
+      "socialClass": {
+        "classeAB": 44,
+        "classeC": 23,
+        "classeDE": 33
+      }
+    },
+    "coverage": {
+      "cities": [
+        "Palmeira dos Índios (0.0 km)",
+        "Estrela de Alagoas (14.1 km)",
+        "Igaci (14.2 km)",
+        "Quebrangulo (19.2 km)",
+        "Belém (23.5 km)",
+        "Tanque d'Arca (25.5 km)",
+        "Coité do Nóia (26.4 km)",
+        "Mar Vermelho (27.4 km)",
+        "Bom Conselho (27.5 km)",
+        "Minador do Negrão (28.1 km)",
+        "Craíbas (28.4 km)",
+        "Paulo Jacinto (28.6 km)",
+        "Taquarana (30.1 km)",
+        "Lagoa do Ouro (36.3 km)",
+        "Pindoba (38.6 km)",
+        "Terezinha (38.8 km)",
+        "Arapiraca (39.0 km)",
+        "Limoeiro de Anadia (39.5 km)",
+        "Chã Preta (39.8 km)",
+        "Cacimbinhas (40.1 km)",
+        "Maribondo (40.3 km)",
+        "Major Isidoro (41.1 km)",
+        "Viçosa (42.1 km)",
+        "Brejão (42.8 km)",
+        "Correntes (45.2 km)",
+        "Iati (46.6 km)",
+        "Anadia (47.6 km)",
+        "Saloá (48.3 km)",
+        "Lagoa da Canoa (48.6 km)",
+        "Jaramataia (49.6 km)",
+        "Dois Riachos (50.4 km)",
+        "Campo Alegre (51.9 km)",
+        "Santana do Mundaú (52.0 km)",
+        "Cajueiro (52.1 km)",
+        "Boca da Mata (53.1 km)",
+        "Paranatama (54.1 km)",
+        "Feira Grande (55.2 km)",
+        "Palmeirina (56.0 km)",
+        "Girau do Ponciano (57.8 km)",
+        "São Sebastião (59.1 km)",
+        "Garanhuns (59.5 km)"
+      ],
+      "totalPopulation": 20201200,
+      "states": []
+    }
+  },
+  "cnpj": "10889111000154",
+  "companyName": "SAMPAIO | 94,5 |  PALMEIRA DOS INDIOS/AL",
+  "cpfOrCnpj": "10889111000154",
+  "createdAt": "2026-02-02T12:55:50.589Z",
+  "createdBy": "69285e5e1a21a8368d9960c0",
+  "fantasyName": "Sampaio",
+  "favorites": [],
+  "isCatalogOnly": true,
+  "managedByAdmin": true,
+  "name": "Sampaio",
+  "onboardingCompleted": true,
+  "password": "$2a$10$YourHashedPasswordHere",
+  "phone": "8234212289",
+  "status": "approved",
+  "trustedDevices": [],
+  "twoFactorEnabled": false,
+  "updatedAt": "2026-02-02T13:39:56.941Z",
+  "userType": "broadcaster"
+}
+----------------------------
+Total Users: 365
+Users with Geo: 339
