@@ -63,6 +63,7 @@ interface FinancialCalculation {
   platformSplit: number; // 20% para plataforma (ou 100% se catálogo)
   techFee: number; // 5% taxa técnica
   agencyCommission: number; // 12% se for agência
+  monitoringCost: number; // Custo de monitoramento de mídia
   totalAmount: number; // O que o cliente paga
   splits: Array<{
     recipientId: string;
@@ -89,7 +90,8 @@ async function calculateOrderFinancialsWithCatalog(
   cartItems: ICartItem[],
   buyerUserType: string,
   buyerId: string,
-  buyerName: string
+  buyerName: string,
+  isMonitoringEnabled: boolean = true
 ): Promise<FinancialCalculation> {
   // 0. Busca status de catálogo de todas as emissoras no carrinho
   const broadcasterIds = [...new Set(cartItems.map(item => item.broadcasterId.toString()))];
@@ -172,13 +174,16 @@ async function calculateOrderFinancialsWithCatalog(
 
   const platformSplit = platformFromRegular + platformFromCatalog;
 
-  // Taxa técnica (5%) incide sobre Produtos + Serviços
   const techFee = (grossAmount + productionCost) * 0.05;
 
   const agencyCommission = (buyerUserType === 'agency') ? (grossAmount + productionCost) * 0.12 : 0;
 
+  // --- CÁLCULO DE MONITORAMENTO DE MÍDIA ---
+  const itemsCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const monitoringCost = isMonitoringEnabled ? itemsCount * 2 : 0;
+
   // 3. Total que o cliente paga
-  const totalAmount = grossAmount + productionCost + techFee + agencyCommission;
+  const totalAmount = grossAmount + productionCost + techFee + agencyCommission + monitoringCost;
 
   // 4. Monta splits
   const splits: any[] = [];
@@ -233,6 +238,18 @@ async function calculateOrderFinancialsWithCatalog(
     });
   }
 
+  // Split de Monitoramento (Auditoria) - Vai para a plataforma
+  if (monitoringCost > 0) {
+    splits.push({
+      recipientId: 'platform',
+      recipientName: 'E-rádios Auditoria',
+      recipientType: 'platform',
+      amount: monitoringCost,
+      percentage: 0, // Valor fixo
+      description: 'Serviço de Monitoramento de Mídia'
+    });
+  }
+
   // Tech Fee (5%)
   splits.push({
     recipientId: 'platform',
@@ -263,6 +280,7 @@ async function calculateOrderFinancialsWithCatalog(
     platformSplit,
     techFee,
     agencyCommission,
+    monitoringCost, // novo
     totalAmount,
     splits,
     broadcasterBreakdown: broadcasterMap
@@ -373,6 +391,7 @@ function calculateOrderFinancials(
     platformSplit,
     techFee,
     agencyCommission,
+    monitoringCost: 0, // deprecado, default para zero
     totalAmount,
     splits,
     broadcasterBreakdown: broadcasterMap
@@ -412,7 +431,8 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
       billingData, // Dados específicos de faturamento (se method = billing)
       creditCardData, // Dados do cartão (se método = credit_card)
       installments, // Número de parcelas (1-12)
-      skipPayment // Flag para pular pagamento (pending_contact)
+      skipPayment, // Flag para pular pagamento (pending_contact)
+      isMonitoringEnabled // Flag para monitoramento
     } = req.body;
 
 
@@ -504,7 +524,8 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
       cart.items,
       buyer.userType,
       userId.toString(),
-      buyer.fantasyName || buyer.companyName || buyer.email
+      buyer.fantasyName || buyer.companyName || buyer.email,
+      isMonitoringEnabled !== undefined ? isMonitoringEnabled : true
     );
 
     const {
@@ -513,6 +534,7 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
       platformSplit,
       techFee,
       agencyCommission,
+      monitoringCost,
       totalAmount,
       splits
     } = financials;
@@ -565,6 +587,8 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
         platformSplit,
         techFee,
         agencyCommission,
+        monitoringCost,
+        isMonitoringEnabled: isMonitoringEnabled !== undefined ? isMonitoringEnabled : true,
         totalAmount,
         subtotal: grossAmount,
         platformFee: techFee
@@ -605,7 +629,8 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
             buyerPhone: order.buyerPhone,
             totalValue: order.totalAmount,
             itemsCount: order.items.length,
-            adminEmails
+            adminEmails,
+            isMonitoringEnabled: order.isMonitoringEnabled
           });
         }
 
@@ -678,6 +703,8 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
         platformSplit,
         techFee,
         agencyCommission,
+        monitoringCost,
+        isMonitoringEnabled: isMonitoringEnabled !== undefined ? isMonitoringEnabled : true,
         totalAmount,
         // Manter campos deprecated
         subtotal: grossAmount,

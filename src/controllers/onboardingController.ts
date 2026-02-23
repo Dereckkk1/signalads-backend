@@ -1,6 +1,30 @@
 import { Response, Request } from 'express';
 import { User } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
+import NodeGeocoder from 'node-geocoder';
+
+const geocoderOptions: NodeGeocoder.Options = { provider: 'openstreetmap' };
+const geocoder = NodeGeocoder(geocoderOptions);
+
+/**
+ * Helper: Geocodifica a cidade/estado e retorna lat/lng.
+ */
+async function geocodeCity(city: string, state?: string): Promise<{ latitude: number; longitude: number } | null> {
+  try {
+    if (!city) return null;
+    const query = state ? `${city}, ${state}, Brasil` : `${city}, Brasil`;
+    const results = await geocoder.geocode(query);
+    const first = results?.[0];
+    if (first && first.latitude != null && first.longitude != null) {
+      console.log(`📍 Geocodificação OK: "${query}" → (${first.latitude}, ${first.longitude})`);
+      return { latitude: first.latitude, longitude: first.longitude };
+    }
+    return null;
+  } catch (err) {
+    console.error('❌ Erro ao geocodificar:', err);
+    return null;
+  }
+}
 
 // Obter detalhes completos de uma emissora (público)
 export const getBroadcasterDetails = async (req: Request, res: Response): Promise<void> => {
@@ -82,6 +106,12 @@ export const updateBroadcasterProfile = async (req: AuthRequest, res: Response):
         };
       } else {
         user.address.city = req.body.location;
+      }
+      // Geocodifica a nova cidade para preencher lat/lng (necessário para proximidade no marketplace)
+      const coords = await geocodeCity(req.body.location, user.address?.state);
+      if (coords) {
+        user.address.latitude = coords.latitude;
+        user.address.longitude = coords.longitude;
       }
     }
 
@@ -228,6 +258,28 @@ export const saveOnboardingStep = async (req: AuthRequest, res: Response): Promi
 
       case 4:
         user.broadcasterProfile.coverage = data.coverage;
+
+        // Se a emissora não tem lat/lng no address, tenta geocodificar usando a primeira cidade da cobertura
+        if (!user.address?.latitude || !user.address?.longitude) {
+          const cities = data.coverage?.cities;
+          if (cities && cities.length > 0) {
+            const firstCity = typeof cities[0] === 'string' ? cities[0] : cities[0]?.name;
+            if (firstCity) {
+              // Extrai apenas o nome da cidade (remove "(Capital)" etc.)
+              const cleanCity = firstCity.replace(/\s*\(.*?\)\s*/g, '').trim();
+              const state = data.coverage?.states?.[0] || user.address?.state || '';
+              const coords = await geocodeCity(cleanCity, state);
+              if (coords) {
+                if (!user.address) {
+                  user.address = { cep: '', street: '', number: '', neighborhood: '', city: cleanCity, state: state };
+                }
+                user.address.latitude = coords.latitude;
+                user.address.longitude = coords.longitude;
+                if (!user.address.city) user.address.city = cleanCity;
+              }
+            }
+          }
+        }
 
         break;
 

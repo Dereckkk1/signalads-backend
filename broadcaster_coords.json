@@ -1,0 +1,8759 @@
+[
+  {
+    "name": "CBN | 98,1 | Rio Branco/AC",
+    "city": "Rio Branco",
+    "lat": -9.978299,
+    "lng": -67.810529,
+    "pmm": 465
+  },
+  {
+    "name": "Taquari FM",
+    "city": "Taquari",
+    "lat": -29.802801,
+    "lng": -51.862776,
+    "pmm": 215
+  },
+  {
+    "name": "Tropical Sat",
+    "city": "Juazeiro",
+    "lat": -9.410717,
+    "lng": -40.503552,
+    "pmm": 3959
+  },
+  {
+    "name": "Difusora | 92,7 | Palmeira das Missões/RS",
+    "city": "Palmeira das Missões",
+    "lat": -27.900621,
+    "lng": -53.314954,
+    "pmm": 276
+  },
+  {
+    "name": "Band News | 101.1 | João Pessoa/PB",
+    "city": "Manaus",
+    "lat": -3.134691,
+    "lng": -60.023335,
+    "pmm": 1830
+  },
+  {
+    "name": "Amor | 103,7 | Anápolis/GO",
+    "city": "Anápolis",
+    "lat": -16.328826,
+    "lng": -48.957218,
+    "pmm": 4049
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Itaúna",
+    "lat": -20.074436,
+    "lng": -44.578277,
+    "pmm": 3661
+  },
+  {
+    "name": "Nativa | 95,1 | Arapongas/PR",
+    "city": "Arapongas",
+    "lat": -23.413517,
+    "lng": -51.43828,
+    "pmm": 3052
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Pimenta Bueno",
+    "lat": -11.677537,
+    "lng": -61.183666,
+    "pmm": 677
+  },
+  {
+    "name": "Rádio Rondônia | 93.3 | Porto Velho/RO",
+    "city": "Rolim de Moura",
+    "lat": -11.722259,
+    "lng": -61.785781,
+    "pmm": 2244
+  },
+  {
+    "name": "Uirapuru | 102,5 | Passo Fundo/RS",
+    "city": "Passo Fundo",
+    "lat": -28.261767,
+    "lng": -52.407095,
+    "pmm": 11491
+  },
+  {
+    "name": "40 Graus",
+    "city": "São José do Rio Preto",
+    "lat": -20.812637,
+    "lng": -49.381348,
+    "pmm": 6090
+  },
+  {
+    "name": "Atual | 103,5 | Concórdia/SC",
+    "city": "Concórdia",
+    "lat": -27.233659,
+    "lng": -52.023971,
+    "pmm": 3150
+  },
+  {
+    "name": "Massa | 102,3 | Nova Trento/SC",
+    "city": "Tijucas",
+    "lat": -27.239454,
+    "lng": -48.632071,
+    "pmm": 832
+  },
+  {
+    "name": "SAMPAIO | 94,5 |  PALMEIRA DOS INDIOS/AL",
+    "city": "Palmeira dos Índios",
+    "lat": -9.406159,
+    "lng": -36.630984,
+    "pmm": 8025
+  },
+  {
+    "name": "Rural | 103,1 | Petrolina/PE",
+    "city": "Santarém",
+    "lat": -2.436213,
+    "lng": -54.71857,
+    "pmm": 4506
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "São Mateus",
+    "lat": -18.718447,
+    "lng": -39.858201,
+    "pmm": 712
+  },
+  {
+    "name": "Pindorama Jota | 100,7 | Sidrolândia/MS",
+    "city": "Sidrolândia",
+    "lat": -20.931054,
+    "lng": -54.96603,
+    "pmm": 2630
+  },
+  {
+    "name": "Jovem  Pan | 96,9 | Passos/MG",
+    "city": "Rondonópolis",
+    "lat": -16.470163,
+    "lng": -54.633587,
+    "pmm": 1414
+  },
+  {
+    "name": "Massa | 97,7 | Florianópolis/SC",
+    "city": "Florianópolis",
+    "lat": -27.587796,
+    "lng": -48.547637,
+    "pmm": 14408
+  },
+  {
+    "name": "Mais FM | 101,3 | Franca/SP",
+    "city": "Franca",
+    "lat": -20.536097,
+    "lng": -47.402332,
+    "pmm": 4824
+  },
+  {
+    "name": "101 FM | 101,9 | Macapá/AP",
+    "city": "Macapá",
+    "lat": 0.038951,
+    "lng": -51.057405,
+    "pmm": 0
+  },
+  {
+    "name": "101 FM | 101,1 | Presidente Prudente/SP",
+    "city": "Campinas",
+    "lat": -22.907343,
+    "lng": -47.060156,
+    "pmm": 466
+  },
+  {
+    "name": "102 FM | 102,1 | Bragança Paulista/SP",
+    "city": "Bragança Paulista",
+    "lat": -22.956896,
+    "lng": -46.542333,
+    "pmm": 5109
+  },
+  {
+    "name": "102 FM | 102,5 | Tubarão/SC",
+    "city": "Cotegipe",
+    "lat": -12.028597,
+    "lng": -44.252476,
+    "pmm": 184
+  },
+  {
+    "name": "104 FM | 104,1 | Porto Alegre/RS",
+    "city": "Piumhi",
+    "lat": -20.470883,
+    "lng": -45.960569,
+    "pmm": 5900
+  },
+  {
+    "name": "104 FM | 104,9 | Pomerode/SC",
+    "city": "Pomerode",
+    "lat": -26.744826,
+    "lng": -49.174198,
+    "pmm": 445
+  },
+  {
+    "name": "105 FM | 105,1 | Jundiaí/SP",
+    "city": "Jundiaí",
+    "lat": -23.187668,
+    "lng": -46.885274,
+    "pmm": 68303
+  },
+  {
+    "name": "105 FM | 105,7 | Jaraguá do Sul/SC",
+    "city": "Jaraguá do Sul",
+    "lat": -26.490484,
+    "lng": -49.076299,
+    "pmm": 20157
+  },
+  {
+    "name": "105 FM | 105,5  | Criciúma/SC",
+    "city": "Criciúma",
+    "lat": -28.673572,
+    "lng": -49.36594,
+    "pmm": 2766
+  },
+  {
+    "name": "14 de julho | 107,7 | Júlio de Castilhos/RS",
+    "city": "Júlio de Castilhos",
+    "lat": -29.226449,
+    "lng": -53.6831,
+    "pmm": 1006
+  },
+  {
+    "name": "14 De Maio  | 104,9 | Mirassol D'Oeste/MT",
+    "city": "Mirassol d'Oeste",
+    "lat": -15.674071,
+    "lng": -58.097904,
+    "pmm": 2104
+  },
+  {
+    "name": "3 colinas | 95,7 | Franca/SP",
+    "city": "Ibaiti",
+    "lat": -23.849821,
+    "lng": -50.190666,
+    "pmm": 1008
+  },
+  {
+    "name": "88 FM | 88,7 | Volta Redonda/RJ",
+    "city": "Novo Hamburgo",
+    "lat": -29.686326,
+    "lng": -51.128605,
+    "pmm": 22517
+  },
+  {
+    "name": "89 FM | 88,9 | São Bento do Sul/SC",
+    "city": "Barra Bonita",
+    "lat": -22.491146,
+    "lng": -48.563229,
+    "pmm": 1909
+  },
+  {
+    "name": "89 FM | 89,5 | Joinville/SC",
+    "city": "Joinville",
+    "lat": -26.304518,
+    "lng": -48.849409,
+    "pmm": 22543
+  },
+  {
+    "name": "89 FM A Rádio Rock | 89,1 | São Paulo/SP",
+    "city": "Manaus",
+    "lat": -3.134691,
+    "lng": -60.023335,
+    "pmm": 3562
+  },
+  {
+    "name": "90 FM | 90.9 |Salto/SP",
+    "city": "Salto",
+    "lat": -23.204074,
+    "lng": -47.292416,
+    "pmm": 1735
+  },
+  {
+    "name": "90,7 A nossa Rádio",
+    "city": "Entre-Ijuís",
+    "lat": -28.362794,
+    "lng": -54.271432,
+    "pmm": 5240
+  },
+  {
+    "name": "18.291.808/0001-30",
+    "city": "Marabá",
+    "lat": -5.352606,
+    "lng": -49.142025,
+    "pmm": 4382
+  },
+  {
+    "name": "92 | 92,1 | Guarapuava/PR",
+    "city": "Guarapuava",
+    "lat": -25.393592,
+    "lng": -51.463431,
+    "pmm": 1433
+  },
+  {
+    "name": "92 FM | 92,7 | Timbó/SC",
+    "city": "Timbó",
+    "lat": -26.822903,
+    "lng": -49.277712,
+    "pmm": 1428
+  },
+  {
+    "name": "92 FM | 92,7 | Piracicaba/SP",
+    "city": "Piracicaba",
+    "lat": -22.723722,
+    "lng": -47.646846,
+    "pmm": 6902
+  },
+  {
+    "name": "92 FM | 92,3 | São Luís/MA",
+    "city": "São Luís",
+    "lat": -2.531886,
+    "lng": -44.297919,
+    "pmm": 16580
+  },
+  {
+    "name": "92 FM | 92,5 | Criciúma/SC",
+    "city": "Criciúma",
+    "lat": -28.673572,
+    "lng": -49.36594,
+    "pmm": 1626
+  },
+  {
+    "name": "93 FM | 93,9 | Fortaleza/CE",
+    "city": "Fortaleza",
+    "lat": -3.723805,
+    "lng": -38.589928,
+    "pmm": 74584
+  },
+  {
+    "name": "93 FM | 93,5 | Pedro Leopoldo/MG",
+    "city": "Pedro Leopoldo",
+    "lat": -19.618396,
+    "lng": -44.045884,
+    "pmm": 1590
+  },
+  {
+    "name": "93 FM | 93,3 | Boa Vista/RR",
+    "city": "Paracatu",
+    "lat": -17.219742,
+    "lng": -46.875419,
+    "pmm": 7844
+  },
+  {
+    "name": "93 FM | 93,3 | Rio De Janeiro/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 94559
+  },
+  {
+    "name": "93,3 FM | 93,3 | Rio do Sul /SC",
+    "city": "Rio do Sul",
+    "lat": -27.217903,
+    "lng": -49.643238,
+    "pmm": 1717
+  },
+  {
+    "name": "94 FM | 94,7 | Dourados/MS",
+    "city": "Lavras",
+    "lat": -21.24287,
+    "lng": -44.999931,
+    "pmm": 1502
+  },
+  {
+    "name": "94 FM | 94,7 | Dourados/MS",
+    "city": "Bauru",
+    "lat": -22.325123,
+    "lng": -49.083001,
+    "pmm": 3249
+  },
+  {
+    "name": "96 FM | 96,9 | Uruguaiana/RS",
+    "city": "Uruguaiana",
+    "lat": -29.759823,
+    "lng": -57.081825,
+    "pmm": 2986
+  },
+  {
+    "name": "96 FM | 96,7 | Natal/RN",
+    "city": "Natal",
+    "lat": -5.750899,
+    "lng": -35.252255,
+    "pmm": 34107
+  },
+  {
+    "name": "96 FM | 96,3 | Concórdia/SC",
+    "city": "Concórdia",
+    "lat": -27.233659,
+    "lng": -52.023971,
+    "pmm": 3749
+  },
+  {
+    "name": "96 FM | 96,9 | Arapiraca/AL",
+    "city": "Arapiraca",
+    "lat": -9.755907,
+    "lng": -36.657297,
+    "pmm": 27413
+  },
+  {
+    "name": "97 FM | 97,7 | Foz do Iguaçu/PR",
+    "city": "Foz do Iguaçu",
+    "lat": -25.542493,
+    "lng": -54.587102,
+    "pmm": 1401
+  },
+  {
+    "name": "98 FM | 98,1 | Canoinhas/SC",
+    "city": "Canoinhas",
+    "lat": -26.178807,
+    "lng": -50.397849,
+    "pmm": 688
+  },
+  {
+    "name": "98 FM | 98,1 | Campina Grande/PB",
+    "city": "Campina Grande",
+    "lat": -7.221497,
+    "lng": -35.883859,
+    "pmm": 17135
+  },
+  {
+    "name": "98 FM | 98,1 | Presidente Prudente/SP",
+    "city": "Presidente Prudente",
+    "lat": -22.122744,
+    "lng": -51.386766,
+    "pmm": 4109
+  },
+  {
+    "name": "98 FM |  98,1 | CORONEL FABRICIANO/MG",
+    "city": "Ipatinga",
+    "lat": -19.481032,
+    "lng": -42.520351,
+    "pmm": 15830
+  },
+  {
+    "name": "98 FM | 98,3 | Belo Horizonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 23056
+  },
+  {
+    "name": "98 FM | 98,9 | Natal/RN",
+    "city": "Natal",
+    "lat": -5.750899,
+    "lng": -35.252255,
+    "pmm": 35261
+  },
+  {
+    "name": "99 FM | 99,9 | Belém/PA",
+    "city": "Belém",
+    "lat": -1.459845,
+    "lng": -48.487826,
+    "pmm": 42676
+  },
+  {
+    "name": "RADA+ Morada | 94,9 | Araraquara/SP",
+    "city": "Araraquara",
+    "lat": -21.79036,
+    "lng": -48.17444,
+    "pmm": 1970
+  },
+  {
+    "name": "ABC | 103,3 | Novo Hamburgo/RS",
+    "city": "Mauá",
+    "lat": -23.669335,
+    "lng": -46.458262,
+    "pmm": 5109
+  },
+  {
+    "name": "Acústica | 97,7 | Camaquã/RS",
+    "city": "Camaquã",
+    "lat": -30.850704,
+    "lng": -51.814601,
+    "pmm": 1191
+  },
+  {
+    "name": "Alô Fm",
+    "city": "Juiz de Fora",
+    "lat": -21.760924,
+    "lng": -43.348817,
+    "pmm": 17394
+  },
+  {
+    "name": "Alpha | 90,1 | Curitiba/PR",
+    "city": "Curitiba",
+    "lat": -25.432956,
+    "lng": -49.271848,
+    "pmm": 3428
+  },
+  {
+    "name": "Alpha | 101,7 | São Paulo/SP",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 146627
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Belo Oriente",
+    "lat": -19.224645,
+    "lng": -42.487283,
+    "pmm": 52
+  },
+  {
+    "name": "Alternativa | 87,9 | Laurentino/SC",
+    "city": "Laurentino",
+    "lat": -27.212388,
+    "lng": -49.755264,
+    "pmm": 94
+  },
+  {
+    "name": "Alto Uruguai | 92,5 | Três Passos/RS",
+    "city": "Três Passos",
+    "lat": -27.45616,
+    "lng": -53.929699,
+    "pmm": 1599
+  },
+  {
+    "name": "Alvorada | 106,3 |  Londrina/PR",
+    "city": "Londrina",
+    "lat": -23.312156,
+    "lng": -51.162773,
+    "pmm": 7067
+  },
+  {
+    "name": "Alvorada | 94,9 |  Belo Horizozonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 61531
+  },
+  {
+    "name": "Alvorada | 95,3 | Fernandópolis/SP",
+    "city": "Fernandópolis",
+    "lat": -20.282383,
+    "lng": -50.248748,
+    "pmm": 6427
+  },
+  {
+    "name": "Alvorada do Sul | 96,7 |  Floriano/PI",
+    "city": "Floriano",
+    "lat": -6.769672,
+    "lng": -43.020645,
+    "pmm": 2114
+  },
+  {
+    "name": "Amanda | 101,5 | Rio do Sul/SC",
+    "city": "Rio do Sul",
+    "lat": -27.217903,
+    "lng": -49.643238,
+    "pmm": 1975
+  },
+  {
+    "name": "América | 107,1 | Belo Horizonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 8180
+  },
+  {
+    "name": "Amizade | 98,7 | Igrejinha/RS",
+    "city": "Igrejinha",
+    "lat": -29.57222,
+    "lng": -50.798711,
+    "pmm": 1375
+  },
+  {
+    "name": "Amizade | 104,9 | Porto Xavier/RS",
+    "city": "Umuarama",
+    "lat": -23.76395,
+    "lng": -53.30846,
+    "pmm": 1596
+  },
+  {
+    "name": "104 FM | 104.1 | Rondonópolis/MT",
+    "city": "Rondon do Pará",
+    "lat": -4.777822,
+    "lng": -48.069974,
+    "pmm": 1153
+  },
+  {
+    "name": "Amplitude",
+    "city": "Juara",
+    "lat": -11.25036,
+    "lng": -57.513123,
+    "pmm": 0
+  },
+  {
+    "name": "Antena Hits | 103,9 | Ariquemes/RO",
+    "city": "Ariquemes",
+    "lat": -9.908463,
+    "lng": -63.033269,
+    "pmm": 217
+  },
+  {
+    "name": "Antena1 | 89,3 | Porto Alegre/RS",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 20216
+  },
+  {
+    "name": "Antena 1 | 92,1 | Florianópolis/SC",
+    "city": "Florianópolis",
+    "lat": -27.587796,
+    "lng": -48.547637,
+    "pmm": 5276
+  },
+  {
+    "name": "Antena1 | 94,7 | São Paulo/SP",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 106878
+  },
+  {
+    "name": "DEMAIS | 101,1 | ITAIÓPOLIS/SC",
+    "city": "Itaiópolis",
+    "lat": -26.337126,
+    "lng": -49.908756,
+    "pmm": 2254
+  },
+  {
+    "name": "Antena1 | 105,1 | Belo Horizonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 18782
+  },
+  {
+    "name": "Antena1 | 107,5 | Campinas/SP",
+    "city": "Campinas",
+    "lat": -22.907343,
+    "lng": -47.060156,
+    "pmm": 11403
+  },
+  {
+    "name": "Aquarela | 102,5 | Canindé/CE",
+    "city": "Canindé",
+    "lat": -4.355344,
+    "lng": -39.310343,
+    "pmm": 7390
+  },
+  {
+    "name": "Arapongas FM | 88,9 | Arapongas/PR",
+    "city": "Arapongas",
+    "lat": -23.413517,
+    "lng": -51.43828,
+    "pmm": 460
+  },
+  {
+    "name": "Arapuan | 95,3 | João Pessoa/PB",
+    "city": "João Pessoa",
+    "lat": -7.149382,
+    "lng": -34.873385,
+    "pmm": 8641
+  },
+  {
+    "name": "Arara Azul | 96,9 | Parauapebas/PA",
+    "city": "Americana",
+    "lat": -22.740884,
+    "lng": -47.330363,
+    "pmm": 307
+  },
+  {
+    "name": "AArari Fm | 90,3 | Araripina/PE",
+    "city": "Araripina",
+    "lat": -7.578142,
+    "lng": -40.502461,
+    "pmm": 4928
+  },
+  {
+    "name": "Arauto | 95,7 | Santa Cruz do Sul/RS",
+    "city": "Mundo Novo",
+    "lat": -11.864723,
+    "lng": -40.471498,
+    "pmm": 310
+  },
+  {
+    "name": "Arena | 103,1 | Ubiratã/PR",
+    "city": "Ubiratã",
+    "lat": -24.541035,
+    "lng": -52.994506,
+    "pmm": 2874
+  },
+  {
+    "name": "Aruanã | 102,1 | Barra do Garças/MT",
+    "city": "Barra do Garças",
+    "lat": -15.888711,
+    "lng": -52.26033,
+    "pmm": 4542
+  },
+  {
+    "name": "Ativa | 100,3 | Pato Branco/PR",
+    "city": "Pato Branco",
+    "lat": -26.229959,
+    "lng": -52.677362,
+    "pmm": 3854
+  },
+  {
+    "name": "Ativa | 107,9 | Portão/RS",
+    "city": "Portão",
+    "lat": -29.696259,
+    "lng": -51.23015,
+    "pmm": 0
+  },
+  {
+    "name": "Atividade | 107,1 | Brasília/DF",
+    "city": "Canudos",
+    "lat": -9.890673,
+    "lng": -39.024071,
+    "pmm": 1749
+  },
+  {
+    "name": "Atlântida | 94,3 | Porto Alegre/RS",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 32862
+  },
+  {
+    "name": "Atlântida | 100,9 | Florianópolis/SC",
+    "city": "Tramandaí",
+    "lat": -29.987302,
+    "lng": -50.130377,
+    "pmm": 1681
+  },
+  {
+    "name": "Auxiliadora | 105,9 | Amambai/MS",
+    "city": "Amambai",
+    "lat": -23.100582,
+    "lng": -55.243828,
+    "pmm": 328
+  },
+  {
+    "name": "RBN | 93.5 | Paulo Afonso/BA",
+    "city": "Paulo Afonso",
+    "lat": -9.403332,
+    "lng": -38.218329,
+    "pmm": 9221
+  },
+  {
+    "name": "Bahiana | 92,5 | Bom Jesus da Lapa/BA",
+    "city": "Bom Jesus da Lapa",
+    "lat": -13.254114,
+    "lng": -43.417142,
+    "pmm": 4094
+  },
+  {
+    "name": "Band | 88,7 | Dracena/SP",
+    "city": "Junqueirópolis",
+    "lat": -21.511276,
+    "lng": -51.434012,
+    "pmm": 1497
+  },
+  {
+    "name": "Band | 92,1 | Tangará Da Serra/MT",
+    "city": "Tangará da Serra",
+    "lat": -14.623785,
+    "lng": -57.491299,
+    "pmm": 730
+  },
+  {
+    "name": "Band | 92,3 | Joaçaba/SC",
+    "city": "Joaçaba",
+    "lat": -27.173945,
+    "lng": -51.50669,
+    "pmm": 2773
+  },
+  {
+    "name": "Band | 92,9 | Itajaí/SC",
+    "city": "Itajaí",
+    "lat": -26.907426,
+    "lng": -48.657023,
+    "pmm": 1100
+  },
+  {
+    "name": "Band | 95,5 | Sertãozinho/SP",
+    "city": "Sertãozinho",
+    "lat": -21.137022,
+    "lng": -47.991148,
+    "pmm": 0
+  },
+  {
+    "name": "Band | 95,9 | Juína/MT",
+    "city": "Juína",
+    "lat": -11.422018,
+    "lng": -58.762217,
+    "pmm": 408
+  },
+  {
+    "name": "Tropical | 90,7 | Birigui/SP",
+    "city": "Birigui",
+    "lat": -21.292392,
+    "lng": -50.339329,
+    "pmm": 5430
+  },
+  {
+    "name": "Band | 96,1 | Florianópolis/SC",
+    "city": "Florianópolis",
+    "lat": -27.587796,
+    "lng": -48.547637,
+    "pmm": 10176
+  },
+  {
+    "name": "Band | 96,1 | São Paulo/SP",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 134382
+  },
+  {
+    "name": "Band | 96,3 | Eunápolis/BA",
+    "city": "Eunápolis",
+    "lat": -16.375167,
+    "lng": -39.584172,
+    "pmm": 5631
+  },
+  {
+    "name": "RADIO NOVA CULTURA",
+    "city": "Botucatu",
+    "lat": -22.888382,
+    "lng": -48.441289,
+    "pmm": 5267
+  },
+  {
+    "name": "Band | 97,1 | Presidente Prudente/SP",
+    "city": "Presidente Prudente",
+    "lat": -22.122744,
+    "lng": -51.386766,
+    "pmm": 4726
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "Presidente Epitácio",
+    "lat": -21.768782,
+    "lng": -52.115276,
+    "pmm": 2463
+  },
+  {
+    "name": "Band | 100,9 | Dourados/MS",
+    "city": "Dourados",
+    "lat": -22.227236,
+    "lng": -54.811289,
+    "pmm": 526
+  },
+  {
+    "name": "Band | 101,1 | Cuiabá/MT",
+    "city": "Cuiabá",
+    "lat": -15.569989,
+    "lng": -56.073252,
+    "pmm": 8156
+  },
+  {
+    "name": "Band | 102,7 | Sorocaba/SP",
+    "city": "Sorocaba",
+    "lat": -23.499323,
+    "lng": -47.457853,
+    "pmm": 8051
+  },
+  {
+    "name": "Band | 106,7 | Campinas/SP",
+    "city": "Campinas",
+    "lat": -22.907343,
+    "lng": -47.060156,
+    "pmm": 8429
+  },
+  {
+    "name": "Band | 97,5 | Primavera do Leste/MT",
+    "city": "Primavera do Leste",
+    "lat": -15.552294,
+    "lng": -54.300053,
+    "pmm": 884
+  },
+  {
+    "name": "Band News | 96,9 | São Paulo/SP",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 51213
+  },
+  {
+    "name": "Band News | 90,3 | Rio De Janeiro/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 21959
+  },
+  {
+    "name": "Band News | 90,5|Brasília/DF",
+    "city": "Brasília",
+    "lat": -15.794087,
+    "lng": -47.887905,
+    "pmm": 6837
+  },
+  {
+    "name": "Band Vale | 102,9 | São José dos Campos/SP",
+    "city": "São João do Ivaí",
+    "lat": -23.993089,
+    "lng": -51.820279,
+    "pmm": 493
+  },
+  {
+    "name": "Banda B | 89,7 | Curitiba/PR",
+    "city": "Curitiba",
+    "lat": -25.432956,
+    "lng": -49.271848,
+    "pmm": 7389
+  },
+  {
+    "name": "Band News | 99,3 | Porto Alegre/RS",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 2140
+  },
+  {
+    "name": "Bandeirantes | 85,7 | Campinas/SP",
+    "city": "Goiânia",
+    "lat": -16.67331,
+    "lng": -49.255814,
+    "pmm": 4152
+  },
+  {
+    "name": "Batovi | 700 | São Gabriel/RS",
+    "city": "São Gabriel",
+    "lat": -30.33676,
+    "lng": -54.320478,
+    "pmm": 2755
+  },
+  {
+    "name": "BBN | 93,5 | Taubaté/SP",
+    "city": "Taubaté",
+    "lat": -23.026556,
+    "lng": -45.556609,
+    "pmm": 2359
+  },
+  {
+    "name": "BH FM | 102,1 | Belo Horizonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 83691
+  },
+  {
+    "name": "RADBlink | 102,7 | Campo Grande/MS",
+    "city": "Campo Grande",
+    "lat": -20.45803,
+    "lng": -54.615744,
+    "pmm": 4339
+  },
+  {
+    "name": "Boa | 94,1 | Teresina/PI",
+    "city": "Teresina",
+    "lat": -5.086342,
+    "lng": -42.80527,
+    "pmm": 3054
+  },
+  {
+    "name": "Boa Nova | 87,9 | Itaporanga/PB",
+    "city": "Itaporanga",
+    "lat": -7.30398,
+    "lng": -38.152573,
+    "pmm": 3961
+  },
+  {
+    "name": "Boa Vista FM | 99,3 | Santa Maria Da Boa Vista/PE",
+    "city": "Santa Maria da Boa Vista",
+    "lat": -8.804127,
+    "lng": -39.824236,
+    "pmm": 2062
+  },
+  {
+    "name": "Cabiuna | 94,7 | Bandeirantes/PR",
+    "city": "Bandeirantes",
+    "lat": -23.092481,
+    "lng": -50.371873,
+    "pmm": 1680
+  },
+  {
+    "name": "Videira | 88,5 | Videira/SC",
+    "city": "Videira",
+    "lat": -27.006129,
+    "lng": -51.151705,
+    "pmm": 1625
+  },
+  {
+    "name": "Caiçara | 96,7 | Porto Alegre/RS",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 33664
+  },
+  {
+    "name": "Caiobá | 102,3 | Curitiba/PR",
+    "city": "Curitiba",
+    "lat": -25.432956,
+    "lng": -49.271848,
+    "pmm": 20016
+  },
+  {
+    "name": "Caiuá | 103,5 | Paranavaí/PR",
+    "city": "Paranavaí",
+    "lat": -23.081879,
+    "lng": -52.462402,
+    "pmm": 1711
+  },
+  {
+    "name": "Camboriú FM | 90,1 | Balneário Camboriú/SC",
+    "city": "Balneário Camboriú",
+    "lat": -26.991819,
+    "lng": -48.634617,
+    "pmm": 4214
+  },
+  {
+    "name": "Campina | 93,1 | Campina Grande/PB",
+    "city": "Campina Grande",
+    "lat": -7.221497,
+    "lng": -35.883859,
+    "pmm": 18078
+  },
+  {
+    "name": "Cana Verde | 98,3 | Siqueira Campos/PR",
+    "city": "Siqueira Campos",
+    "lat": -23.687708,
+    "lng": -49.831497,
+    "pmm": 3307
+  },
+  {
+    "name": "Canal Um | 93,7 | Taquaritinga/SP",
+    "city": "Taquaritinga",
+    "lat": -21.410008,
+    "lng": -48.506742,
+    "pmm": 10130
+  },
+  {
+    "name": "Canoa | 96,9 | Aracati/CE",
+    "city": "Aracati",
+    "lat": -4.567066,
+    "lng": -37.772753,
+    "pmm": 7668
+  },
+  {
+    "name": "Capital | 102,7 | Cascavel/PR",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 0
+  },
+  {
+    "name": "Caraguá | 89,5 | Caraguatatuba/SP",
+    "city": "Caraguatatuba",
+    "lat": -23.622007,
+    "lng": -45.410818,
+    "pmm": 2503
+  },
+  {
+    "name": "Caraípe | 100,5 | Teixeira De Freitas/BA",
+    "city": "Teixeira de Freitas",
+    "lat": -17.53775,
+    "lng": -39.744518,
+    "pmm": 5051
+  },
+  {
+    "name": "Catarinense | 97,3 | Joaçaba/SC",
+    "city": "Joaçaba",
+    "lat": -27.173945,
+    "lng": -51.50669,
+    "pmm": 2972
+  },
+  {
+    "name": "Caxias | 93,5 | Caxias do Sul/RS",
+    "city": "Caxias do Sul",
+    "lat": -29.166899,
+    "lng": -51.17886,
+    "pmm": 9955
+  },
+  {
+    "name": "CBN | 90,5 | Ribeirão Preto/SP",
+    "city": "Ribeirão Preto",
+    "lat": -21.184835,
+    "lng": -47.805476,
+    "pmm": 512
+  },
+  {
+    "name": "CBN | 95,3 | Brasília/DF",
+    "city": "Brasília",
+    "lat": -15.794087,
+    "lng": -47.887905,
+    "pmm": 11404
+  },
+  {
+    "name": "CBN | 106,1 | Belo Horizonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 4107
+  },
+  {
+    "name": "CBN Grandes Lagos | 90,9 | São José do Rio Preto/SP",
+    "city": "São José do Rio Preto",
+    "lat": -20.812637,
+    "lng": -49.381348,
+    "pmm": 14344
+  },
+  {
+    "name": "CDL FM | 102,9 | Belo Horizonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 11680
+  },
+  {
+    "name": "Centro América | 101,5 | Rondonópolis/MT",
+    "city": "Rondonópolis",
+    "lat": -16.470163,
+    "lng": -54.633587,
+    "pmm": 0
+  },
+  {
+    "name": "Centro América | 89,3 | Sorriso/MT",
+    "city": "Sorriso",
+    "lat": -12.551777,
+    "lng": -55.725914,
+    "pmm": 1734
+  },
+  {
+    "name": "Chapecó FM | 100,1 | Chapecó/SC",
+    "city": "Chapecó",
+    "lat": -27.106837,
+    "lng": -52.617031,
+    "pmm": 4465
+  },
+  {
+    "name": "Cia | 95,9 | Cianorte/PR",
+    "city": "Cianorte",
+    "lat": -23.653813,
+    "lng": -52.609151,
+    "pmm": 1436
+  },
+  {
+    "name": "Cidade | 100,1 | Foz do Iguaçu/PR",
+    "city": "Foz do Iguaçu",
+    "lat": -25.542493,
+    "lng": -54.587102,
+    "pmm": 3566
+  },
+  {
+    "name": "Cidade | 91,7 | Itajaí/SC",
+    "city": "Itajaí",
+    "lat": -26.907426,
+    "lng": -48.657023,
+    "pmm": 1222
+  },
+  {
+    "name": "Cidade | 92,9 | Alto Araguaia/MT",
+    "city": "Alto Araguaia",
+    "lat": -17.31559,
+    "lng": -53.22026,
+    "pmm": 970
+  },
+  {
+    "name": "Cidade | 94,7 | Votuporanga/SP",
+    "city": "Votuporanga",
+    "lat": -20.41947,
+    "lng": -49.974672,
+    "pmm": 2937
+  },
+  {
+    "name": "Cidade | 95,9 | Luís Eduardo Magalhães/BA",
+    "city": "Luís Eduardo Magalhães",
+    "lat": -12.078372,
+    "lng": -45.800464,
+    "pmm": 2953
+  },
+  {
+    "name": "Cidade | 97,9 | Piripiri/PI",
+    "city": "Piripiri",
+    "lat": -4.276069,
+    "lng": -41.778505,
+    "pmm": 0
+  },
+  {
+    "name": "Cidade | 97,9 | Andradina/SP",
+    "city": "Andradina",
+    "lat": -20.901464,
+    "lng": -51.378848,
+    "pmm": 1000
+  },
+  {
+    "name": "Cidade | 100,1 | Juiz de Fora/MG",
+    "city": "Juiz de Fora",
+    "lat": -21.760924,
+    "lng": -43.348817,
+    "pmm": 6375
+  },
+  {
+    "name": "Cidade | 101,9 | Dourados/MS",
+    "city": "Dourados",
+    "lat": -22.227236,
+    "lng": -54.811289,
+    "pmm": 1648
+  },
+  {
+    "name": "Cidade | 103,5 | Campos Sales/CE",
+    "city": "Campos Sales",
+    "lat": -7.073384,
+    "lng": -40.379003,
+    "pmm": 2872
+  },
+  {
+    "name": "Agitta Cidade | 102,9 | Três Lagoas/MS",
+    "city": "Leopoldina",
+    "lat": -21.530729,
+    "lng": -42.641844,
+    "pmm": 1063
+  },
+  {
+    "name": "Cidade | 103,7 | Tubarão/SC",
+    "city": "Tubarão",
+    "lat": -28.480034,
+    "lng": -49.005268,
+    "pmm": 3192
+  },
+  {
+    "name": "Cidade | 104,1 | Itapema/SC",
+    "city": "Itapema",
+    "lat": -27.095938,
+    "lng": -48.617399,
+    "pmm": 2615
+  },
+  {
+    "name": "Cidade | 96,5 | Costa Rica/MS",
+    "city": "Costa Rica",
+    "lat": -18.543548,
+    "lng": -53.133047,
+    "pmm": 2882
+  },
+  {
+    "name": "Cidade das Águas | 101,3 | Amparo/SP",
+    "city": "Amparo",
+    "lat": -22.699389,
+    "lng": -46.765086,
+    "pmm": 32219
+  },
+  {
+    "name": "Cidade do Aço | 103,3 | Volta Redonda/RJ",
+    "city": "Volta Redonda",
+    "lat": -22.509968,
+    "lng": -44.093522,
+    "pmm": 13610
+  },
+  {
+    "name": "Cidade em dia | 89,1 | Criciúma/SC",
+    "city": "Criciúma",
+    "lat": -28.673572,
+    "lng": -49.36594,
+    "pmm": 7058
+  },
+  {
+    "name": "Cidade Itu",
+    "city": "Itu",
+    "lat": -23.265443,
+    "lng": -47.29975,
+    "pmm": 1457
+  },
+  {
+    "name": "Cidade Verde | 93,5 | Teresina/PI",
+    "city": "Teresina",
+    "lat": -5.086342,
+    "lng": -42.80527,
+    "pmm": 11986
+  },
+  {
+    "name": "Clip | 88,7 | Indaiatuba/SP",
+    "city": "Indaiatuba",
+    "lat": -23.081646,
+    "lng": -47.212309,
+    "pmm": 361
+  },
+  {
+    "name": "Clube | 88,5 | São João Batista/SC",
+    "city": "São João Batista",
+    "lat": -27.295881,
+    "lng": -48.857004,
+    "pmm": 1276
+  },
+  {
+    "name": "Clube | 88,5 | Canela/RS",
+    "city": "Canela",
+    "lat": -29.357972,
+    "lng": -50.814867,
+    "pmm": 800
+  },
+  {
+    "name": "Clube | 105,1 | Erechim/RS",
+    "city": "Erechim",
+    "lat": -27.633406,
+    "lng": -52.275877,
+    "pmm": 1790
+  },
+  {
+    "name": "Clube | 92,1 | Votuporanga/SP",
+    "city": "Votuporanga",
+    "lat": -20.41947,
+    "lng": -49.974672,
+    "pmm": 679
+  },
+  {
+    "name": "Clube | 94,1 | Ponta Grossa/PR",
+    "city": "Ponta Grossa",
+    "lat": -25.092547,
+    "lng": -50.161442,
+    "pmm": 11220
+  },
+  {
+    "name": "Clube | 94,9 | Canoinhas/SC",
+    "city": "Canoinhas",
+    "lat": -26.178807,
+    "lng": -50.397849,
+    "pmm": 3250
+  },
+  {
+    "name": "Clube | 97,3 | Sapezal/MT",
+    "city": "Sapezal",
+    "lat": -13.538195,
+    "lng": -58.812138,
+    "pmm": 0
+  },
+  {
+    "name": "Clube | 98,3 | Lages/SC",
+    "city": "Lages",
+    "lat": -27.817259,
+    "lng": -50.330222,
+    "pmm": 9974
+  },
+  {
+    "name": "Club| 99,5 | Palmas/PR",
+    "city": "Palmas",
+    "lat": -26.481473,
+    "lng": -51.988774,
+    "pmm": 2258
+  },
+  {
+    "name": "Clube | 100,5 | Ribeirão Preto/SP",
+    "city": "Inhapim",
+    "lat": -19.550115,
+    "lng": -42.121931,
+    "pmm": 1557
+  },
+  {
+    "name": "Clube | 100,7 | Marabá/PA",
+    "city": "Iraí",
+    "lat": -27.192282,
+    "lng": -53.264296,
+    "pmm": 1187
+  },
+  {
+    "name": "Clube | 101,1 | Indaial/SC",
+    "city": "Indaial",
+    "lat": -26.906256,
+    "lng": -49.24014,
+    "pmm": 728
+  },
+  {
+    "name": "Clube | 102,1 | Itajaí/SC",
+    "city": "Itajaí",
+    "lat": -26.907426,
+    "lng": -48.657023,
+    "pmm": 2077
+  },
+  {
+    "name": "Clube | 103,5 | Botucatu/SP",
+    "city": "Botucatu",
+    "lat": -22.888382,
+    "lng": -48.441289,
+    "pmm": 2076
+  },
+  {
+    "name": "Clube | 104,7 | São Carlos/SP",
+    "city": "São Carlos",
+    "lat": -22.015999,
+    "lng": -47.889238,
+    "pmm": 2676
+  },
+  {
+    "name": "Clube | 89,1 | Blumenau/SC",
+    "city": "Blumenau",
+    "lat": -26.916108,
+    "lng": -49.057631,
+    "pmm": 1609
+  },
+  {
+    "name": "Clube do Pará | 106,9 | Belém/PA",
+    "city": "Belém",
+    "lat": -1.459845,
+    "lng": -48.487826,
+    "pmm": 40553
+  },
+  {
+    "name": "Clube | 100,9 | Iturama/MG",
+    "city": "Iturama",
+    "lat": -19.731948,
+    "lng": -50.201974,
+    "pmm": 2740
+  },
+  {
+    "name": "Clube Sul de Minas | 103,1 | Varginha/MG",
+    "city": "Varginha",
+    "lat": -21.55708,
+    "lng": -45.431886,
+    "pmm": 7569
+  },
+  {
+    "name": "Colméia | 103,1 | Porto União/SC",
+    "city": "Porto União",
+    "lat": -26.230005,
+    "lng": -51.081605,
+    "pmm": 7214
+  },
+  {
+    "name": "Colméia | 105,9 | Cascavel/PR",
+    "city": "Cascavel",
+    "lat": -24.953798,
+    "lng": -53.459722,
+    "pmm": 3532
+  },
+  {
+    "name": "Colméia | 98,7 | Maringá/PR",
+    "city": "Maringá",
+    "lat": -23.42228,
+    "lng": -51.939882,
+    "pmm": 14562
+  },
+  {
+    "name": "Comunitária FM | 87,5 | Sertãozinho/SP",
+    "city": "Sertãozinho",
+    "lat": -21.137022,
+    "lng": -47.991148,
+    "pmm": 1960
+  },
+  {
+    "name": "Mega | 92,3 | Ribeirão Preto/SP",
+    "city": "Ananindeua",
+    "lat": -1.368714,
+    "lng": -48.372067,
+    "pmm": 248
+  },
+  {
+    "name": "Conti | 101,5 |Mirassol d'Oeste/MT",
+    "city": "Mirassol d'Oeste",
+    "lat": -15.674071,
+    "lng": -58.097904,
+    "pmm": 803
+  },
+  {
+    "name": "Conti | 94,3 | Carlinda/MT",
+    "city": "Carlinda",
+    "lat": -9.966666,
+    "lng": -55.821615,
+    "pmm": 210
+  },
+  {
+    "name": "Conti | 94,9 | Peixoto de Azevedo/MT",
+    "city": "Peixoto de Azevedo",
+    "lat": -10.244842,
+    "lng": -54.992297,
+    "pmm": 371
+  },
+  {
+    "name": "Conti | 95,9 | Pontes e Lacerda/MT",
+    "city": "Pontes e Lacerda",
+    "lat": -15.229728,
+    "lng": -59.338002,
+    "pmm": 0
+  },
+  {
+    "name": "Continental | 96,1 | Coronel Freitas/SC",
+    "city": "Coronel Freitas",
+    "lat": -26.903251,
+    "lng": -52.709151,
+    "pmm": 954
+  },
+  {
+    "name": "Coqueiros | 95,3 | Sobral/CE",
+    "city": "Sobral",
+    "lat": -3.688038,
+    "lng": -40.348668,
+    "pmm": 9252
+  },
+  {
+    "name": "Correio | 98,3 | João Pessoa/PB",
+    "city": "João Pessoa",
+    "lat": -7.149382,
+    "lng": -34.873385,
+    "pmm": 13132
+  },
+  {
+    "name": "Correio | 92,1 | Marabá/PA",
+    "city": "Marabá",
+    "lat": -5.352606,
+    "lng": -49.142025,
+    "pmm": 4614
+  },
+  {
+    "name": "Correio | 99,1 | Parauapebas/PA",
+    "city": "Parauapebas",
+    "lat": -6.07273,
+    "lng": -49.900781,
+    "pmm": 1385
+  },
+  {
+    "name": "Cotrisel | 105,5 | São Sepé/RS",
+    "city": "São Sepé",
+    "lat": -30.167411,
+    "lng": -53.569644,
+    "pmm": 1318
+  },
+  {
+    "name": "Criativa | 98,9 | Botucatu/SP",
+    "city": "Botucatu",
+    "lat": -22.888382,
+    "lng": -48.441289,
+    "pmm": 2602
+  },
+  {
+    "name": "Cristal | 100,5 | Soledade/PB",
+    "city": "Soledade",
+    "lat": -28.827738,
+    "lng": -52.509866,
+    "pmm": 1006
+  },
+  {
+    "name": "Cultura | 95,1 | Uberlândia/MG",
+    "city": "Uberlândia",
+    "lat": -18.918999,
+    "lng": -48.27795,
+    "pmm": 2672
+  },
+  {
+    "name": "Cultura | 1030 | Canguçu/RS",
+    "city": "Cuiabá",
+    "lat": -15.569989,
+    "lng": -56.073252,
+    "pmm": 2952
+  },
+  {
+    "name": "Cultura | 92,1 | Timbó/SC",
+    "city": "Timbó",
+    "lat": -26.822903,
+    "lng": -49.277712,
+    "pmm": 1275
+  },
+  {
+    "name": "Cultura | 105,3 | Assaré/CE",
+    "city": "Assaré",
+    "lat": -6.872607,
+    "lng": -39.871275,
+    "pmm": 255
+  },
+  {
+    "name": "Cultura | 89,5 | Poços De Caldas/MG",
+    "city": "Poços de Caldas",
+    "lat": -21.787364,
+    "lng": -46.56641,
+    "pmm": 2242
+  },
+  {
+    "name": "Cultura Dos Inhamuns | 105,5 | Tauá/CE",
+    "city": "Tauá",
+    "lat": -6.002999,
+    "lng": -40.292625,
+    "pmm": 6528
+  },
+  {
+    "name": "Cultural",
+    "city": "Limoeiro",
+    "lat": -7.880198,
+    "lng": -35.455261,
+    "pmm": 9653
+  },
+  {
+    "name": "DBC | 106,3 | São Carlos/SP",
+    "city": "São Carlos",
+    "lat": -22.015999,
+    "lng": -47.889238,
+    "pmm": 4917
+  },
+  {
+    "name": "Demais | 104,7 | Taió/SC",
+    "city": "Taió",
+    "lat": -27.117937,
+    "lng": -50.005096,
+    "pmm": 2016
+  },
+  {
+    "name": "Dez | 91,9 | Pelotas/RS",
+    "city": "Pelotas",
+    "lat": -31.719598,
+    "lng": -52.34432,
+    "pmm": 5126
+  },
+  {
+    "name": "MASSA | 104,1| PASSO FUNDO/RS",
+    "city": "Passo Fundo",
+    "lat": -28.261767,
+    "lng": -52.407095,
+    "pmm": 5297
+  },
+  {
+    "name": "Diário | 90,9 | Macapá/AP",
+    "city": "Belém",
+    "lat": -1.459845,
+    "lng": -48.487826,
+    "pmm": 13874
+  },
+  {
+    "name": "Diário | 99,7 | Ribeirão Preto/SP",
+    "city": "Ribeirão Preto",
+    "lat": -21.184835,
+    "lng": -47.805476,
+    "pmm": 2308
+  },
+  {
+    "name": "Difusão | 94,9 | Erechim/RS",
+    "city": "Erechim",
+    "lat": -27.633406,
+    "lng": -52.275877,
+    "pmm": 3109
+  },
+  {
+    "name": "Difusora | 90,3 | São Gabriel Do Oeste/MS",
+    "city": "São Gabriel do Oeste",
+    "lat": -19.395521,
+    "lng": -54.564569,
+    "pmm": 2011
+  },
+  {
+    "name": "Difusora | 94,3 | São Luís/MA",
+    "city": "São Luís",
+    "lat": -2.531886,
+    "lng": -44.297919,
+    "pmm": 14795
+  },
+  {
+    "name": "Difusora | 96,9 | Manaus/AM",
+    "city": "Manaus",
+    "lat": -3.134691,
+    "lng": -60.023335,
+    "pmm": 44426
+  },
+  {
+    "name": "Difusora | 101,7 | Itumbiara/GO",
+    "city": "Itumbiara",
+    "lat": -18.417682,
+    "lng": -49.22087,
+    "pmm": 1668
+  },
+  {
+    "name": "Difusora | 102,3 | Piracicaba/SP",
+    "city": "Piracicaba",
+    "lat": -22.723722,
+    "lng": -47.646846,
+    "pmm": 1917
+  },
+  {
+    "name": "Difusora | 103,9 | Rio Brilhante/MS",
+    "city": "Rio Brilhante",
+    "lat": -21.801195,
+    "lng": -54.542242,
+    "pmm": 0
+  },
+  {
+    "name": "Difusora | 100,3| Imbituba/SC",
+    "city": "São José do Rio Pardo",
+    "lat": -21.596103,
+    "lng": -46.888266,
+    "pmm": 1818
+  },
+  {
+    "name": "Difusora | 640 | Itabuna/BA",
+    "city": "Itabuna",
+    "lat": -14.78904,
+    "lng": -39.273109,
+    "pmm": 15701
+  },
+  {
+    "name": "Difusora Pantanal | 101,9 | Campo Grande/MS",
+    "city": "Mundo Novo",
+    "lat": -23.935274,
+    "lng": -54.281661,
+    "pmm": 3810
+  },
+  {
+    "name": "Disney | 91,3 | São Paulo/SP",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 54006
+  },
+  {
+    "name": "Dumont | 104,3 | Jundiaí/SP",
+    "city": "Jundiaí",
+    "lat": -23.187668,
+    "lng": -46.885274,
+    "pmm": 54210
+  },
+  {
+    "name": "Eco Acre | 106,5 | Rio Branco/AC",
+    "city": "Rio Branco",
+    "lat": -9.978299,
+    "lng": -67.810529,
+    "pmm": 1899
+  },
+  {
+    "name": "Educadora | 103,9 | Laranjeiras Do Sul/PR",
+    "city": "Laranjeiras do Sul",
+    "lat": -25.401682,
+    "lng": -52.408847,
+    "pmm": 5806
+  },
+  {
+    "name": "Educadora | 102,9 | Montes Claros/MG",
+    "city": "São João da Urtiga",
+    "lat": -27.82669,
+    "lng": -51.825839,
+    "pmm": 358
+  },
+  {
+    "name": "Educadora | 97,3 | Conceição/PB",
+    "city": "Conceição",
+    "lat": -7.560225,
+    "lng": -38.509158,
+    "pmm": 4778
+  },
+  {
+    "name": "Eldorado | 89,5 | Criciúma/SC",
+    "city": "Criciúma",
+    "lat": -28.673572,
+    "lng": -49.36594,
+    "pmm": 12728
+  },
+  {
+    "name": "Eldorado | 104,9 | Porto Alegre/RS",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 7839
+  },
+  {
+    "name": "Encanto | 100,1 | Encantado/RS",
+    "city": "Encantado",
+    "lat": -29.239917,
+    "lng": -51.873023,
+    "pmm": 5256
+  },
+  {
+    "name": "Energia 97 | 97,7 | São Paulo/SP",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 46825
+  },
+  {
+    "name": "Espinharas | 97,9 | Patos/PB",
+    "city": "Patos",
+    "lat": -7.024492,
+    "lng": -37.276913,
+    "pmm": 8079
+  },
+  {
+    "name": "Estância Velha | 105,9 | Estância Velha/RS",
+    "city": "Estância Velha",
+    "lat": -29.650148,
+    "lng": -51.174294,
+    "pmm": 941
+  },
+  {
+    "name": "Educadora | 1020 | Limeira/SP",
+    "city": "Limeira",
+    "lat": -22.562194,
+    "lng": -47.40194,
+    "pmm": 5470
+  },
+  {
+    "name": "Estúdio 1 | 91,1 | Franca/SP",
+    "city": "Franca",
+    "lat": -20.536097,
+    "lng": -47.402332,
+    "pmm": 4364
+  },
+  {
+    "name": "Fan | 99,7 | Aracaju/SE",
+    "city": "Aracaju",
+    "lat": -10.907216,
+    "lng": -37.048213,
+    "pmm": 33482
+  },
+  {
+    "name": "FM O Dia | 100,5 | Rio de Janeiro/RJ",
+    "city": "Cuiabá",
+    "lat": -15.569989,
+    "lng": -56.073252,
+    "pmm": 908
+  },
+  {
+    "name": "Gazeta |88,1 | São Paulo/SP",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 78896
+  },
+  {
+    "name": "Gazeta | 93,3 | Rio Branco/AC",
+    "city": "Rio Branco",
+    "lat": -9.978299,
+    "lng": -67.810529,
+    "pmm": 1767
+  },
+  {
+    "name": "Gazeta | 94,1 | Maceió/AL",
+    "city": "Maceió",
+    "lat": -9.660822,
+    "lng": -35.70163,
+    "pmm": 35304
+  },
+  {
+    "name": "Gazeta | 95,3 |  Santa Cruz do Sul/RS/PE",
+    "city": "São José do Egito",
+    "lat": -7.474025,
+    "lng": -37.275072,
+    "pmm": 1974
+  },
+  {
+    "name": "Gazeta | 96,1 | Barra do Garça/MT",
+    "city": "Barra do Garças",
+    "lat": -15.888711,
+    "lng": -52.26033,
+    "pmm": 3702
+  },
+  {
+    "name": "Gazeta | 98,3 | Linhares/ES",
+    "city": "Linhares",
+    "lat": -19.398106,
+    "lng": -40.065306,
+    "pmm": 307
+  },
+  {
+    "name": "Gazeta |98,9 | Tangará Da Serra/MT",
+    "city": "Tangará da Serra",
+    "lat": -14.623785,
+    "lng": -57.491299,
+    "pmm": 2687
+  },
+  {
+    "name": "Gazeta | 99,9 | Cuiabá/MT",
+    "city": "Cuiabá",
+    "lat": -15.569989,
+    "lng": -56.073252,
+    "pmm": 10619
+  },
+  {
+    "name": "Gazeta | 670 | Carazinho/RS",
+    "city": "Vitória",
+    "lat": -20.320154,
+    "lng": -40.322209,
+    "pmm": 3962
+  },
+  {
+    "name": "Globo | 98,1 | Rio De Janeiro/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 74485
+  },
+  {
+    "name": "Gold | 94,7 | Americana/SP",
+    "city": "Americana",
+    "lat": -22.740884,
+    "lng": -47.330363,
+    "pmm": 3831
+  },
+  {
+    "name": "Gospel WEB",
+    "city": "Curitiba",
+    "lat": -25.432956,
+    "lng": -49.271848,
+    "pmm": 0
+  },
+  {
+    "name": "Gramado FM | 87,5 | Gramado/RS",
+    "city": "Gramado",
+    "lat": -29.379738,
+    "lng": -50.871946,
+    "pmm": 293
+  },
+  {
+    "name": "Grande | 92,1 | Dourados/MS",
+    "city": "Dourados",
+    "lat": -22.227236,
+    "lng": -54.811289,
+    "pmm": 6314
+  },
+  {
+    "name": "Grande | 94,5 | Picos/PI",
+    "city": "Picos",
+    "lat": -7.081374,
+    "lng": -41.468827,
+    "pmm": 5521
+  },
+  {
+    "name": "Grande Rio | 100,7 | Petrolina/PE",
+    "city": "Petrolina",
+    "lat": -9.397376,
+    "lng": -40.499999,
+    "pmm": 7712
+  },
+  {
+    "name": "Gravata | 92,3 | Gravatá/PE",
+    "city": "Gravatá",
+    "lat": -8.206,
+    "lng": -35.571492,
+    "pmm": 0
+  },
+  {
+    "name": "Grenal | 95,9 | Porto Alegre/RS",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 15064
+  },
+  {
+    "name": "Guarany | 100,3 | Santarém/PA",
+    "city": "Abaetetuba",
+    "lat": -1.72347,
+    "lng": -48.884404,
+    "pmm": 999
+  },
+  {
+    "name": "Guarujá | 104,5 | Santos/SP",
+    "city": "Santos",
+    "lat": -23.933738,
+    "lng": -46.331371,
+    "pmm": 3142
+  },
+  {
+    "name": "RADIO HARAGANO",
+    "city": "Caçapava do Sul",
+    "lat": -30.514743,
+    "lng": -53.487569,
+    "pmm": 855
+  },
+  {
+    "name": "Harmonia Sapiranga | 87,9 | Sapiranga/RS",
+    "city": "Sapiranga",
+    "lat": -29.638554,
+    "lng": -51.003623,
+    "pmm": 518
+  },
+  {
+    "name": "Hawai | 100,9 | Capitão Leônidas Marques/PR",
+    "city": "Capitão Leônidas Marques",
+    "lat": -25.479468,
+    "lng": -53.617211,
+    "pmm": 427
+  },
+  {
+    "name": "Hertz | 96,5 | Franca/SP",
+    "city": "Franca",
+    "lat": -20.536097,
+    "lng": -47.402332,
+    "pmm": 6872
+  },
+  {
+    "name": "Horizonte | 95,7 | Capão da Canoa/RS",
+    "city": "Capão da Canoa",
+    "lat": -29.761467,
+    "lng": -50.020022,
+    "pmm": 351
+  },
+  {
+    "name": "Hits Prime",
+    "city": "Sinop",
+    "lat": -11.858005,
+    "lng": -55.500922,
+    "pmm": 1045
+  },
+  {
+    "name": "Hot Mix | 107,5 | Araraquara/SP",
+    "city": "Ji-Paraná",
+    "lat": -10.882051,
+    "lng": -61.945095,
+    "pmm": 247
+  },
+  {
+    "name": "Ilha | 107,1 | Umuarama/PR",
+    "city": "Umuarama",
+    "lat": -23.76395,
+    "lng": -53.30846,
+    "pmm": 5514
+  },
+  {
+    "name": "Iguatemi | 101,5 | Ijuí/RS",
+    "city": "Ijuí",
+    "lat": -28.388537,
+    "lng": -53.918067,
+    "pmm": 2413
+  },
+  {
+    "name": "Imaculada | 107,1 | Atibaia/SP",
+    "city": "Atibaia",
+    "lat": -23.116308,
+    "lng": -46.555063,
+    "pmm": 2506
+  },
+  {
+    "name": "Imbiara | 91,5 | Araxá/MG",
+    "city": "Araxá",
+    "lat": -19.59133,
+    "lng": -46.94001,
+    "pmm": 1841
+  },
+  {
+    "name": "Ilha do Mel | 90,3 | Paranaguá/PR",
+    "city": "Paranaguá",
+    "lat": -25.506842,
+    "lng": -48.524733,
+    "pmm": 3771
+  },
+  {
+    "name": "89 FM | 89,3 | Imbituba/SC",
+    "city": "Imbituba",
+    "lat": -28.239951,
+    "lng": -48.669284,
+    "pmm": 448
+  },
+  {
+    "name": "Imembuí | 101,9 | Santa Maria/RS",
+    "city": "Santa Maria",
+    "lat": -29.685582,
+    "lng": -53.808675,
+    "pmm": 6566
+  },
+  {
+    "name": "Imperial | 104,5 | Nova Petrópolis/RS",
+    "city": "Nova Petrópolis",
+    "lat": -29.376209,
+    "lng": -51.106954,
+    "pmm": 32963
+  },
+  {
+    "name": "Independência | 90,9 | Passos/MG",
+    "city": "Medianeira",
+    "lat": -25.292498,
+    "lng": -54.091782,
+    "pmm": 2783
+  },
+  {
+    "name": "Independente | 91,7 | Lajeado|RS",
+    "city": "São Sebastião do Passé",
+    "lat": -12.512725,
+    "lng": -38.49531,
+    "pmm": 198
+  },
+  {
+    "name": "Independente | 93,7 | Arcoverde/PE",
+    "city": "Arcoverde",
+    "lat": -8.423941,
+    "lng": -37.056506,
+    "pmm": 5884
+  },
+  {
+    "name": "Independente | 93,7 | Porteirinha/MG",
+    "city": "Porteirinha",
+    "lat": -15.746838,
+    "lng": -43.028523,
+    "pmm": 1534
+  },
+  {
+    "name": "Integração | 88,5 | Surubim/PE",
+    "city": "Surubim",
+    "lat": -7.835157,
+    "lng": -35.756784,
+    "pmm": 12218
+  },
+  {
+    "name": "Integração  News | 94,5 | Morrinhos/GO",
+    "city": "Morrinhos",
+    "lat": -17.735271,
+    "lng": -49.110177,
+    "pmm": 3240
+  },
+  {
+    "name": "Interativa | 100,1 | Assis/SP",
+    "city": "Assis",
+    "lat": -22.662835,
+    "lng": -50.41751,
+    "pmm": 1518
+  },
+  {
+    "name": "Interativa | 101,3 | Ituiutaba/MG",
+    "city": "Ituiutaba",
+    "lat": -18.973068,
+    "lng": -49.462235,
+    "pmm": 1969
+  },
+  {
+    "name": "Itacaité | 88,1 | Belo Jardim/PE",
+    "city": "Belo Jardim",
+    "lat": -8.335295,
+    "lng": -36.420035,
+    "pmm": 1349
+  },
+  {
+    "name": "Itaipu | 99,7 | Marília/SP",
+    "city": "Ourinhos",
+    "lat": -22.977268,
+    "lng": -49.86858,
+    "pmm": 416
+  },
+  {
+    "name": "Itapoan | 97,5 | Salvador/BA",
+    "city": "Salvador",
+    "lat": -13.014772,
+    "lng": -38.488061,
+    "pmm": 18822
+  },
+  {
+    "name": "Itatai Am | 890 | Santa Quitéria/CE",
+    "city": "Santa Quitéria",
+    "lat": -4.333271,
+    "lng": -40.153508,
+    "pmm": 2997
+  },
+  {
+    "name": "Itatiaia | 95,7 | Belo Horizonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 101199
+  },
+  {
+    "name": "Itatiaia | 105.3 | Juiz de Fora/MG",
+    "city": "Juiz de Fora",
+    "lat": -21.760924,
+    "lng": -43.348817,
+    "pmm": 13282
+  },
+  {
+    "name": "Itatiaia | 100,3 | Montes Claros/MG",
+    "city": "Montes Claros",
+    "lat": -16.722707,
+    "lng": -43.865422,
+    "pmm": 4002
+  },
+  {
+    "name": "Itatiaia | 100,9 | Varginha/MG",
+    "city": "Varginha",
+    "lat": -21.55708,
+    "lng": -45.431886,
+    "pmm": 2166
+  },
+  {
+    "name": "Ivoti | 87,9 | Ivoti/RS",
+    "city": "Ivoti",
+    "lat": -29.594157,
+    "lng": -51.159574,
+    "pmm": 947
+  },
+  {
+    "name": "Geração | 107,1 | Salto do Jacuí/RS",
+    "city": "Sobradinho",
+    "lat": -29.414773,
+    "lng": -53.025168,
+    "pmm": 3978
+  },
+  {
+    "name": "Jaguariaiva | 99,7 | Jaguariaíva/PR",
+    "city": "Jaguariaíva",
+    "lat": -24.253057,
+    "lng": -49.712186,
+    "pmm": 973
+  },
+  {
+    "name": "Jaraguá | 101,3 | Jaraguá do Sul/SC",
+    "city": "Jaraguá do Sul",
+    "lat": -26.490484,
+    "lng": -49.076299,
+    "pmm": 15687
+  },
+  {
+    "name": "JB | 99,9 | Rio De Janeiro/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 197544
+  },
+  {
+    "name": "João pessoa | 97,7 | João pessoa/PB",
+    "city": "João Pessoa",
+    "lat": -7.149382,
+    "lng": -34.873385,
+    "pmm": 4973
+  },
+  {
+    "name": "Jornal | 90,3 | Recife/PE",
+    "city": "Recife",
+    "lat": -8.062762,
+    "lng": -34.888942,
+    "pmm": 26693
+  },
+  {
+    "name": "Jornal Fm | 98,9 | Iguatu/CE",
+    "city": "Iguatu",
+    "lat": -6.360555,
+    "lng": -39.299906,
+    "pmm": 4754
+  },
+  {
+    "name": "Jornal | 100,7 | Limeira/SP",
+    "city": "Limeira",
+    "lat": -22.562194,
+    "lng": -47.40194,
+    "pmm": 1407
+  },
+  {
+    "name": "Jovem Pan | 88,7 | Blumenau/SC",
+    "city": "Blumenau",
+    "lat": -26.916108,
+    "lng": -49.057631,
+    "pmm": 2187
+  },
+  {
+    "name": "Jovem Pan | 91,1 | Joinville/SC",
+    "city": "Joinville",
+    "lat": -26.304518,
+    "lng": -48.849409,
+    "pmm": 17678
+  },
+  {
+    "name": "Jovem Pan | 91,1 |  Sorocaba/SP",
+    "city": "Sorocaba",
+    "lat": -23.499323,
+    "lng": -47.457853,
+    "pmm": 3729
+  },
+  {
+    "name": "Jovem Pan | 91,5 | Catanduva/SP",
+    "city": "Catanduva",
+    "lat": -21.139539,
+    "lng": -48.975871,
+    "pmm": 784
+  },
+  {
+    "name": "Jovem Pan | 94,1 | Itajaí/SC",
+    "city": "Itajaí",
+    "lat": -26.907426,
+    "lng": -48.657023,
+    "pmm": 2805
+  },
+  {
+    "name": "Jovem Pan | 94,3 | São José dos Campos/SP",
+    "city": "Ituverava",
+    "lat": -20.336288,
+    "lng": -47.780416,
+    "pmm": 520
+  },
+  {
+    "name": "Jovem Pan | 95,1 | Santos/SP",
+    "city": "Santos",
+    "lat": -23.933738,
+    "lng": -46.331371,
+    "pmm": 10309
+  },
+  {
+    "name": "Jovem Pan | 99,1 | Belo Horizonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 48614
+  },
+  {
+    "name": "Jovem Pan | 95,5 | Bauru/SP",
+    "city": "Bauru",
+    "lat": -22.325123,
+    "lng": -49.083001,
+    "pmm": 950
+  },
+  {
+    "name": "Jovem Pan | 100,9 | São Paulo/SP",
+    "city": "Marília",
+    "lat": -22.214933,
+    "lng": -49.951646,
+    "pmm": 831
+  },
+  {
+    "name": "Jovem Pan | 101,7 | Florianópolis/SC",
+    "city": "Florianópolis",
+    "lat": -27.587796,
+    "lng": -48.547637,
+    "pmm": 16245
+  },
+  {
+    "name": "Tua rádio Fátima",
+    "city": "Vacaria",
+    "lat": -28.502354,
+    "lng": -50.936599,
+    "pmm": 4390
+  },
+  {
+    "name": "Uirapuru Am | 570 | Itapipoca/CE",
+    "city": "Itapipoca",
+    "lat": -3.499436,
+    "lng": -39.583482,
+    "pmm": 15314
+  },
+  {
+    "name": "AG | 99.9 | União dos Palmares/AL",
+    "city": "União dos Palmares",
+    "lat": -9.159524,
+    "lng": -36.033143,
+    "pmm": 1396
+  },
+  {
+    "name": "Vale | 102,9 | Tijucas/SC",
+    "city": "Tijucas",
+    "lat": -27.239454,
+    "lng": -48.632071,
+    "pmm": 307
+  },
+  {
+    "name": "Univali FM | 94.9 |Itajaí / SC",
+    "city": "Itajaí",
+    "lat": -26.907426,
+    "lng": -48.657023,
+    "pmm": 1035
+  },
+  {
+    "name": "Vanguarda | 94,9 | Sorocaba/SP",
+    "city": "Sorocaba",
+    "lat": -23.499323,
+    "lng": -47.457853,
+    "pmm": 5893
+  },
+  {
+    "name": "Jovem Pan | 103,9 | Curitiba/PR",
+    "city": "Curitiba",
+    "lat": -25.432956,
+    "lng": -49.271848,
+    "pmm": 23045
+  },
+  {
+    "name": "Jovem Pan | 104,1 | Manaus/AM",
+    "city": "Manaus",
+    "lat": -3.134691,
+    "lng": -60.023335,
+    "pmm": 12934
+  },
+  {
+    "name": "Jovem Pan | 104,3 | Araçatuba/SP",
+    "city": "Araçatuba",
+    "lat": -21.205476,
+    "lng": -50.439226,
+    "pmm": 436
+  },
+  {
+    "name": "Jovem Pan | 104,5 | Três Lagoas/MS",
+    "city": "Três Lagoas",
+    "lat": -20.788679,
+    "lng": -51.710001,
+    "pmm": 716
+  },
+  {
+    "name": "Jovem Pan | 106,3 | Brasília/DF",
+    "city": "Brasília",
+    "lat": -15.794087,
+    "lng": -47.887905,
+    "pmm": 21744
+  },
+  {
+    "name": "Pop Cariri | 101,1 | Campina Grande/PB",
+    "city": "Itapetininga",
+    "lat": -23.587873,
+    "lng": -48.046143,
+    "pmm": 3589
+  },
+  {
+    "name": "Kairós | 88,9 | Terra Boa/PR",
+    "city": "General Carneiro",
+    "lat": -26.425803,
+    "lng": -51.316859,
+    "pmm": 1430
+  },
+  {
+    "name": "Kboing | 100,3 | São José do Rio Preto/SP",
+    "city": "São José do Rio Preto",
+    "lat": -20.812637,
+    "lng": -49.381348,
+    "pmm": 14740
+  },
+  {
+    "name": "Kativa | 93,1 | Jataí/GO",
+    "city": "Jataí",
+    "lat": -17.886232,
+    "lng": -51.720818,
+    "pmm": 1747
+  },
+  {
+    "name": "Karandá | 95,3 | Naviraí/MS",
+    "city": "Naviraí",
+    "lat": -23.059999,
+    "lng": -54.198836,
+    "pmm": 370
+  },
+  {
+    "name": "Top | 89,3 | Mongaguá/SP",
+    "city": "Mongaguá",
+    "lat": -24.094116,
+    "lng": -46.619993,
+    "pmm": 1381
+  },
+  {
+    "name": "Liberal | 97,5 | Belém/PA",
+    "city": "Belém",
+    "lat": -1.459845,
+    "lng": -48.487826,
+    "pmm": 16051
+  },
+  {
+    "name": "Liberdade | 94,7 | Caruaru/PE",
+    "city": "Caruaru",
+    "lat": -8.285898,
+    "lng": -35.967073,
+    "pmm": 0
+  },
+  {
+    "name": "Liberdade | 101,1 | Patos De Minas/MG",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 3039
+  },
+  {
+    "name": "Liberdade | 101,9 | Paranaíba/MS",
+    "city": "Paranaíba",
+    "lat": -19.677372,
+    "lng": -51.188708,
+    "pmm": 2072
+  },
+  {
+    "name": "Liberdade | 92,9 | Belo Horizonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 78534
+  },
+  {
+    "name": "Líder | 95,3 | Rio Verde/GO",
+    "city": "Rio Verde",
+    "lat": -17.794543,
+    "lng": -50.929681,
+    "pmm": 1768
+  },
+  {
+    "name": "Líder | 98,3 | São José do Rio Preto/SP",
+    "city": "São José do Rio Preto",
+    "lat": -20.812637,
+    "lng": -49.381348,
+    "pmm": 442
+  },
+  {
+    "name": "Líder | 107,5 | Votuporanga/SP",
+    "city": "Votuporanga",
+    "lat": -20.41947,
+    "lng": -49.974672,
+    "pmm": 1263
+  },
+  {
+    "name": "RADIO LIDER DO VALE",
+    "city": "Serra Talhada",
+    "lat": -7.987998,
+    "lng": -38.296315,
+    "pmm": 3404
+  },
+  {
+    "name": "Liderança | 105,9 | Quixadá/CE",
+    "city": "Quixadá",
+    "lat": -4.9637,
+    "lng": -39.011745,
+    "pmm": 2445
+  },
+  {
+    "name": "90 FM | 90,5 | Blumenau/SC",
+    "city": "Ribas do Rio Pardo",
+    "lat": -20.443676,
+    "lng": -53.761678,
+    "pmm": 703
+  },
+  {
+    "name": "Litoral Sul | 104,3 | São Lourenço do Sul/RS",
+    "city": "Paranaguá",
+    "lat": -25.506842,
+    "lng": -48.524733,
+    "pmm": 920
+  },
+  {
+    "name": "Litoral | 102,3 (DIGITAL - S/A A GAZETA)|",
+    "city": "Cachoeiro de Itapemirim",
+    "lat": -20.850112,
+    "lng": -41.111919,
+    "pmm": 1829
+  },
+  {
+    "name": "Litoral | 96,1 | Barreiros/PE",
+    "city": "Barreiros",
+    "lat": -8.814138,
+    "lng": -35.199086,
+    "pmm": 2684
+  },
+  {
+    "name": "Lupa 1 | 94,5 | Teresina/PI",
+    "city": "Teresina",
+    "lat": -5.086342,
+    "lng": -42.80527,
+    "pmm": 19130
+  },
+  {
+    "name": "Maisnova | 98,5 |Caxias do Sul/RS",
+    "city": "Caxias do Sul",
+    "lat": -29.166899,
+    "lng": -51.17886,
+    "pmm": 4791
+  },
+  {
+    "name": "Maisnova | 93,5 | Sarandi/RS",
+    "city": "Sarandi",
+    "lat": -27.943595,
+    "lng": -52.925461,
+    "pmm": 959
+  },
+  {
+    "name": "Luz e alegria | 95,9 | Frederico Westphalen/RS",
+    "city": "Frederico Westphalen",
+    "lat": -27.358882,
+    "lng": -53.400777,
+    "pmm": 74485
+  },
+  {
+    "name": "Mais Nova | 90,1 | Passo Fundo/RS",
+    "city": "Passo Fundo",
+    "lat": -28.261767,
+    "lng": -52.407095,
+    "pmm": 824
+  },
+  {
+    "name": "Maisnova | 94,5 | Pelotas/RS",
+    "city": "Pelotas",
+    "lat": -31.719598,
+    "lng": -52.34432,
+    "pmm": 2692
+  },
+  {
+    "name": "Manchester FM | 93,3 | Anápolis/GO",
+    "city": "Anápolis",
+    "lat": -16.328826,
+    "lng": -48.957218,
+    "pmm": 5317
+  },
+  {
+    "name": "Mantiqueira | 100,7 | Cruzeiro/SP",
+    "city": "Cruzeiro",
+    "lat": -22.57775,
+    "lng": -44.961732,
+    "pmm": 2511
+  },
+  {
+    "name": "Maracu | 630 | Viana/MA",
+    "city": "Viana",
+    "lat": -3.214563,
+    "lng": -45.001307,
+    "pmm": 387
+  },
+  {
+    "name": "Marabá | 93,9 | Maracaju/MS",
+    "city": "Maracaju",
+    "lat": -21.62361,
+    "lng": -55.15714,
+    "pmm": 2142
+  },
+  {
+    "name": "Marano|102,3 | Garanhuns/PE",
+    "city": "Garanhuns",
+    "lat": -8.888906,
+    "lng": -36.49305,
+    "pmm": 7728
+  },
+  {
+    "name": "Marajá | 660 AM | Rosário do Sul/RS",
+    "city": "Serafina Corrêa",
+    "lat": -28.710797,
+    "lng": -51.935709,
+    "pmm": 907
+  },
+  {
+    "name": "Marajo | 96,3 |Breves/PA",
+    "city": "Breves",
+    "lat": -1.690737,
+    "lng": -50.480895,
+    "pmm": 1963
+  },
+  {
+    "name": "Marazul | 94,5 | Barra Velha/SC",
+    "city": "Barra Velha",
+    "lat": -26.634361,
+    "lng": -48.683864,
+    "pmm": 1140
+  },
+  {
+    "name": "Maringá FM | 97,1 | Maringá/PR",
+    "city": "Maringá",
+    "lat": -23.42228,
+    "lng": -51.939882,
+    "pmm": 15043
+  },
+  {
+    "name": "Massa | 97,7 | Curitiba/PR",
+    "city": "Curitiba",
+    "lat": -25.432956,
+    "lng": -49.271848,
+    "pmm": 35468
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Campinas",
+    "lat": -22.907343,
+    "lng": -47.060156,
+    "pmm": 0
+  },
+  {
+    "name": "Massa |98,9 |Cascavel/PR",
+    "city": "Cascavel",
+    "lat": -24.953798,
+    "lng": -53.459722,
+    "pmm": 8257
+  },
+  {
+    "name": "Massa | 98,9 | Tubarão/SC",
+    "city": "Tubarão",
+    "lat": -28.480034,
+    "lng": -49.005268,
+    "pmm": 1184
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Nova Andradina",
+    "lat": -22.248759,
+    "lng": -53.351574,
+    "pmm": 1308
+  },
+  {
+    "name": "Capinzal | 102,3 | Capinzal/SC",
+    "city": "Capinzal",
+    "lat": -27.344278,
+    "lng": -51.611363,
+    "pmm": 2635
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Campo Mourão",
+    "lat": -24.041223,
+    "lng": -52.381115,
+    "pmm": 398
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Rolim de Moura",
+    "lat": -11.722259,
+    "lng": -61.785781,
+    "pmm": 1784
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Ivaiporã",
+    "lat": -24.241948,
+    "lng": -51.674552,
+    "pmm": 655
+  },
+  {
+    "name": "Massa | 101,1 | Ponta Grossa/PR",
+    "city": "Ponta Grossa",
+    "lat": -25.092547,
+    "lng": -50.161442,
+    "pmm": 4171
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "São Sebastião do Paraíso",
+    "lat": -20.918065,
+    "lng": -46.986472,
+    "pmm": 1714
+  },
+  {
+    "name": "Massa | 95,1 | Porto Velho/RO",
+    "city": "Porto Velho",
+    "lat": -8.768892,
+    "lng": -63.831446,
+    "pmm": 1744
+  },
+  {
+    "name": "Massa|103,5 |Blumenau/SC",
+    "city": "Blumenau",
+    "lat": -26.916108,
+    "lng": -49.057631,
+    "pmm": 11184
+  },
+  {
+    "name": "Massa | 103,5 | Paranaguá/PR",
+    "city": "Paranaguá",
+    "lat": -25.506842,
+    "lng": -48.524733,
+    "pmm": 1977
+  },
+  {
+    "name": "MASSA | 103,7 | TELÊMACO BORBA/PR",
+    "city": "Telêmaco Borba",
+    "lat": -24.328686,
+    "lng": -50.623123,
+    "pmm": 3842
+  },
+  {
+    "name": "MASSA | 98,5 | TOLEDO/PR",
+    "city": "Toledo",
+    "lat": -24.732077,
+    "lng": -53.741411,
+    "pmm": 3884
+  },
+  {
+    "name": "Massa | 105,7 |Caçador/SC",
+    "city": "Caçador",
+    "lat": -26.775348,
+    "lng": -51.019035,
+    "pmm": 3040
+  },
+  {
+    "name": "Massa | 105,7 | Foz do Iguaçu/PR",
+    "city": "Foz do Iguaçu",
+    "lat": -25.542493,
+    "lng": -54.587102,
+    "pmm": 1412
+  },
+  {
+    "name": "Massa|105,1|Canoinhas/SC",
+    "city": "Canoinhas",
+    "lat": -26.178807,
+    "lng": -50.397849,
+    "pmm": 2314
+  },
+  {
+    "name": "Massa |106,5 |União da Vitória/PR",
+    "city": "União da Vitória",
+    "lat": -26.228435,
+    "lng": -51.09061,
+    "pmm": 1874
+  },
+  {
+    "name": "Massa | 107,1 | Chapecó/SC",
+    "city": "Chapecó",
+    "lat": -27.106837,
+    "lng": -52.617031,
+    "pmm": 12128
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Nova Aurora",
+    "lat": -24.528485,
+    "lng": -53.257526,
+    "pmm": 124
+  },
+  {
+    "name": "Massa |107,7 | Brusque/SC",
+    "city": "Brusque",
+    "lat": -27.09831,
+    "lng": -48.915163,
+    "pmm": 15448
+  },
+  {
+    "name": "Massa | 90,3 | Cacoal/RO",
+    "city": "Cacoal",
+    "lat": -11.433865,
+    "lng": -61.442944,
+    "pmm": 1472
+  },
+  {
+    "name": "Massa |91,3 | Vilhena/RO",
+    "city": "Vilhena",
+    "lat": -12.741373,
+    "lng": -60.138584,
+    "pmm": 1481
+  },
+  {
+    "name": "Massa | 91,5 | Assis Chateaubriand/PR",
+    "city": "Assis Chateaubriand",
+    "lat": -24.40853,
+    "lng": -53.521237,
+    "pmm": 826
+  },
+  {
+    "name": "Massa | 91,9 | Medianeira/PR",
+    "city": "Medianeira",
+    "lat": -25.292498,
+    "lng": -54.091782,
+    "pmm": 1825
+  },
+  {
+    "name": "Massa | 106,7 | Colatina/ES",
+    "city": "Colatina",
+    "lat": -19.53627,
+    "lng": -40.630318,
+    "pmm": 1354
+  },
+  {
+    "name": "Massa | 92,1 | Lages/SC",
+    "city": "Lages",
+    "lat": -27.817259,
+    "lng": -50.330222,
+    "pmm": 2624
+  },
+  {
+    "name": "Massa | 92,3 | Maringá/PR",
+    "city": "Maringá",
+    "lat": -23.42228,
+    "lng": -51.939882,
+    "pmm": 13372
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 49879
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Rondonópolis",
+    "lat": -16.470163,
+    "lng": -54.633587,
+    "pmm": 1751
+  },
+  {
+    "name": "Massa | 94,5 | Umuarama/PR",
+    "city": "Umuarama",
+    "lat": -23.76395,
+    "lng": -53.30846,
+    "pmm": 3222
+  },
+  {
+    "name": "Massa | 95,3 | Gramado/RS",
+    "city": "Gramado",
+    "lat": -29.379738,
+    "lng": -50.871946,
+    "pmm": 1829
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Cianorte",
+    "lat": -23.653813,
+    "lng": -52.609151,
+    "pmm": 1072
+  },
+  {
+    "name": "Massa | 95.3 | Francisco Beltrão/PR",
+    "city": "Francisco Beltrão",
+    "lat": -26.07845,
+    "lng": -53.056136,
+    "pmm": 5432
+  },
+  {
+    "name": "Massa | 97,3 | Londrina/PR",
+    "city": "Londrina",
+    "lat": -23.312156,
+    "lng": -51.162773,
+    "pmm": 2931
+  },
+  {
+    "name": "Medianeira | 100,9 | Santa Maria/RS",
+    "city": "Santa Maria",
+    "lat": -29.685582,
+    "lng": -53.808675,
+    "pmm": 4061
+  },
+  {
+    "name": "Mega 94 | 94,3 | Campo Grande/MS",
+    "city": "Campo Grande",
+    "lat": -20.45803,
+    "lng": -54.615744,
+    "pmm": 6067
+  },
+  {
+    "name": "Meio Norte | 91,1| Palmas/TO",
+    "city": "Palmas",
+    "lat": -10.163253,
+    "lng": -48.351044,
+    "pmm": 3335
+  },
+  {
+    "name": "Meio Norte | 93,1 | Camocim/CE",
+    "city": "Camocim",
+    "lat": -2.900967,
+    "lng": -40.847528,
+    "pmm": 3099
+  },
+  {
+    "name": "Melodia | 97,5 | Rio de Janeiro/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 188891
+  },
+  {
+    "name": "Melhor | 89,2 | Limeira/SP",
+    "city": "Limeira",
+    "lat": -22.562194,
+    "lng": -47.40194,
+    "pmm": 2285
+  },
+  {
+    "name": "Menina | 97,5 | Blumenau/SC",
+    "city": "Blumenau",
+    "lat": -26.916108,
+    "lng": -49.057631,
+    "pmm": 8959
+  },
+  {
+    "name": "Menina | 100,5  | Balneário Camboriú/SC",
+    "city": "Olímpia",
+    "lat": -20.737284,
+    "lng": -48.913492,
+    "pmm": 2262
+  },
+  {
+    "name": "Meridional | 98,9 | Sinop/MT",
+    "city": "Nova Mutum",
+    "lat": -13.832726,
+    "lng": -56.110005,
+    "pmm": 1369
+  },
+  {
+    "name": "RADIO METROPOLES FM",
+    "city": "Salvador",
+    "lat": -13.014772,
+    "lng": -38.488061,
+    "pmm": 9956
+  },
+  {
+    "name": "Metropolitana Am | 1070 | Mogi das Cruzes/SP",
+    "city": "Mogi das Cruzes",
+    "lat": -23.522707,
+    "lng": -46.19676,
+    "pmm": 1654
+  },
+  {
+    "name": "Metropolitana |92,5 | Lorena/SP",
+    "city": "Lorena",
+    "lat": -22.731693,
+    "lng": -45.124248,
+    "pmm": 676
+  },
+  {
+    "name": "METROPOLITANA | 101,9 | TAUBATE/SP",
+    "city": "Caruaru",
+    "lat": -8.285898,
+    "lng": -35.967073,
+    "pmm": 9046
+  },
+  {
+    "name": "Metropolitana | 98,5 | São Paulo/SP",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 82374
+  },
+  {
+    "name": "Mirador | 98,5 |Rio do Sul/SC",
+    "city": "Rio do Sul",
+    "lat": -27.217903,
+    "lng": -49.643238,
+    "pmm": 2473
+  },
+  {
+    "name": "Mirante News",
+    "city": "São Luís",
+    "lat": -2.531886,
+    "lng": -44.297919,
+    "pmm": 5314
+  },
+  {
+    "name": "Mirante | 96,1 | São Luis/MA",
+    "city": "São Luís",
+    "lat": -2.531886,
+    "lng": -44.297919,
+    "pmm": 9169
+  },
+  {
+    "name": "Mix|88,3 |Brasília/DF",
+    "city": "Brasília",
+    "lat": -15.794087,
+    "lng": -47.887905,
+    "pmm": 13784
+  },
+  {
+    "name": "Mix | 93,7 | João Pessoa/PB",
+    "city": "João Pessoa",
+    "lat": -7.149382,
+    "lng": -34.873385,
+    "pmm": 5576
+  },
+  {
+    "name": "MIX |102,1 | RIO DE JANEIRO/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 50940
+  },
+  {
+    "name": "Mix | 100,7 | Manaus/AM",
+    "city": "Manaus",
+    "lat": -3.134691,
+    "lng": -60.023335,
+    "pmm": 23386
+  },
+  {
+    "name": "MIX | 106,3 | São Paulo/SP",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 68459
+  },
+  {
+    "name": "Mix | 107,1 | Porto Alegre/RS",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 14568
+  },
+  {
+    "name": "Montanhesa | 106,5 | Viçosa/MG",
+    "city": "Viçosa",
+    "lat": -20.752072,
+    "lng": -42.879477,
+    "pmm": 3019
+  },
+  {
+    "name": "Morada Do Sol | 97,7 | Rio Verde/GO",
+    "city": "Rio Verde",
+    "lat": -17.794543,
+    "lng": -50.929681,
+    "pmm": 4532
+  },
+  {
+    "name": "Morada do Sol | 98,1| Araraquara/SP",
+    "city": "Araraquara",
+    "lat": -21.79036,
+    "lng": -48.17444,
+    "pmm": 6459
+  },
+  {
+    "name": "98 FM | 98,9 | Teófilo Otoni/MG",
+    "city": "Teófilo Otoni",
+    "lat": -17.86254,
+    "lng": -41.509635,
+    "pmm": 8383
+  },
+  {
+    "name": "Morada Litoral | 95,5 | São Sebastião/SP",
+    "city": "São Sebastião",
+    "lat": -23.806688,
+    "lng": -45.40268,
+    "pmm": 1123
+  },
+  {
+    "name": "Movimento | 97,5 | Pato Branco/PR",
+    "city": "Pato Branco",
+    "lat": -26.229959,
+    "lng": -52.677362,
+    "pmm": 3366
+  },
+  {
+    "name": "Mundi | 99,3 | Ponta Grossa/PR",
+    "city": "Ponta Grossa",
+    "lat": -25.092547,
+    "lng": -50.161442,
+    "pmm": 5732
+  },
+  {
+    "name": "Mundial | 90,7 | Foz do Iguaçu/PR",
+    "city": "Toledo",
+    "lat": -24.732077,
+    "lng": -53.741411,
+    "pmm": 882
+  },
+  {
+    "name": "Nativa | 95,3 | São Paulo/SP",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 80608
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Catanduva",
+    "lat": -21.139539,
+    "lng": -48.975871,
+    "pmm": 1653
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Adamantina",
+    "lat": -21.688311,
+    "lng": -51.073365,
+    "pmm": 812
+  },
+  {
+    "name": "Nativa|93,5 |Itajaí/SC",
+    "city": "Itajaí",
+    "lat": -26.907426,
+    "lng": -48.657023,
+    "pmm": 4608
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Cuiabá",
+    "lat": -15.569989,
+    "lng": -56.073252,
+    "pmm": 9993
+  },
+  {
+    "name": "Liberal | 102,1 | Guaporé/RS",
+    "city": "Castanhal",
+    "lat": -1.295757,
+    "lng": -47.926643,
+    "pmm": 2032
+  },
+  {
+    "name": "Nativa |103,1 | Joinville/SC",
+    "city": "Joinville",
+    "lat": -26.304518,
+    "lng": -48.849409,
+    "pmm": 16546
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "São José do Rio Preto",
+    "lat": -20.812637,
+    "lng": -49.381348,
+    "pmm": 2752
+  },
+  {
+    "name": "ND FM 100,7 JOINVILLE",
+    "city": "Chapecó",
+    "lat": -27.106837,
+    "lng": -52.617031,
+    "pmm": 1245
+  },
+  {
+    "name": "FM STEREO NAZARE",
+    "city": "Nazaré da Mata",
+    "lat": -7.737688,
+    "lng": -35.221339,
+    "pmm": 2152
+  },
+  {
+    "name": "Navegantes | 87,9 | Aripuanã/MT",
+    "city": "Porto Lucena",
+    "lat": -27.851375,
+    "lng": -55.011562,
+    "pmm": 5280
+  },
+  {
+    "name": "Noroeste | 96,7 | Santa Rosa/RS",
+    "city": "Santa Rosa",
+    "lat": -27.86675,
+    "lng": -54.478224,
+    "pmm": 9306
+  },
+  {
+    "name": "Nossa | 100,1 | Bataguassu/MS",
+    "city": "Bataguassu",
+    "lat": -21.715288,
+    "lng": -52.425437,
+    "pmm": 2617
+  },
+  {
+    "name": "95,7 A nossa Rádio | 95,7 | Horizontina/RS",
+    "city": "Caarapó",
+    "lat": -22.636582,
+    "lng": -54.82697,
+    "pmm": 156
+  },
+  {
+    "name": "Boa Notícia | 91,1 | Balsas/MA",
+    "city": "Balsas",
+    "lat": -7.53117,
+    "lng": -46.038993,
+    "pmm": 1298
+  },
+  {
+    "name": "NOVA BRASIL | 89,7 |SÃO PAULO/SP",
+    "city": "Aracaju",
+    "lat": -10.907216,
+    "lng": -37.048213,
+    "pmm": 6314
+  },
+  {
+    "name": "NOVA |103,9 | INDAIAL/SC",
+    "city": "Indaial",
+    "lat": -26.906256,
+    "lng": -49.24014,
+    "pmm": 2063
+  },
+  {
+    "name": "Nova Timbaúba | 96,9 | Timbaúba/PE",
+    "city": "Timbaúba",
+    "lat": -7.511746,
+    "lng": -35.318772,
+    "pmm": 2108
+  },
+  {
+    "name": "Oeste | 98,5 | Barreiras/BA",
+    "city": "Barreiras",
+    "lat": -12.144925,
+    "lng": -45.004168,
+    "pmm": 8469
+  },
+  {
+    "name": "Oceano | 97,1 | Rio Grande/RS",
+    "city": "Rio Grande",
+    "lat": -32.050446,
+    "lng": -52.08677,
+    "pmm": 4694
+  },
+  {
+    "name": "Oeste Capital | 93,3 | Chapecó/SC",
+    "city": "Chapecó",
+    "lat": -27.106837,
+    "lng": -52.617031,
+    "pmm": 12139
+  },
+  {
+    "name": "RADIO ONDA SUL 94,9 FM",
+    "city": "Francisco Beltrão",
+    "lat": -26.07845,
+    "lng": -53.056136,
+    "pmm": 3502
+  },
+  {
+    "name": "Ondas Verdes | 92,7 | Catanduva/SP",
+    "city": "Cerejeiras",
+    "lat": -13.195033,
+    "lng": -60.818426,
+    "pmm": 384
+  },
+  {
+    "name": "Opa | 91,3 | Santa Cruz do Sul/RS",
+    "city": "Santa Cruz do Sul",
+    "lat": -29.719768,
+    "lng": -52.429929,
+    "pmm": 2811
+  },
+  {
+    "name": "Osório | 106,9 | Osório/RS",
+    "city": "Osório",
+    "lat": -29.892697,
+    "lng": -50.266798,
+    "pmm": 2078
+  },
+  {
+    "name": "OURO VERDE | 105,5 | Curitiba/PR",
+    "city": "Curitiba",
+    "lat": -25.432956,
+    "lng": -49.271848,
+    "pmm": 29489
+  },
+  {
+    "name": "Ótima | 90,3 | São José dos Campos/SP",
+    "city": "São José dos Campos",
+    "lat": -23.184062,
+    "lng": -45.884175,
+    "pmm": 9821
+  },
+  {
+    "name": "OTIMA | 95, 5 | GUARATINGUETA/SP",
+    "city": "Pindamonhangaba",
+    "lat": -22.926669,
+    "lng": -45.462049,
+    "pmm": 7654
+  },
+  {
+    "name": "Pajuçara | 103,7 | Maceió/AL",
+    "city": "Maceió",
+    "lat": -9.660822,
+    "lng": -35.70163,
+    "pmm": 14288
+  },
+  {
+    "name": "Paranaíba FM | 100,7 | Uberlândia/MG",
+    "city": "Uberlândia",
+    "lat": -18.918999,
+    "lng": -48.27795,
+    "pmm": 13403
+  },
+  {
+    "name": "PAIQUERÊ | 91,7 | LONDRINA/PR",
+    "city": "Londrina",
+    "lat": -23.312156,
+    "lng": -51.162773,
+    "pmm": 11714
+  },
+  {
+    "name": "Paiquerê | 98,9 | Londrina/PR",
+    "city": "Londrina",
+    "lat": -23.312156,
+    "lng": -51.162773,
+    "pmm": 15088
+  },
+  {
+    "name": "Patamuté | 94,5 |Cajazeiras/PB",
+    "city": "Cajazeiras",
+    "lat": -6.890465,
+    "lng": -38.56053,
+    "pmm": 6996
+  },
+  {
+    "name": "Parecis | 98,1 | Porto Velho/RO",
+    "city": "Alto Paraíso",
+    "lat": -9.716667,
+    "lng": -63.317629,
+    "pmm": 195
+  },
+  {
+    "name": "Parobé",
+    "city": "Parobé",
+    "lat": -29.631749,
+    "lng": -50.834866,
+    "pmm": 328
+  },
+  {
+    "name": "Piatã | 94,3 | Salvador/BA",
+    "city": "Salvador",
+    "lat": -13.014772,
+    "lng": -38.488061,
+    "pmm": 40521
+  },
+  {
+    "name": "Pérola | 98,9 | Birigui/SP",
+    "city": "Birigui",
+    "lat": -21.292392,
+    "lng": -50.339329,
+    "pmm": 5860
+  },
+  {
+    "name": "Pérola | 95,5 | Timbó/SC",
+    "city": "Rio dos Cedros",
+    "lat": -26.74913,
+    "lng": -49.272379,
+    "pmm": 1426
+  },
+  {
+    "name": "Patriarca | 88,7 | Cassilândia/MS",
+    "city": "Cassilândia",
+    "lat": -19.109407,
+    "lng": -51.731577,
+    "pmm": 1198
+  },
+  {
+    "name": "PLANALTO | 105,9 | IRINEÓPOLIS/SC",
+    "city": "Passo Fundo",
+    "lat": -28.261767,
+    "lng": -52.407095,
+    "pmm": 7703
+  },
+  {
+    "name": "SISTEMA PINGA FOGO",
+    "city": "Maringá",
+    "lat": -23.42228,
+    "lng": -51.939882,
+    "pmm": 5544
+  },
+  {
+    "name": "Plan | 89,7 | Vilhena/RO",
+    "city": "Vilhena",
+    "lat": -12.741373,
+    "lng": -60.138584,
+    "pmm": 1636
+  },
+  {
+    "name": "Apolo | 89,9 | Bertioga/SP",
+    "city": "Santa Cruz do Capibaribe",
+    "lat": -7.95519,
+    "lng": -36.20395,
+    "pmm": 9210
+  },
+  {
+    "name": "Pomerode | 95,1 | Pomerode/SC",
+    "city": "Pomerode",
+    "lat": -26.744826,
+    "lng": -49.174198,
+    "pmm": 1329
+  },
+  {
+    "name": "Band | 89,7 | Piracicaba/SP",
+    "city": "Piracicaba",
+    "lat": -22.723722,
+    "lng": -47.646846,
+    "pmm": 22049
+  },
+  {
+    "name": "Positiva | 99,1 | Goiânia/GO",
+    "city": "Não-Me-Toque",
+    "lat": -28.459907,
+    "lng": -52.819279,
+    "pmm": 294
+  },
+  {
+    "name": "Positividade | 104,5 | Rio de Janeiro/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 38954
+  },
+  {
+    "name": "POP ROCK |105,1 |CRUZ ALTA/RS",
+    "city": "Cruz Alta",
+    "lat": -28.642447,
+    "lng": -53.605241,
+    "pmm": 1820
+  },
+  {
+    "name": "Poty | 100,5 | Cratéus/CE",
+    "city": "Crateús",
+    "lat": -5.176951,
+    "lng": -40.6684,
+    "pmm": 40812
+  },
+  {
+    "name": "Jovem | 104,7 | Palmas/TO",
+    "city": "Palmas",
+    "lat": -10.163253,
+    "lng": -48.351044,
+    "pmm": 6621
+  },
+  {
+    "name": "Primavera Fm | 93,5 | Primavera do Leste/MT",
+    "city": "Primavera do Leste",
+    "lat": -15.552294,
+    "lng": -54.300053,
+    "pmm": 929
+  },
+  {
+    "name": "Progresso | 92,1 | Ijuí/RS",
+    "city": "Clevelândia",
+    "lat": -26.405205,
+    "lng": -52.352986,
+    "pmm": 286
+  },
+  {
+    "name": "Nova Quilombo | 100,9 | Palmares/PE",
+    "city": "Palmares",
+    "lat": -8.679083,
+    "lng": -35.588336,
+    "pmm": 3334
+  },
+  {
+    "name": "104 FM | 104,5 | Goioerê/PR",
+    "city": "Goioerê",
+    "lat": -24.189188,
+    "lng": -53.027319,
+    "pmm": 513
+  },
+  {
+    "name": "Rádio 104,5",
+    "city": "Jaguaribe",
+    "lat": -5.886459,
+    "lng": -38.623005,
+    "pmm": 924
+  },
+  {
+    "name": "Peperi | 99,9 | São Miguel do Oeste/SC",
+    "city": "São Miguel do Oeste",
+    "lat": -26.726427,
+    "lng": -53.518839,
+    "pmm": 2330
+  },
+  {
+    "name": "Rádio T | 100.9 | Guarapuava / PR",
+    "city": "Ubiratã",
+    "lat": -24.541035,
+    "lng": -52.994506,
+    "pmm": 245
+  },
+  {
+    "name": "Nova | 103,1 | Pinhalzinho/SC",
+    "city": "Pinhalzinho",
+    "lat": -26.848814,
+    "lng": -52.982253,
+    "pmm": 1298
+  },
+  {
+    "name": "Rádio T | 105,3 | Ponta Grossa/PR",
+    "city": "Ponta Grossa",
+    "lat": -25.092547,
+    "lng": -50.161442,
+    "pmm": 8411
+  },
+  {
+    "name": "Rádio T | 95,7 | Wenceslau Braz /PR",
+    "city": "Wenceslau Braz",
+    "lat": -23.870423,
+    "lng": -49.802985,
+    "pmm": 1721
+  },
+  {
+    "name": "Rádio T | 93,1 | Cascavel/PR",
+    "city": "Cascavel",
+    "lat": -24.953798,
+    "lng": -53.459722,
+    "pmm": 6236
+  },
+  {
+    "name": "Rauland Fm | 95,1 | Belém/PA",
+    "city": "Belém",
+    "lat": -1.459845,
+    "lng": -48.487826,
+    "pmm": 48670
+  },
+  {
+    "name": "Rádio Tropical | 97,7 | São Carlos/SC",
+    "city": "São Carlos",
+    "lat": -27.078635,
+    "lng": -53.017394,
+    "pmm": 0
+  },
+  {
+    "name": "RBN | 94,3 | Jaraguá do Sul/SC",
+    "city": "Jaraguá do Sul",
+    "lat": -26.490484,
+    "lng": -49.076299,
+    "pmm": 3223
+  },
+  {
+    "name": "Rdr | 101,9 | Paranavaí/PR",
+    "city": "Apucarana",
+    "lat": -23.551593,
+    "lng": -51.459985,
+    "pmm": 1193
+  },
+  {
+    "name": "Nova Real",
+    "city": "Resende",
+    "lat": -22.471184,
+    "lng": -44.443613,
+    "pmm": 699
+  },
+  {
+    "name": "Regional | 106,5 |Florianópolis/SC",
+    "city": "Florianópolis",
+    "lat": -27.587796,
+    "lng": -48.547637,
+    "pmm": 20712
+  },
+  {
+    "name": "Recife Fm",
+    "city": "Recife",
+    "lat": -8.062762,
+    "lng": -34.888942,
+    "pmm": 42712
+  },
+  {
+    "name": "Nova Regional | 89.5 | Tietê/SP",
+    "city": "Tietê",
+    "lat": -23.097889,
+    "lng": -47.711473,
+    "pmm": 369
+  },
+  {
+    "name": "Karisma | 98,1 | Rolante/RS",
+    "city": "Rolante",
+    "lat": -29.640763,
+    "lng": -50.573442,
+    "pmm": 1196
+  },
+  {
+    "name": "Salgueiro Fm | 102,9 | Salgueiro/PE",
+    "city": "Salgueiro",
+    "lat": -8.070678,
+    "lng": -39.120851,
+    "pmm": 3182
+  },
+  {
+    "name": "Rádio Santiago| 90.3 | Santiago/RS",
+    "city": "Santiago",
+    "lat": -29.19146,
+    "lng": -54.869076,
+    "pmm": 5589
+  },
+  {
+    "name": "Clube FM | 94,5 | SANTO ANGELO/RS",
+    "city": "Santo Ângelo",
+    "lat": -28.301938,
+    "lng": -54.264143,
+    "pmm": 4277
+  },
+  {
+    "name": "Santa Fé | 100,5 | Santa Fé/SP",
+    "city": "Santa Fé",
+    "lat": -23.036115,
+    "lng": -51.806302,
+    "pmm": 168
+  },
+  {
+    "name": "SAUDADE FM",
+    "city": "Santos",
+    "lat": -23.933738,
+    "lng": -46.331371,
+    "pmm": 24699
+  },
+  {
+    "name": "São Francisco | 97,7 | Anápolis/GO",
+    "city": "Anápolis",
+    "lat": -16.328826,
+    "lng": -48.957218,
+    "pmm": 3638
+  },
+  {
+    "name": "Rádio Serra Dourada | 97.9 | São Miguel do Araguaia /GO",
+    "city": "São Miguel do Araguaia",
+    "lat": -13.276024,
+    "lng": -50.163838,
+    "pmm": 1474
+  },
+  {
+    "name": "SEPE | 540 | SANTO ÂNGELO/RS",
+    "city": "Santo Ângelo",
+    "lat": -28.301938,
+    "lng": -54.264143,
+    "pmm": 3148
+  },
+  {
+    "name": "Sentinela Do Vale | 97,9 | Gaspar/SC",
+    "city": "Gaspar",
+    "lat": -26.918369,
+    "lng": -48.967707,
+    "pmm": 767
+  },
+  {
+    "name": "RADIO SOCIEDADE NEWS FM E PRINCESA FM",
+    "city": "Feira de Santana",
+    "lat": -12.229284,
+    "lng": -38.960033,
+    "pmm": 25094
+  },
+  {
+    "name": "Jacuí | 97,3 | Sobradinho/BA",
+    "city": "Sobradinho",
+    "lat": -29.414773,
+    "lng": -53.025168,
+    "pmm": 4652
+  },
+  {
+    "name": "91 FM Sertaneja",
+    "city": "São Carlos",
+    "lat": -22.015999,
+    "lng": -47.889238,
+    "pmm": 4522
+  },
+  {
+    "name": "SORRISO | 99,1 | SORRISO/MT",
+    "city": "Sorriso",
+    "lat": -12.551777,
+    "lng": -55.725914,
+    "pmm": 4936
+  },
+  {
+    "name": "Studio | 99,1 | Jaraguá do Sul/SC",
+    "city": "Jaraguá do Sul",
+    "lat": -26.490484,
+    "lng": -49.076299,
+    "pmm": 10084
+  },
+  {
+    "name": "Som Maior | 100,7 | Criciúma/SC",
+    "city": "Criciúma",
+    "lat": -28.673572,
+    "lng": -49.36594,
+    "pmm": 3176
+  },
+  {
+    "name": "Sulamérica Paradiso | 95,7 | Rio de Janeiro/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 0
+  },
+  {
+    "name": "Sucesso | 92,9 | João Pessoa/PB",
+    "city": "João Pessoa",
+    "lat": -7.149382,
+    "lng": -34.873385,
+    "pmm": 16910
+  },
+  {
+    "name": "Super | 100,5 | Belo Horizonte/MG",
+    "city": "Belo Horizonte",
+    "lat": -19.937524,
+    "lng": -43.926453,
+    "pmm": 16132
+  },
+  {
+    "name": "Super | 89,3 | Campo Novo de Parecis/MT",
+    "city": "Campo Novo do Parecis",
+    "lat": -13.654733,
+    "lng": -57.888546,
+    "pmm": 1918
+  },
+  {
+    "name": "Super| 99,9 | São João Batista/SC",
+    "city": "São João Batista",
+    "lat": -27.295881,
+    "lng": -48.857004,
+    "pmm": 1236
+  },
+  {
+    "name": "SUPER | 89,1 | PAPANDUVA/SC",
+    "city": "Papanduva",
+    "lat": -26.393983,
+    "lng": -50.163204,
+    "pmm": 736
+  },
+  {
+    "name": "Supersom Fm | 97,1 | Uberaba/MG",
+    "city": "Uberaba",
+    "lat": -19.713535,
+    "lng": -47.983625,
+    "pmm": 4213
+  },
+  {
+    "name": "Suprema Mix | 99,3 | Cacoal/RO",
+    "city": "Cacoal",
+    "lat": -11.433865,
+    "lng": -61.442944,
+    "pmm": 1290
+  },
+  {
+    "name": "Taquara | 105,9 | Taquara/RS",
+    "city": "Taquara",
+    "lat": -29.650513,
+    "lng": -50.781169,
+    "pmm": 621
+  },
+  {
+    "name": "Tempo| 101.5 | Juazeiro do Norte/CE",
+    "city": "Juazeiro do Norte",
+    "lat": -7.210766,
+    "lng": -39.316993,
+    "pmm": 18125
+  },
+  {
+    "name": "Tarobá | 101,7 | Londrina/PR",
+    "city": "Londrina",
+    "lat": -23.312156,
+    "lng": -51.162773,
+    "pmm": 3444
+  },
+  {
+    "name": "Tarobá | 101,7 | Londrina/PR",
+    "city": "Cascavel",
+    "lat": -24.953798,
+    "lng": -53.459722,
+    "pmm": 1695
+  },
+  {
+    "name": "Tiradentes | 89,7 | Manaus/AM",
+    "city": "Manaus",
+    "lat": -3.134691,
+    "lng": -60.023335,
+    "pmm": 21430
+  },
+  {
+    "name": "Costa oeste Terras das águas | 93,3 | Santa Helena/PR",
+    "city": "Campinas",
+    "lat": -22.907343,
+    "lng": -47.060156,
+    "pmm": 0
+  },
+  {
+    "name": "Top | 100,5 |  Sorocaba/SP",
+    "city": "Sorocaba",
+    "lat": -23.499323,
+    "lng": -47.457853,
+    "pmm": 4930
+  },
+  {
+    "name": "Clube Top Norte",
+    "city": "Colíder",
+    "lat": -10.80409,
+    "lng": -55.464231,
+    "pmm": 0
+  },
+  {
+    "name": "Top 90 | 90,5 | Resende/RJ",
+    "city": "Resende",
+    "lat": -22.471184,
+    "lng": -44.443613,
+    "pmm": 1476
+  },
+  {
+    "name": "Transamérica | 100,3 | Curitiba/PR",
+    "city": "Balneário Camboriú",
+    "lat": -26.991819,
+    "lng": -48.634617,
+    "pmm": 2819
+  },
+  {
+    "name": "TransBrasil | 99.5 | Feira de Santana/BA",
+    "city": "Feira de Santana",
+    "lat": -12.229284,
+    "lng": -38.960033,
+    "pmm": 12113
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "Barreiras",
+    "lat": -12.144925,
+    "lng": -45.004168,
+    "pmm": 0
+  },
+  {
+    "name": "Tribuna | 99,1 | Vitória/ES",
+    "city": "Vitória",
+    "lat": -20.320154,
+    "lng": -40.322209,
+    "pmm": 6971
+  },
+  {
+    "name": "Rádio Tropical | 97,7 | São Carlos/SC",
+    "city": "Lajeado",
+    "lat": -29.465454,
+    "lng": -51.967828,
+    "pmm": 2118
+  },
+  {
+    "name": "Transvale | 102,3 | Lorena/SP",
+    "city": "Lorena",
+    "lat": -22.731693,
+    "lng": -45.124248,
+    "pmm": 1236
+  },
+  {
+    "name": "Tropical | 95.9 | Caldas Novas/GO",
+    "city": "Caldas Novas",
+    "lat": -17.743539,
+    "lng": -48.621197,
+    "pmm": 3349
+  },
+  {
+    "name": "Tupi | 96,5| Rio de Janeiro/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 132864
+  },
+  {
+    "name": "Tubá | 104,9 | Tubarão/SC",
+    "city": "Tubarão",
+    "lat": -28.480034,
+    "lng": -49.005268,
+    "pmm": 4326
+  },
+  {
+    "name": "Ternura Fm | 93,9 | Tatuí/SP",
+    "city": "Tatuí",
+    "lat": -23.348577,
+    "lng": -47.849464,
+    "pmm": 449
+  },
+  {
+    "name": "Verde Vale | 94,1 |União da Vitória/PR",
+    "city": "União da Vitória",
+    "lat": -26.228435,
+    "lng": -51.09061,
+    "pmm": 8448
+  },
+  {
+    "name": "Verdes Pampas | 102.1 | Santiago/RS",
+    "city": "Santiago",
+    "lat": -29.19146,
+    "lng": -54.869076,
+    "pmm": 2950
+  },
+  {
+    "name": "Verde Vale | 103.7 | Mineiros/GO",
+    "city": "Mineiros",
+    "lat": -17.566168,
+    "lng": -52.554667,
+    "pmm": 2000
+  },
+  {
+    "name": "Viola | 91,7 | Foz do Iguaçu/PR",
+    "city": "Guaraniaçu",
+    "lat": -25.09865,
+    "lng": -52.869632,
+    "pmm": 7205
+  },
+  {
+    "name": "Vila Real | 98,3 | Cuibá/MT",
+    "city": "Cuiabá",
+    "lat": -15.569989,
+    "lng": -56.073252,
+    "pmm": 13076
+  },
+  {
+    "name": "Vitoriosa | 105,5 | Uberlandia/MG",
+    "city": "Uberlândia",
+    "lat": -18.918999,
+    "lng": -48.27795,
+    "pmm": 9903
+  },
+  {
+    "name": "Vitória Fm | 93,5 | Vitória de Santo Antão/PE",
+    "city": "Vitória de Santo Antão",
+    "lat": -8.118748,
+    "lng": -35.293864,
+    "pmm": 2346
+  },
+  {
+    "name": "Virtual | 104,7 | Erechim/RS",
+    "city": "Erechim",
+    "lat": -27.633406,
+    "lng": -52.275877,
+    "pmm": 1047
+  },
+  {
+    "name": "Viva | 94,5 | Caxias do Sul/RS",
+    "city": "Caxias do Sul",
+    "lat": -29.166899,
+    "lng": -51.17886,
+    "pmm": 24766
+  },
+  {
+    "name": "Vox | 97,7 | Ipueiras/CE",
+    "city": "Catanduva",
+    "lat": -21.139539,
+    "lng": -48.975871,
+    "pmm": 5186
+  },
+  {
+    "name": "Rádio Viva 94.5  -  CAXIAS DO SUL/RS",
+    "city": "Vitória",
+    "lat": -20.320154,
+    "lng": -40.322209,
+    "pmm": 7278
+  },
+  {
+    "name": "Vitrine | 97,3 | Rio Negrinho/SC",
+    "city": "Rio Negrinho",
+    "lat": -26.255325,
+    "lng": -49.517295,
+    "pmm": 418
+  },
+  {
+    "name": "Xodó | 89,9 | Aracaju/SE",
+    "city": "Tobias Barreto",
+    "lat": -11.18433,
+    "lng": -37.999001,
+    "pmm": 1392
+  },
+  {
+    "name": "Vox 90 Fm| 90,3 | Americana/SP",
+    "city": "Americana",
+    "lat": -22.740884,
+    "lng": -47.330363,
+    "pmm": 5787
+  },
+  {
+    "name": "Xavantes | 101,7 | Jaciara/MT",
+    "city": "Jaciara",
+    "lat": -15.964838,
+    "lng": -54.964188,
+    "pmm": 898
+  },
+  {
+    "name": "RAZebu | 93,9 | Uberaba/MG",
+    "city": "Uberaba",
+    "lat": -19.713535,
+    "lng": -47.983625,
+    "pmm": 7100
+  },
+  {
+    "name": "105 FM | 105,7 | Rondonópolis/MT",
+    "city": "Rondonópolis",
+    "lat": -16.470163,
+    "lng": -54.633587,
+    "pmm": 3029
+  },
+  {
+    "name": "Rádio Coração| 93.9|Quilombo/SC",
+    "city": "Quilombo",
+    "lat": -26.740056,
+    "lng": -52.72761,
+    "pmm": 1240
+  },
+  {
+    "name": "Clube | 91,7 | Jacobina/BA",
+    "city": "Jacobina",
+    "lat": -11.185062,
+    "lng": -40.513018,
+    "pmm": 14094
+  },
+  {
+    "name": "Movimento | 97,5 | Pato Branco/PR",
+    "city": "Curitibanos",
+    "lat": -27.282983,
+    "lng": -50.582601,
+    "pmm": 2032
+  },
+  {
+    "name": "Nevasca 104,1 São Joaquim",
+    "city": "São Joaquim",
+    "lat": -28.294712,
+    "lng": -49.936742,
+    "pmm": 3111
+  },
+  {
+    "name": "Gralha azul | 88,9 | Urubici/SC",
+    "city": "Urubici",
+    "lat": -28.004555,
+    "lng": -49.588206,
+    "pmm": 1111
+  },
+  {
+    "name": "Araranguá | 95,5 | Araranguá/SC",
+    "city": "Araranguá",
+    "lat": -28.935752,
+    "lng": -49.480967,
+    "pmm": 628
+  },
+  {
+    "name": "Massa | 94,5 | Criciúma/SC",
+    "city": "Criciúma",
+    "lat": -28.673572,
+    "lng": -49.36594,
+    "pmm": 2467
+  },
+  {
+    "name": "Antena 1 | 93,7 | Brasília/DF",
+    "city": "Brasília",
+    "lat": -15.794087,
+    "lng": -47.887905,
+    "pmm": 14994
+  },
+  {
+    "name": "Verde Oliva | 98,7 | Brasília/DF",
+    "city": "Brasília",
+    "lat": -15.794087,
+    "lng": -47.887905,
+    "pmm": 7804
+  },
+  {
+    "name": "Nacional | 96,1 | Brasília/DF",
+    "city": "Brasília",
+    "lat": -15.794087,
+    "lng": -47.887905,
+    "pmm": 1831
+  },
+  {
+    "name": "JK | 102,7 | Brasília/DF",
+    "city": "Brasília",
+    "lat": -15.794087,
+    "lng": -47.887905,
+    "pmm": 16669
+  },
+  {
+    "name": "Alpha | 89,9 | Brasília/DF",
+    "city": "Brasília",
+    "lat": -15.794087,
+    "lng": -47.887905,
+    "pmm": 0
+  },
+  {
+    "name": "Transcontinental | 104,7 | Mogi das Cruzes/SP",
+    "city": "Mogi das Cruzes",
+    "lat": -23.522707,
+    "lng": -46.19676,
+    "pmm": 102770
+  },
+  {
+    "name": "CBN | 92,5 | Rio de Janeiro/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 21015
+  },
+  {
+    "name": "Arca da Aliança | 100,1 | Blumenau/SC",
+    "city": "Paranaguá",
+    "lat": -25.506842,
+    "lng": -48.524733,
+    "pmm": 624
+  },
+  {
+    "name": "Alegria | 92,9  | Canoas/RS e Leopoldo/RS",
+    "city": "Anita Garibaldi",
+    "lat": -27.683777,
+    "lng": -51.131194,
+    "pmm": 1222
+  },
+  {
+    "name": "Cidade | 90,7 | São José/SC",
+    "city": "São José",
+    "lat": -27.590312,
+    "lng": -48.616023,
+    "pmm": 4099
+  },
+  {
+    "name": "Sucesso\t| 98,3 | Goiânia/GO\"",
+    "city": "Itapejara d'Oeste",
+    "lat": -25.970878,
+    "lng": -52.81393,
+    "pmm": 1318
+  },
+  {
+    "name": "Liderança |  102,1 | Paraupébas/PA",
+    "city": "Curionópolis",
+    "lat": -6.09682,
+    "lng": -49.602214,
+    "pmm": 461
+  },
+  {
+    "name": "Roma | 93,9 | Marabá/PA",
+    "city": "Marabá",
+    "lat": -5.352606,
+    "lng": -49.142025,
+    "pmm": 250
+  },
+  {
+    "name": "Capital | 95,9 | Campo Grande/MS",
+    "city": "Campo Grande",
+    "lat": -20.45803,
+    "lng": -54.615744,
+    "pmm": 8476
+  },
+  {
+    "name": "Clube | 99,1 | Recife/PE",
+    "city": "Recife",
+    "lat": -8.062762,
+    "lng": -34.888942,
+    "pmm": 38850
+  },
+  {
+    "name": "Bréscia Mais | 91,9 | Nova Bréscia/RS",
+    "city": "Araguari",
+    "lat": -18.64827,
+    "lng": -48.191605,
+    "pmm": 1198
+  },
+  {
+    "name": "Jangadeiro | 88,9 | Fortaleza/CE",
+    "city": "Fortaleza",
+    "lat": -3.723805,
+    "lng": -38.589928,
+    "pmm": 83271
+  },
+  {
+    "name": "99,5 FM",
+    "city": "Goiânia",
+    "lat": -16.67331,
+    "lng": -49.255814,
+    "pmm": 30832
+  },
+  {
+    "name": "Clube | 105,5 | Brasília/DF",
+    "city": "Brasília",
+    "lat": -15.794087,
+    "lng": -47.887905,
+    "pmm": 24256
+  },
+  {
+    "name": "Jovem Pan | 103,9 | Joaçaba/SC",
+    "city": "Joaçaba",
+    "lat": -27.173945,
+    "lng": -51.50669,
+    "pmm": 443
+  },
+  {
+    "name": "Vale Feliz| 96,3 | Feliz/RS",
+    "city": "Feliz",
+    "lat": -29.453971,
+    "lng": -51.310102,
+    "pmm": 3810
+  },
+  {
+    "name": "TAMARAN FM",
+    "city": "Salvador do Sul",
+    "lat": -29.439732,
+    "lng": -51.509421,
+    "pmm": 0
+  },
+  {
+    "name": "América | 1270 | Monte Negro/RS",
+    "city": "Montenegro",
+    "lat": -29.688119,
+    "lng": -51.461299,
+    "pmm": 215
+  },
+  {
+    "name": "América | 107,1 | Belo Horizonte/MG",
+    "city": "Montenegro",
+    "lat": -29.688119,
+    "lng": -51.461299,
+    "pmm": 215
+  },
+  {
+    "name": "Fronteira | 94,3 | Dionísio Cerqueira/SC",
+    "city": "Dionísio Cerqueira",
+    "lat": -26.266489,
+    "lng": -53.631395,
+    "pmm": 3683
+  },
+  {
+    "name": "Rádio C|91.5|Santo Antônio do Sudoeste/PR",
+    "city": "Capanema",
+    "lat": -25.682977,
+    "lng": -53.800179,
+    "pmm": 1860
+  },
+  {
+    "name": "Jovem Pan News | 99,3 | Maringá/PR",
+    "city": "Maringá",
+    "lat": -23.42228,
+    "lng": -51.939882,
+    "pmm": 1234
+  },
+  {
+    "name": "Jovem Pan News | 104,5 | Londrina/PR",
+    "city": "Londrina",
+    "lat": -23.312156,
+    "lng": -51.162773,
+    "pmm": 1049
+  },
+  {
+    "name": "Magia | 107,3 | Florianópolis/SC",
+    "city": "Florianópolis",
+    "lat": -27.587796,
+    "lng": -48.547637,
+    "pmm": 12886
+  },
+  {
+    "name": "Band | 96,1 | Campos dos Goytacazes/RJ",
+    "city": "Campos dos Goytacazes",
+    "lat": -21.751899,
+    "lng": -41.330476,
+    "pmm": 2953
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Ji-Paraná",
+    "lat": -10.882051,
+    "lng": -61.945095,
+    "pmm": 0
+  },
+  {
+    "name": "CBN | 99,1 | Campinas/SP",
+    "city": "Campinas",
+    "lat": -22.907343,
+    "lng": -47.060156,
+    "pmm": 3525
+  },
+  {
+    "name": "Jovem Pan | 89,9 | Campinas/SP",
+    "city": "Campinas",
+    "lat": -22.907343,
+    "lng": -47.060156,
+    "pmm": 7347
+  },
+  {
+    "name": "107 FM | 107,3 | Tatuí/SP",
+    "city": "Pindamonhangaba",
+    "lat": -22.926669,
+    "lng": -45.462049,
+    "pmm": 1751
+  },
+  {
+    "name": "RADI97 FM  | 97.5 | Frutal/MG",
+    "city": "Frutal",
+    "lat": -20.025898,
+    "lng": -48.939154,
+    "pmm": 2432
+  },
+  {
+    "name": "102,7 FM",
+    "city": "Lagarto",
+    "lat": -10.915301,
+    "lng": -37.666353,
+    "pmm": 5293
+  },
+  {
+    "name": "Rio | 89,1 | Porto da Folha/SE",
+    "city": "Porto da Folha",
+    "lat": -9.919259,
+    "lng": -37.276635,
+    "pmm": 8320
+  },
+  {
+    "name": "Sergipe Fm | 95,9 | Aracaju/SE",
+    "city": "Aracaju",
+    "lat": -10.907216,
+    "lng": -37.048213,
+    "pmm": 20342
+  },
+  {
+    "name": "Somzoom | 91,1 | Guaraciaba do Norte/CE",
+    "city": "Guaraciaba do Norte",
+    "lat": -4.162451,
+    "lng": -40.752633,
+    "pmm": 8265
+  },
+  {
+    "name": "Capital | 107,3 | Patrocínio/MG",
+    "city": "Patrocínio",
+    "lat": -18.940813,
+    "lng": -46.997438,
+    "pmm": 1085
+  },
+  {
+    "name": "Canarinho | 104,1 | Diamantina/MG",
+    "city": "Diamantina",
+    "lat": -18.242093,
+    "lng": -43.594457,
+    "pmm": 4931
+  },
+  {
+    "name": "Terê | 93,7 |Teresópolis/RJ",
+    "city": "Teresópolis",
+    "lat": -22.409005,
+    "lng": -42.962957,
+    "pmm": 1143
+  },
+  {
+    "name": "Rádio Tropical | 97,7 | São Carlos/SC",
+    "city": "Boa Vista",
+    "lat": 2.816682,
+    "lng": -60.670533,
+    "pmm": 5512
+  },
+  {
+    "name": "Tropical | 99,1 | Treze Tílias/SC",
+    "city": "Treze Tílias",
+    "lat": -26.998536,
+    "lng": -51.414675,
+    "pmm": 918
+  },
+  {
+    "name": "Atlântida | 97,3 | Criciúma/SC",
+    "city": "Criciúma",
+    "lat": -28.673572,
+    "lng": -49.36594,
+    "pmm": 1344
+  },
+  {
+    "name": "Cidade | 107,1 | Rio Branco/AC",
+    "city": "Rio Branco",
+    "lat": -9.978299,
+    "lng": -67.810529,
+    "pmm": 1854
+  },
+  {
+    "name": "103 FM | 103,1 | Aracaju/SE",
+    "city": "Aracaju",
+    "lat": -10.907216,
+    "lng": -37.048213,
+    "pmm": 5318
+  },
+  {
+    "name": "CV Mais",
+    "city": "Teresina",
+    "lat": -5.086342,
+    "lng": -42.80527,
+    "pmm": 9494
+  },
+  {
+    "name": "Mirante | 95,1 | Imperatriz/MA",
+    "city": "Imperatriz",
+    "lat": -5.526524,
+    "lng": -47.479811,
+    "pmm": 9006
+  },
+  {
+    "name": "92 FM | 92,9 | CACADOR/SC",
+    "city": "Caçador",
+    "lat": -26.775348,
+    "lng": -51.019035,
+    "pmm": 413
+  },
+  {
+    "name": "Minas FM | 99,3 | Divinópolis/MG",
+    "city": "Divinópolis",
+    "lat": -20.142074,
+    "lng": -44.893886,
+    "pmm": 7174
+  },
+  {
+    "name": "Bom Jesus | 89.3 | Bom Jesus do Itabapoana/RJ",
+    "city": "Bom Jesus do Itabapoana",
+    "lat": -21.134497,
+    "lng": -41.67768,
+    "pmm": 923
+  },
+  {
+    "name": "Difusora | 103,3 | Caxias/MA",
+    "city": "Caxias",
+    "lat": -4.861675,
+    "lng": -43.358539,
+    "pmm": 1797
+  },
+  {
+    "name": "Copas Verdes |  101,3 | Prudentópolis/PR",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 19562
+  },
+  {
+    "name": "Copas Verdes |  101,3 | Prudentópolis/PR",
+    "city": "Bertioga",
+    "lat": -23.854015,
+    "lng": -46.136538,
+    "pmm": 0
+  },
+  {
+    "name": "Mais | 102,9 | Praia Grande/SP",
+    "city": "Praia Grande",
+    "lat": -24.003022,
+    "lng": -46.41205,
+    "pmm": 0
+  },
+  {
+    "name": "Band | 94,1 | Porto Velho/RO",
+    "city": "Porto Velho",
+    "lat": -8.768892,
+    "lng": -63.831446,
+    "pmm": 478
+  },
+  {
+    "name": "Venceslau",
+    "city": "Presidente Venceslau",
+    "lat": -21.87594,
+    "lng": -51.840259,
+    "pmm": 2067
+  },
+  {
+    "name": "Porto Brasil",
+    "city": "Porto Seguro",
+    "lat": -16.449056,
+    "lng": -39.062114,
+    "pmm": 0
+  },
+  {
+    "name": "GFM | 90,1 | Salvador/BA",
+    "city": "Salvador",
+    "lat": -13.014772,
+    "lng": -38.488061,
+    "pmm": 45266
+  },
+  {
+    "name": "Antena 1 | 92,1 | Florianópolis/SC",
+    "city": "Santa Maria",
+    "lat": -29.685582,
+    "lng": -53.808675,
+    "pmm": 0
+  },
+  {
+    "name": "Costa oeste Terras das águas | 93,3 | Santa Helena/PR",
+    "city": "Goiânia",
+    "lat": -16.67331,
+    "lng": -49.255814,
+    "pmm": 19294
+  },
+  {
+    "name": "Jovem Pan | 106,7 | Goiânia/GO",
+    "city": "Goiânia",
+    "lat": -16.67331,
+    "lng": -49.255814,
+    "pmm": 15573
+  },
+  {
+    "name": "PAMPA | 97,5 | Porto Alegre/RS",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 8064
+  },
+  {
+    "name": "Nordeste",
+    "city": "Caxias",
+    "lat": -4.861675,
+    "lng": -43.358539,
+    "pmm": 1862
+  },
+  {
+    "name": "Mais | 97,7 | Cajazeiras/PB",
+    "city": "Cajazeiras",
+    "lat": -6.890465,
+    "lng": -38.56053,
+    "pmm": 7706
+  },
+  {
+    "name": "Cultura | 98,9 | Posse/GO",
+    "city": "Posse",
+    "lat": -14.087734,
+    "lng": -46.36201,
+    "pmm": 1806
+  },
+  {
+    "name": "Verdinha| 92,5| Fortaleza/CE",
+    "city": "Fortaleza",
+    "lat": -3.723805,
+    "lng": -38.589928,
+    "pmm": 13941
+  },
+  {
+    "name": "Super Condá| 98,9| Chapecó/SC",
+    "city": "Chapecó",
+    "lat": -27.106837,
+    "lng": -52.617031,
+    "pmm": 8556
+  },
+  {
+    "name": "Costa oeste Terras das águas | 93,3 | Santa Helena/PR",
+    "city": "Confresa",
+    "lat": -10.640731,
+    "lng": -51.571034,
+    "pmm": 1064
+  },
+  {
+    "name": "Nova Difusora",
+    "city": "Santa Rita do Sapucaí",
+    "lat": -22.25333,
+    "lng": -45.703988,
+    "pmm": 2360
+  },
+  {
+    "name": "Costa oeste Terras das águas | 93,3 | Santa Helena/PR",
+    "city": "Santa Helena",
+    "lat": -24.857096,
+    "lng": -54.336453,
+    "pmm": 4712
+  },
+  {
+    "name": "Vale do Sol | 100,5 |Santo Antônio da Platina",
+    "city": "Santo Antônio da Platina",
+    "lat": -23.297049,
+    "lng": -50.077346,
+    "pmm": 4019
+  },
+  {
+    "name": "91 FM | 91,3 | Formosa/GO",
+    "city": "Formosa",
+    "lat": -15.540945,
+    "lng": -47.335816,
+    "pmm": 896
+  },
+  {
+    "name": "Educadora | 104,9 | Ponta Porã/MS",
+    "city": "Ponta Porã",
+    "lat": -22.486187,
+    "lng": -55.71085,
+    "pmm": 220
+  },
+  {
+    "name": "Nova Tupã",
+    "city": "Tupã",
+    "lat": -21.934822,
+    "lng": -50.514006,
+    "pmm": 4341
+  },
+  {
+    "name": "Hits | 98,9 | Campos dos Goytacazes/RJ",
+    "city": "Campos dos Goytacazes",
+    "lat": -21.751899,
+    "lng": -41.330476,
+    "pmm": 19528
+  },
+  {
+    "name": "Hits | 106,9 | Macaé/RJ",
+    "city": "Macaé",
+    "lat": -22.368705,
+    "lng": -41.775064,
+    "pmm": 5559
+  },
+  {
+    "name": "Canarinho | 105,9 | Curvelo/MG",
+    "city": "Curvelo",
+    "lat": -18.755481,
+    "lng": -44.428399,
+    "pmm": 2247
+  },
+  {
+    "name": "Carijós | 92,3 | Conselheiro Lafaiete/MG",
+    "city": "Conselheiro Lafaiete",
+    "lat": -20.660852,
+    "lng": -43.788445,
+    "pmm": 3198
+  },
+  {
+    "name": "Melodia | 97,5 | Rio de Janeiro/RJ",
+    "city": "Cataguases",
+    "lat": -21.389248,
+    "lng": -42.692085,
+    "pmm": 4588
+  },
+  {
+    "name": "Líder | 105,9 | João Monlevade/MG",
+    "city": "João Monlevade",
+    "lat": -19.805639,
+    "lng": -43.174571,
+    "pmm": 1225
+  },
+  {
+    "name": "Líder | 93,9 | Ponte Nova/MG",
+    "city": "Ponte Nova",
+    "lat": -20.416643,
+    "lng": -42.909684,
+    "pmm": 1184
+  },
+  {
+    "name": "Grande Serra | 98,5 | Ouricuri/PE",
+    "city": "Ouricuri",
+    "lat": -7.883152,
+    "lng": -40.081463,
+    "pmm": 2691
+  },
+  {
+    "name": "Diamantina | 95,5 | Itaberaba/BA",
+    "city": "Itaberaba",
+    "lat": -12.532254,
+    "lng": -40.306995,
+    "pmm": 4778
+  },
+  {
+    "name": "Band | 99,1 | Vitória da Conquista/BA",
+    "city": "Vitória da Conquista",
+    "lat": -14.848005,
+    "lng": -40.83981,
+    "pmm": 8098
+  },
+  {
+    "name": "Educadora | 93,7 | Bragança/PA",
+    "city": "Bragança",
+    "lat": -1.053524,
+    "lng": -46.765754,
+    "pmm": 6993
+  },
+  {
+    "name": "105.5 FM | 105,5 | Paraíso do Tocantins/TO",
+    "city": "Nova Odessa",
+    "lat": -22.782795,
+    "lng": -47.293635,
+    "pmm": 206
+  },
+  {
+    "name": "Constelação | 92,1 | Guarabira/PB",
+    "city": "Guarabira",
+    "lat": -6.852715,
+    "lng": -35.489965,
+    "pmm": 8158
+  },
+  {
+    "name": "Correio Do Vale | 94,1 | Mamanguape/PB",
+    "city": "Mamanguape",
+    "lat": -6.833715,
+    "lng": -35.123893,
+    "pmm": 5429
+  },
+  {
+    "name": "Litoral | 102,3 | Vitória/ES",
+    "city": "Vitória",
+    "lat": -20.320154,
+    "lng": -40.322209,
+    "pmm": 8780
+  },
+  {
+    "name": "Farol | 104,3 | Coruripe/AL",
+    "city": "Coruripe",
+    "lat": -10.126547,
+    "lng": -36.176078,
+    "pmm": 1347
+  },
+  {
+    "name": "Campo Maior | 840 | Quixeramobim/CE",
+    "city": "Quixeramobim",
+    "lat": -5.198405,
+    "lng": -39.294354,
+    "pmm": 5770
+  },
+  {
+    "name": "Charrua | 95,1 | Uruguaiana/RS",
+    "city": "Uruguaiana",
+    "lat": -29.759823,
+    "lng": -57.081825,
+    "pmm": 3321
+  },
+  {
+    "name": "Tribuna | 88,5| Petrópolis/RJ",
+    "city": "Petrópolis",
+    "lat": -22.510599,
+    "lng": -43.177337,
+    "pmm": 2500
+  },
+  {
+    "name": "Musirama | 92,1 | Sete Lagoas/MG",
+    "city": "Sete Lagoas",
+    "lat": -19.458287,
+    "lng": -44.239595,
+    "pmm": 4225
+  },
+  {
+    "name": "Liberal | 92,7 | Dracena/SP",
+    "city": "Dracena",
+    "lat": -21.486138,
+    "lng": -51.53405,
+    "pmm": 3040
+  },
+  {
+    "name": "Fraiburgo | 95,1 | Fraiburgo/SC",
+    "city": "Fraiburgo",
+    "lat": -27.023447,
+    "lng": -50.925079,
+    "pmm": 2483
+  },
+  {
+    "name": "Alternativa | 91,1 | João Monlevade/MG",
+    "city": "João Monlevade",
+    "lat": -19.805639,
+    "lng": -43.174571,
+    "pmm": 1520
+  },
+  {
+    "name": "Diplomata | 105,3 | Brusque/SC",
+    "city": "Brusque",
+    "lat": -27.09831,
+    "lng": -48.915163,
+    "pmm": 2044
+  },
+  {
+    "name": "Gabriela | 102,9 | Ilhéus/BA",
+    "city": "Ilhéus",
+    "lat": -14.79332,
+    "lng": -39.043184,
+    "pmm": 9901
+  },
+  {
+    "name": "Cabo | 101,1 | Cabo de Santo agostinho/PE",
+    "city": "Cabo de Santo Agostinho",
+    "lat": -8.289864,
+    "lng": -35.038489,
+    "pmm": 134
+  },
+  {
+    "name": "Band | 91,1 | Mogi Mirim/SP",
+    "city": "Mogi Mirim",
+    "lat": -22.432696,
+    "lng": -46.956367,
+    "pmm": 1516
+  },
+  {
+    "name": "Nova Difusora",
+    "city": "Osasco",
+    "lat": -23.533612,
+    "lng": -46.78881,
+    "pmm": 138
+  },
+  {
+    "name": "Abreu | 98,3 | Abreu e Lima/PE",
+    "city": "Abreu e Lima",
+    "lat": -7.904449,
+    "lng": -34.899131,
+    "pmm": 292
+  },
+  {
+    "name": "Multisom",
+    "city": "Cataguases",
+    "lat": -21.389248,
+    "lng": -42.692085,
+    "pmm": 1719
+  },
+  {
+    "name": "Agudo | 90,1 | Agudo/RS",
+    "city": "Agudo",
+    "lat": -29.645663,
+    "lng": -53.258692,
+    "pmm": 2063
+  },
+  {
+    "name": "Nativa | 105,9| Alegrete/RS",
+    "city": "Alegrete",
+    "lat": -29.782043,
+    "lng": -55.79587,
+    "pmm": 9466
+  },
+  {
+    "name": "Interativa | 91,7 | Ampére/PR",
+    "city": "Ampére",
+    "lat": -25.917068,
+    "lng": -53.473257,
+    "pmm": 591
+  },
+  {
+    "name": "98 FM | 98,3 | Apucarana/PR",
+    "city": "Apucarana",
+    "lat": -23.551593,
+    "lng": -51.459985,
+    "pmm": 1691
+  },
+  {
+    "name": "Emoção | 90,1 | Arroio do meio/RS",
+    "city": "Arroio do Meio",
+    "lat": -29.398891,
+    "lng": -51.947449,
+    "pmm": 1595
+  },
+  {
+    "name": "Cultura | 92,3 | Arvorezinha/RS",
+    "city": "Arvorezinha",
+    "lat": -28.873049,
+    "lng": -52.179512,
+    "pmm": 271
+  },
+  {
+    "name": "Astorga FM| 103,9 | Astorga/PR",
+    "city": "Astorga",
+    "lat": -23.236712,
+    "lng": -51.669679,
+    "pmm": 714
+  },
+  {
+    "name": "Delta | 99,7 | Bagé/RS",
+    "city": "Bagé",
+    "lat": -31.330502,
+    "lng": -54.107083,
+    "pmm": 2304
+  },
+  {
+    "name": "Nordeste",
+    "city": "Bom Jesus",
+    "lat": -28.670578,
+    "lng": -50.433349,
+    "pmm": 480
+  },
+  {
+    "name": "Verde Vale | 103.7 | Mineiros/GO",
+    "city": "Braço do Norte",
+    "lat": -28.280039,
+    "lng": -49.164548,
+    "pmm": 1187
+  },
+  {
+    "name": "Cachoeira | 94,7 | Cachoeira do Sul/RS",
+    "city": "Cachoeira do Sul",
+    "lat": -30.04582,
+    "lng": -52.893413,
+    "pmm": 5465
+  },
+  {
+    "name": "Crystal | 100,1 | Cafelândia/PR",
+    "city": "Cafelândia",
+    "lat": -24.615667,
+    "lng": -53.324916,
+    "pmm": 234
+  },
+  {
+    "name": "Cultura | 93,9 | Campos Novos/SC",
+    "city": "Campos Novos",
+    "lat": -27.399053,
+    "lng": -51.223673,
+    "pmm": 2493
+  },
+  {
+    "name": "SORRISO | 104,3| CANDELÁRIA/RS",
+    "city": "Candelária",
+    "lat": -29.671285,
+    "lng": -52.789668,
+    "pmm": 2445
+  },
+  {
+    "name": "Liberdade | 89,9 | Canguçu/RS",
+    "city": "Canguçu",
+    "lat": -31.39386,
+    "lng": -52.676286,
+    "pmm": 4942
+  },
+  {
+    "name": "Nativa | 94,3 | Carazinho/RS",
+    "city": "Carazinho",
+    "lat": -28.286511,
+    "lng": -52.791897,
+    "pmm": 3531
+  },
+  {
+    "name": "Estação | 89,5 | Carlos Barbosa/RS",
+    "city": "Carlos Barbosa",
+    "lat": -29.298297,
+    "lng": -51.503818,
+    "pmm": 1488
+  },
+  {
+    "name": "Tua Rádio Garibaldi",
+    "city": "Garibaldi",
+    "lat": -29.254549,
+    "lng": -51.529548,
+    "pmm": 1370
+  },
+  {
+    "name": "Solaris | 99,1| Flores da Cunha/RS",
+    "city": "Antônio Prado",
+    "lat": -28.855438,
+    "lng": -51.283577,
+    "pmm": 766
+  },
+  {
+    "name": "Simpatia",
+    "city": "Chapada",
+    "lat": -28.05845,
+    "lng": -53.067277,
+    "pmm": 2426
+  },
+  {
+    "name": "Interativa | 103,1 | Colorado/PR",
+    "city": "Colorado",
+    "lat": -22.837898,
+    "lng": -51.974416,
+    "pmm": 1700
+  },
+  {
+    "name": "AÇAI SORRISO| 104,7 | ACAILANDIA/MA",
+    "city": "Açailândia",
+    "lat": -4.951377,
+    "lng": -47.506665,
+    "pmm": 690
+  },
+  {
+    "name": "Cidade | 93,1 | Loanda/PR",
+    "city": "Loanda",
+    "lat": -22.930229,
+    "lng": -53.134469,
+    "pmm": 1403
+  },
+  {
+    "name": "Terra HD",
+    "city": "Terra Rica",
+    "lat": -22.724365,
+    "lng": -52.624671,
+    "pmm": 505
+  },
+  {
+    "name": "Guaíra | 97,7 | Santa Rosa/RS",
+    "city": "Santa Rosa",
+    "lat": -27.86675,
+    "lng": -54.478224,
+    "pmm": 2175
+  },
+  {
+    "name": "Difusora | 95,1 | Marechal Cândido Rondon/PR",
+    "city": "Marechal Cândido Rondon",
+    "lat": -24.559254,
+    "lng": -54.060008,
+    "pmm": 2746
+  },
+  {
+    "name": "Costa Oeste | 106,5 | São Miguel do Iguaçu/PR",
+    "city": "São Miguel do Iguaçu",
+    "lat": -25.348894,
+    "lng": -54.242121,
+    "pmm": 1791
+  },
+  {
+    "name": "Internacional | 107,9 | Quedas do Iguaçu/PR",
+    "city": "Quedas do Iguaçu",
+    "lat": -25.456781,
+    "lng": -52.909832,
+    "pmm": 3246
+  },
+  {
+    "name": "Copas Verdes |  101,3 | Prudentópolis/PR",
+    "city": "Prudentópolis",
+    "lat": -25.216021,
+    "lng": -50.983575,
+    "pmm": 3041
+  },
+  {
+    "name": "RDX | 88.7 | São Mateus do Sul / PR",
+    "city": "São Mateus do Sul",
+    "lat": -25.8696,
+    "lng": -50.390624,
+    "pmm": 2492
+  },
+  {
+    "name": "Vizinhança | 104,1 | Dois Vizinhos/PR",
+    "city": "Dois Vizinhos",
+    "lat": -25.74601,
+    "lng": -53.054836,
+    "pmm": 2715
+  },
+  {
+    "name": "Radio Doze de Maio",
+    "city": "São Lourenço do Oeste",
+    "lat": -26.35519,
+    "lng": -52.851334,
+    "pmm": 0
+  },
+  {
+    "name": "Líder | 92,3 | Maravilha/SC",
+    "city": "Maravilha",
+    "lat": -26.761624,
+    "lng": -53.174819,
+    "pmm": 842
+  },
+  {
+    "name": "Itapiranga | 105,1 | Itapiranga/SC",
+    "city": "Itapiranga",
+    "lat": -27.175375,
+    "lng": -53.714802,
+    "pmm": 5386
+  },
+  {
+    "name": "Máxima | 96,7 | Garuva/SC",
+    "city": "Cotia",
+    "lat": -23.603514,
+    "lng": -46.931846,
+    "pmm": 41
+  },
+  {
+    "name": "Missioneira | 94,9 | São Luiz Gonzaga/RS",
+    "city": "São Luiz Gonzaga",
+    "lat": -28.406647,
+    "lng": -54.95966,
+    "pmm": 4606
+  },
+  {
+    "name": "95,7 A nossa Rádio | 95,7 | Horizontina/RS",
+    "city": "Horizontina",
+    "lat": -27.630097,
+    "lng": -54.308792,
+    "pmm": 5708
+  },
+  {
+    "name": "Pitangueira | 94,1 | Itaqui/RS",
+    "city": "Itaqui",
+    "lat": -29.128637,
+    "lng": -56.557133,
+    "pmm": 1187
+  },
+  {
+    "name": "Líder | 99,9 | Uruguaiana/RS",
+    "city": "Uruguaiana",
+    "lat": -29.759823,
+    "lng": -57.081825,
+    "pmm": 17017
+  },
+  {
+    "name": "Salamanca",
+    "city": "Quaraí",
+    "lat": -30.382868,
+    "lng": -56.453647,
+    "pmm": 1342
+  },
+  {
+    "name": "Jaguari | 100,1 | Jaguari/RS",
+    "city": "Jaguari",
+    "lat": -29.497347,
+    "lng": -54.693847,
+    "pmm": 5374
+  },
+  {
+    "name": "Sananduva",
+    "city": "Sananduva",
+    "lat": -27.944007,
+    "lng": -51.813502,
+    "pmm": 1156
+  },
+  {
+    "name": "Tua Rádio Cacique | 92.7 | Lagoa Vermelha/RS",
+    "city": "Taubaté",
+    "lat": -23.026556,
+    "lng": -45.556609,
+    "pmm": 1245
+  },
+  {
+    "name": "Querência",
+    "city": "Sant'Ana do Livramento",
+    "lat": -30.889384,
+    "lng": -55.534814,
+    "pmm": 6392
+  },
+  {
+    "name": "Upacaraí",
+    "city": "Dom Pedrito",
+    "lat": -30.981267,
+    "lng": -54.67413,
+    "pmm": 4565
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Piratini",
+    "lat": -31.444112,
+    "lng": -53.104734,
+    "pmm": 4781
+  },
+  {
+    "name": "Litoral Sul | 104,3 | São Lourenço do Sul/RS",
+    "city": "São Lourenço do Sul",
+    "lat": -31.364024,
+    "lng": -51.976915,
+    "pmm": 3133
+  },
+  {
+    "name": "Encruzilhadense | 89,1 | Encruzilhada do sul/RS",
+    "city": "Encruzilhada do Sul",
+    "lat": -30.543657,
+    "lng": -52.522045,
+    "pmm": 859
+  },
+  {
+    "name": "Tchê são Gabriel | 580 | São Gabriel/RS",
+    "city": "São Gabriel",
+    "lat": -30.33676,
+    "lng": -54.320478,
+    "pmm": 2201
+  },
+  {
+    "name": "Arauto | 90,5 | Venâncio Aires/RS",
+    "city": "Venâncio Aires",
+    "lat": -29.611653,
+    "lng": -52.19188,
+    "pmm": 2700
+  },
+  {
+    "name": "Geração | 107,1 | Salto do Jacuí/RS",
+    "city": "Salto do Jacuí",
+    "lat": -29.088681,
+    "lng": -53.21331,
+    "pmm": 1376
+  },
+  {
+    "name": "CBS | 93,1 | Ibirubá/RS",
+    "city": "Ibirubá",
+    "lat": -28.627608,
+    "lng": -53.088354,
+    "pmm": 1831
+  },
+  {
+    "name": "Líder | 95,3 | Espumoso/RS",
+    "city": "Espumoso",
+    "lat": -28.731445,
+    "lng": -52.841927,
+    "pmm": 492
+  },
+  {
+    "name": "Integração | 99,5 | Guaporé/RS",
+    "city": "Guaporé",
+    "lat": -28.849134,
+    "lng": -51.890651,
+    "pmm": 1831
+  },
+  {
+    "name": "Jovem Pan | 106,9 | Passo Fundo/RS",
+    "city": "Passo Fundo",
+    "lat": -28.261767,
+    "lng": -52.407095,
+    "pmm": 2005
+  },
+  {
+    "name": "Tua Rádio Alvorada",
+    "city": "Marau",
+    "lat": -28.448454,
+    "lng": -52.196777,
+    "pmm": 1083
+  },
+  {
+    "name": "Cultura Sul | 97,5 | São Mateus do Sul/PR",
+    "city": "São Mateus do Sul",
+    "lat": -25.8696,
+    "lng": -50.390624,
+    "pmm": 2180
+  },
+  {
+    "name": "14 De Maio  | 104,9 | Mirassol D'Oeste/MT",
+    "city": "Rolante",
+    "lat": -29.640763,
+    "lng": -50.573442,
+    "pmm": 2571
+  },
+  {
+    "name": "Líder | 107,5 | Joaçaba/SC",
+    "city": "Herval d'Oeste",
+    "lat": -27.170303,
+    "lng": -51.496215,
+    "pmm": 872
+  },
+  {
+    "name": "Atlântico Sul | 94,7 | Torres/RS",
+    "city": "Torres",
+    "lat": -29.335931,
+    "lng": -49.730404,
+    "pmm": 2834
+  },
+  {
+    "name": "Clube | 101,1 | Nonoai/RS",
+    "city": "Nonoai",
+    "lat": -27.354665,
+    "lng": -52.776189,
+    "pmm": 1515
+  },
+  {
+    "name": "América | 107,5 | Santa Vitória do Palmar/RS",
+    "city": "Santa Vitória do Palmar",
+    "lat": -33.51986,
+    "lng": -53.367006,
+    "pmm": 6544
+  },
+  {
+    "name": "Fema | 106,3 | Santa Rosa/RS",
+    "city": "Santa Rosa",
+    "lat": -27.86675,
+    "lng": -54.478224,
+    "pmm": 284
+  },
+  {
+    "name": "Brotas | 88,3 | Piraí Do Sul/PR",
+    "city": "Piraí do Sul",
+    "lat": -24.532358,
+    "lng": -49.941331,
+    "pmm": 1417
+  },
+  {
+    "name": "Copas Verdes |  101,3 | Prudentópolis/PR",
+    "city": "São Miguel do Oeste",
+    "lat": -26.726427,
+    "lng": -53.518839,
+    "pmm": 1150
+  },
+  {
+    "name": "Jovem Pan | 102,1 | Londrina/PR",
+    "city": "Londrina",
+    "lat": -23.312156,
+    "lng": -51.162773,
+    "pmm": 2236
+  },
+  {
+    "name": "Cidade | 87,9 | Araruna/PR",
+    "city": "Peabiru",
+    "lat": -23.914126,
+    "lng": -52.347896,
+    "pmm": 0
+  },
+  {
+    "name": "Integração | 87,5 | Arroio Do Meio/RS",
+    "city": "Arroio do Meio",
+    "lat": -29.398891,
+    "lng": -51.947449,
+    "pmm": 416
+  },
+  {
+    "name": "Piti",
+    "city": "Assis Chateaubriand",
+    "lat": -24.40853,
+    "lng": -53.521237,
+    "pmm": 168
+  },
+  {
+    "name": "Interativa | 107,7 | Astorga/PR",
+    "city": "Astorga",
+    "lat": -23.236712,
+    "lng": -51.669679,
+    "pmm": 0
+  },
+  {
+    "name": "Central | 104,9 | Barros Cassal/RS",
+    "city": "Barros Cassal",
+    "lat": -29.087704,
+    "lng": -52.587752,
+    "pmm": 698
+  },
+  {
+    "name": "Stylo",
+    "city": "Braço do Norte",
+    "lat": -28.280039,
+    "lng": -49.164548,
+    "pmm": 634
+  },
+  {
+    "name": "GVC | 106,1 | Cachoeira do sul/RS",
+    "city": "Cachoeira do Sul",
+    "lat": -30.04582,
+    "lng": -52.893413,
+    "pmm": 1304
+  },
+  {
+    "name": "Colméia News | 89,7 | Campo Mourão/PR",
+    "city": "Campo Mourão",
+    "lat": -24.041223,
+    "lng": -52.381115,
+    "pmm": 634
+  },
+  {
+    "name": "Massa | 103,3| Linhares/ES",
+    "city": "Linhares",
+    "lat": -19.398106,
+    "lng": -40.065306,
+    "pmm": 854
+  },
+  {
+    "name": "Cocal 87.9 FM | 87,9 | Cocal do Sul/SC",
+    "city": "Cocal do Sul",
+    "lat": -28.603023,
+    "lng": -49.327129,
+    "pmm": 32
+  },
+  {
+    "name": "Rádio Tropical | 97,7 | São Carlos/SC",
+    "city": "Condor",
+    "lat": -28.205296,
+    "lng": -53.488943,
+    "pmm": 213
+  },
+  {
+    "name": "Diário Serrano | 98,9 | Cruz Alta/RS",
+    "city": "Cruz Alta",
+    "lat": -28.642447,
+    "lng": -53.605241,
+    "pmm": 1540
+  },
+  {
+    "name": "Panorama",
+    "city": "Moreira Sales",
+    "lat": -24.044758,
+    "lng": -53.013447,
+    "pmm": 808
+  },
+  {
+    "name": "Encantado | 104,7| Encantado/RS",
+    "city": "Encantado",
+    "lat": -29.239917,
+    "lng": -51.873023,
+    "pmm": 5256
+  },
+  {
+    "name": "Tchê Erechim",
+    "city": "Erechim",
+    "lat": -27.633406,
+    "lng": -52.275877,
+    "pmm": 6040
+  },
+  {
+    "name": "Planetário",
+    "city": "Espumoso",
+    "lat": -28.731445,
+    "lng": -52.841927,
+    "pmm": 372
+  },
+  {
+    "name": "Spaço | 100,9 | Farroupilha/RS",
+    "city": "Farroupilha",
+    "lat": -29.223679,
+    "lng": -51.34835,
+    "pmm": 4456
+  },
+  {
+    "name": "Barril | 105,7 | Frederico Westphalen/RS",
+    "city": "Frederico Westphalen",
+    "lat": -27.358882,
+    "lng": -53.400777,
+    "pmm": 3051
+  },
+  {
+    "name": "Sideral | 93,1 | Getúlio Vargas/RS",
+    "city": "Getúlio Vargas",
+    "lat": -27.875912,
+    "lng": -52.249574,
+    "pmm": 192
+  },
+  {
+    "name": "Sideral | 93,1 | Getúlio Vargas/RS",
+    "city": "Getúlio Vargas",
+    "lat": -27.875912,
+    "lng": -52.249574,
+    "pmm": 1452
+  },
+  {
+    "name": "Giruá | 102,9 | Giruá/RS",
+    "city": "Giruá",
+    "lat": -28.029744,
+    "lng": -54.35084,
+    "pmm": 964
+  },
+  {
+    "name": "Aurora | 107,1 | Guaporé/RS",
+    "city": "Guaporé",
+    "lat": -28.849134,
+    "lng": -51.890651,
+    "pmm": 486
+  },
+  {
+    "name": "Vera Cruz",
+    "city": "Horizontina",
+    "lat": -27.630097,
+    "lng": -54.308792,
+    "pmm": 1234
+  },
+  {
+    "name": "Ibirubá | 106,1 | Ibirubá/RS",
+    "city": "Ibirubá",
+    "lat": -28.627608,
+    "lng": -53.088354,
+    "pmm": 0
+  },
+  {
+    "name": "Repórter",
+    "city": "Ijuí",
+    "lat": -28.388537,
+    "lng": -53.918067,
+    "pmm": 2835
+  },
+  {
+    "name": "Estilo | 90,3 | Imbituva/PR",
+    "city": "Imbituva",
+    "lat": -25.230613,
+    "lng": -50.597473,
+    "pmm": 492
+  },
+  {
+    "name": "Ponte | 98,3 | Indaial/SC",
+    "city": "Indaial",
+    "lat": -26.906256,
+    "lng": -49.24014,
+    "pmm": 267
+  },
+  {
+    "name": "Integração | 104,9 | Itapejara D'Oeste/PR",
+    "city": "Itapejara d'Oeste",
+    "lat": -25.970878,
+    "lng": -52.81393,
+    "pmm": 270
+  },
+  {
+    "name": "Jaguar | 105,9 | Jaguapitã/PR",
+    "city": "Jaguapitã",
+    "lat": -23.117783,
+    "lng": -51.540617,
+    "pmm": 113
+  },
+  {
+    "name": "Jandaia | 103,3 | Jandaia Do Sul/PR",
+    "city": "Jandaia do Sul",
+    "lat": -23.601179,
+    "lng": -51.643395,
+    "pmm": 2215
+  },
+  {
+    "name": "Pirabeiraba FM | 87,9 | Joinville/SC",
+    "city": "Joinville",
+    "lat": -26.304518,
+    "lng": -48.849409,
+    "pmm": 392
+  },
+  {
+    "name": "Agora | 87,9 | Mandaguari/PR",
+    "city": "Mandaguari",
+    "lat": -23.517452,
+    "lng": -51.681252,
+    "pmm": 0
+  },
+  {
+    "name": "Vang | 93,7 | Marau/RS",
+    "city": "Marau",
+    "lat": -28.448454,
+    "lng": -52.196777,
+    "pmm": 1089
+  },
+  {
+    "name": "Ingamar | 1130 | Marialva/PR",
+    "city": "Marialva",
+    "lat": -23.484759,
+    "lng": -51.798057,
+    "pmm": 811
+  },
+  {
+    "name": "Ceres | 1440 | Não-Me-Toque/RS",
+    "city": "Não-Me-Toque",
+    "lat": -28.459907,
+    "lng": -52.819279,
+    "pmm": 911
+  },
+  {
+    "name": "Pontal | 101,1 | Nova Londrina/PR",
+    "city": "Nova Londrina",
+    "lat": -22.763869,
+    "lng": -52.986313,
+    "pmm": 532
+  },
+  {
+    "name": "Jovem Prata FM | 93,3 |Nova Prata do Iguaçu/PR",
+    "city": "Nova Prata",
+    "lat": -28.783945,
+    "lng": -51.608996,
+    "pmm": 0
+  },
+  {
+    "name": "Sulbrasileira",
+    "city": "Panambi",
+    "lat": -28.292731,
+    "lng": -53.500265,
+    "pmm": 1167
+  },
+  {
+    "name": "Muleka | 88,7 | Paraíso do Norte/PR",
+    "city": "Paraíso do Norte",
+    "lat": -23.287161,
+    "lng": -52.603543,
+    "pmm": 271
+  },
+  {
+    "name": "Planalto News",
+    "city": "Passo Fundo",
+    "lat": -28.261767,
+    "lng": -52.407095,
+    "pmm": 3030
+  },
+  {
+    "name": "TUPANCI | 1250 | PELOTAS/RS",
+    "city": "Pelotas",
+    "lat": -31.719598,
+    "lng": -52.34432,
+    "pmm": 8939
+  },
+  {
+    "name": "Centro Oeste | 100,9 | Pinhalzinho/SC",
+    "city": "Pinhalzinho",
+    "lat": -26.848814,
+    "lng": -52.982253,
+    "pmm": 845
+  },
+  {
+    "name": "Gaúcha | 93,7 | Porto Alegre/RS",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 58046
+  },
+  {
+    "name": "Esperança | 104,3 | Prudentópolis/PR",
+    "city": "Prudentópolis",
+    "lat": -25.216021,
+    "lng": -50.983575,
+    "pmm": 3025
+  },
+  {
+    "name": "Quaraí",
+    "city": "Quaraí",
+    "lat": -30.382868,
+    "lng": -56.453647,
+    "pmm": 0
+  },
+  {
+    "name": "Legendária | 95,9 | Lapa/PR",
+    "city": "Lapa",
+    "lat": -25.765102,
+    "lng": -49.718596,
+    "pmm": 2946
+  },
+  {
+    "name": "Integração | 98,5 | Restinga Sêca/RS",
+    "city": "Restinga Sêca",
+    "lat": -29.813949,
+    "lng": -53.370569,
+    "pmm": 1070
+  },
+  {
+    "name": "Rio Pardo",
+    "city": "Rio Pardo",
+    "lat": -29.985626,
+    "lng": -52.379018,
+    "pmm": 764
+  },
+  {
+    "name": "Band | 96,1 | Sant'Ana do Livramento/RS",
+    "city": "Itaúna",
+    "lat": -20.074436,
+    "lng": -44.578277,
+    "pmm": 3607
+  },
+  {
+    "name": "Fronteira Missões | 89,1 | Santo Antônio das Missões/RS",
+    "city": "Santo Antônio das Missões",
+    "lat": -28.508097,
+    "lng": -55.224557,
+    "pmm": 0
+  },
+  {
+    "name": "Mais | 107,7 | Santo Cristo/RS",
+    "city": "Santo Cristo",
+    "lat": -27.81993,
+    "lng": -54.668748,
+    "pmm": 1400
+  },
+  {
+    "name": "Fronteira | 97,1 | São Borja/RS",
+    "city": "São Borja",
+    "lat": -28.662838,
+    "lng": -56.001029,
+    "pmm": 1844
+  },
+  {
+    "name": "Capital | 91,9 | Cianorte/PR",
+    "city": "São José do Norte",
+    "lat": -32.020609,
+    "lng": -52.034202,
+    "pmm": 438
+  },
+  {
+    "name": "Estação | 104,9 | São Lourenço do Oeste/SC",
+    "city": "São Lourenço do Oeste",
+    "lat": -26.35519,
+    "lng": -52.851334,
+    "pmm": 172
+  },
+  {
+    "name": "Doze | 107,5 | São Lourenço do Oeste/SC",
+    "city": "São Lourenço do Sul",
+    "lat": -31.364024,
+    "lng": -51.976915,
+    "pmm": 3019
+  },
+  {
+    "name": "São Marcos",
+    "city": "São Marcos",
+    "lat": -28.969849,
+    "lng": -51.066707,
+    "pmm": 134
+  },
+  {
+    "name": "Difusora | 106,7 | São Joaquim/SC",
+    "city": "São Joaquim",
+    "lat": -28.294712,
+    "lng": -49.936742,
+    "pmm": 2109
+  },
+  {
+    "name": "Jornal | 1400 | São Miguel do Iguaçu/PR",
+    "city": "São Miguel do Iguaçu",
+    "lat": -25.348894,
+    "lng": -54.242121,
+    "pmm": 1431
+  },
+  {
+    "name": "EMISSORA SARANDIENSE LTDA",
+    "city": "Sarandi",
+    "lat": -27.943595,
+    "lng": -52.925461,
+    "pmm": 1988
+  },
+  {
+    "name": "Fortaleza | 89,9 | Seberi/RS",
+    "city": "Seberi",
+    "lat": -27.480414,
+    "lng": -53.405467,
+    "pmm": 521
+  },
+  {
+    "name": "Fortaleza | 89,9 | Seberi/RS",
+    "city": "Seberi",
+    "lat": -27.480414,
+    "lng": -53.405467,
+    "pmm": 606
+  },
+  {
+    "name": "Odisséia",
+    "city": "Serafina Corrêa",
+    "lat": -28.710797,
+    "lng": -51.935709,
+    "pmm": 889
+  },
+  {
+    "name": "Cristal | 100,5 | Soledade/PB",
+    "city": "Soledade",
+    "lat": -28.827738,
+    "lng": -52.509866,
+    "pmm": 0
+  },
+  {
+    "name": "Terra HD",
+    "city": "Tapejara",
+    "lat": -23.732479,
+    "lng": -52.864113,
+    "pmm": 215
+  },
+  {
+    "name": "Caiobá | 100,7 | Tapejara/RS",
+    "city": "Tapejara",
+    "lat": -28.084171,
+    "lng": -52.022133,
+    "pmm": 770
+  },
+  {
+    "name": "088STUDIO",
+    "city": "Tapera",
+    "lat": -28.62495,
+    "lng": -52.871467,
+    "pmm": 527
+  },
+  {
+    "name": "Cultura | 99,7 | Tapera/RS",
+    "city": "Tapera",
+    "lat": -28.62495,
+    "lng": -52.871467,
+    "pmm": 830
+  },
+  {
+    "name": "Nova Guairacá",
+    "city": "Terra Rica",
+    "lat": -22.724365,
+    "lng": -52.624671,
+    "pmm": 328
+  },
+  {
+    "name": "Popular",
+    "city": "Teutônia",
+    "lat": -29.488914,
+    "lng": -51.812817,
+    "pmm": 2238
+  },
+  {
+    "name": "Atlântico Sul | 94,7 | Torres/RS",
+    "city": "Torres",
+    "lat": -29.335931,
+    "lng": -49.730404,
+    "pmm": 938
+  },
+  {
+    "name": "Difusora | 88,9 | Três Passos/RS",
+    "city": "Três Passos",
+    "lat": -27.45616,
+    "lng": -53.929699,
+    "pmm": 4224
+  },
+  {
+    "name": "Cidade | 98.3 | Tupaciguara/MG",
+    "city": "Tupaciguara",
+    "lat": -18.599353,
+    "lng": -48.693736,
+    "pmm": 275
+  },
+  {
+    "name": "Costa Oeste | 106,5 | São Miguel do Iguaçu/PR",
+    "city": "Uruguaiana",
+    "lat": -29.759823,
+    "lng": -57.081825,
+    "pmm": 0
+  },
+  {
+    "name": "Costa oeste Terras das águas | 93,3 | Santa Helena/PR",
+    "city": "Venâncio Aires",
+    "lat": -29.611653,
+    "lng": -52.19188,
+    "pmm": 1441
+  },
+  {
+    "name": "Kom | 96,1 | Veranópolis/RS",
+    "city": "Veranópolis",
+    "lat": -28.933957,
+    "lng": -51.552287,
+    "pmm": 539
+  },
+  {
+    "name": "Cobra FM | 107,1 |Rolândia/PR",
+    "city": "Londrina",
+    "lat": -23.312156,
+    "lng": -51.162773,
+    "pmm": 1230
+  },
+  {
+    "name": "Clube | 101,3 | Realeza/PR",
+    "city": "Realeza",
+    "lat": -25.76258,
+    "lng": -53.532574,
+    "pmm": 1378
+  },
+  {
+    "name": "FM O Dia | 93,1 | Manaus/AM",
+    "city": "Manaus",
+    "lat": -3.134691,
+    "lng": -60.023335,
+    "pmm": 4842
+  },
+  {
+    "name": "89.7 FM | 89,7 | Gaspar/SC",
+    "city": "Campos dos Goytacazes",
+    "lat": -21.751899,
+    "lng": -41.330476,
+    "pmm": 3529
+  },
+  {
+    "name": "Dom Bosco | 96,1 | Fortaleza/CE",
+    "city": "Fortaleza",
+    "lat": -3.723805,
+    "lng": -38.589928,
+    "pmm": 28377
+  },
+  {
+    "name": "Cidade | 99,3 | Manaus/AM",
+    "city": "Manaus",
+    "lat": -3.134691,
+    "lng": -60.023335,
+    "pmm": 2875
+  },
+  {
+    "name": "Clube FM (Sonora)",
+    "city": "Chapecó",
+    "lat": -27.106837,
+    "lng": -52.617031,
+    "pmm": 0
+  },
+  {
+    "name": "CBN | 101,7 | JOÃO PESSOA/PB",
+    "city": "Manaus",
+    "lat": -3.134691,
+    "lng": -60.023335,
+    "pmm": 1663
+  },
+  {
+    "name": "D2 | 95,3 | Santa Rita Do Sapucaí/MG",
+    "city": "Santa Rita de Cássia",
+    "lat": -11.008045,
+    "lng": -44.51905,
+    "pmm": 0
+  },
+  {
+    "name": "Jovem Pan | 101,9 | Jaraguá do Sul/SC",
+    "city": "Jaraguá do Sul",
+    "lat": -26.490484,
+    "lng": -49.076299,
+    "pmm": 5974
+  },
+  {
+    "name": "40º | 102,5 | São José do Rio Preto/SP",
+    "city": "Mafra",
+    "lat": -26.115228,
+    "lng": -49.801038,
+    "pmm": 1108
+  },
+  {
+    "name": "NOVA ERA | 94,1 | PORANGATU|GO",
+    "city": "Mafra",
+    "lat": -26.115228,
+    "lng": -49.801038,
+    "pmm": 744
+  },
+  {
+    "name": "Nova Rio Negro",
+    "city": "Rio Negro",
+    "lat": -26.100408,
+    "lng": -49.797685,
+    "pmm": 248
+  },
+  {
+    "name": "Turvo Ativo",
+    "city": "Turvo",
+    "lat": -25.040127,
+    "lng": -51.532764,
+    "pmm": 791
+  },
+  {
+    "name": "Najuá",
+    "city": "Irati",
+    "lat": -25.473736,
+    "lng": -50.658048,
+    "pmm": 2008
+  },
+  {
+    "name": "Super Najuá",
+    "city": "Irati",
+    "lat": -25.473736,
+    "lng": -50.658048,
+    "pmm": 1768
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Ivaí",
+    "lat": -25.008263,
+    "lng": -50.861426,
+    "pmm": 88
+  },
+  {
+    "name": "Difusora | 100,3| Imbituba/SC",
+    "city": "Santo Antônio da Platina",
+    "lat": -23.297049,
+    "lng": -50.077346,
+    "pmm": 3804
+  },
+  {
+    "name": "Capital do Papel",
+    "city": "Telêmaco Borba",
+    "lat": -24.328686,
+    "lng": -50.623123,
+    "pmm": 1541
+  },
+  {
+    "name": "Clube de Mallet",
+    "city": "Mallet",
+    "lat": -25.873788,
+    "lng": -50.827569,
+    "pmm": 1427
+  },
+  {
+    "name": "Itay",
+    "city": "Tibagi",
+    "lat": -24.513288,
+    "lng": -50.41147,
+    "pmm": 537
+  },
+  {
+    "name": "Ágape",
+    "city": "Balsa Nova",
+    "lat": -25.578498,
+    "lng": -49.631756,
+    "pmm": 383
+  },
+  {
+    "name": "Ipiranga",
+    "city": "Palmeira",
+    "lat": -25.418568,
+    "lng": -50.003247,
+    "pmm": 920
+  },
+  {
+    "name": "Mauá",
+    "city": "Mauá da Serra",
+    "lat": -23.901296,
+    "lng": -51.226463,
+    "pmm": 110
+  },
+  {
+    "name": "Rádio São Francisco | 104.9 | Sobradinho /BA",
+    "city": "Laranjeiras do Sul",
+    "lat": -25.401682,
+    "lng": -52.408847,
+    "pmm": 352
+  },
+  {
+    "name": "Pioneira",
+    "city": "Catanduvas",
+    "lat": -25.196493,
+    "lng": -53.153706,
+    "pmm": 29
+  },
+  {
+    "name": "95,7 A nossa Rádio | 95,7 | Horizontina/RS",
+    "city": "Bituruna",
+    "lat": -26.160794,
+    "lng": -51.556525,
+    "pmm": 968
+  },
+  {
+    "name": "Bela",
+    "city": "Cândido de Abreu",
+    "lat": -24.564669,
+    "lng": -51.332581,
+    "pmm": 874
+  },
+  {
+    "name": "Thalento| 97,9 | Rio Azul/PR",
+    "city": "Rio Azul",
+    "lat": -25.716113,
+    "lng": -50.787173,
+    "pmm": 393
+  },
+  {
+    "name": "Princesa | 107,3|Rodeio/SC",
+    "city": "Rodeio",
+    "lat": -26.943502,
+    "lng": -49.304707,
+    "pmm": 47
+  },
+  {
+    "name": "FREQUÊNCIA | 94,7 | GAROPABA/SC",
+    "city": "Garopaba",
+    "lat": -28.020896,
+    "lng": -48.612557,
+    "pmm": 179
+  },
+  {
+    "name": "Itapuã | 97,1 | Pato Branco",
+    "city": "Pato Branco",
+    "lat": -26.229959,
+    "lng": -52.677362,
+    "pmm": 5250
+  },
+  {
+    "name": "Educadora Uniguaçu",
+    "city": "União da Vitória",
+    "lat": -26.228435,
+    "lng": -51.09061,
+    "pmm": 1565
+  },
+  {
+    "name": "Yara",
+    "city": "Bandeirantes",
+    "lat": -23.092481,
+    "lng": -50.371873,
+    "pmm": 1007
+  },
+  {
+    "name": "Modão |93,9|Pitanga/PR",
+    "city": "Pitanga",
+    "lat": -24.752748,
+    "lng": -51.763154,
+    "pmm": 2966
+  },
+  {
+    "name": "Onda FM | 97,7 |  Encantado/RS",
+    "city": "Roca Sales",
+    "lat": -29.28507,
+    "lng": -51.863892,
+    "pmm": 1285
+  },
+  {
+    "name": "95,7 A nossa Rádio | 95,7 | Horizontina/RS",
+    "city": "Corupá",
+    "lat": -26.431966,
+    "lng": -49.226737,
+    "pmm": 860
+  },
+  {
+    "name": "Timburi",
+    "city": "Andirá",
+    "lat": -23.051752,
+    "lng": -50.226408,
+    "pmm": 315
+  },
+  {
+    "name": "Campos Dourados",
+    "city": "Medianeira",
+    "lat": -25.292498,
+    "lng": -54.091782,
+    "pmm": 1420
+  },
+  {
+    "name": "Atlântica",
+    "city": "Porecatu",
+    "lat": -22.756209,
+    "lng": -51.377599,
+    "pmm": 0
+  },
+  {
+    "name": "106 FM",
+    "city": "Três Barras",
+    "lat": -26.114096,
+    "lng": -50.305419,
+    "pmm": 412
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Jacarezinho",
+    "lat": -23.160116,
+    "lng": -49.978573,
+    "pmm": 170
+  },
+  {
+    "name": "Unicentro Entre Rios",
+    "city": "Guarapuava",
+    "lat": -25.393592,
+    "lng": -51.463431,
+    "pmm": 766
+  },
+  {
+    "name": "Clube | 99,3 | Palotina/PR",
+    "city": "Palotina",
+    "lat": -24.279409,
+    "lng": -53.838772,
+    "pmm": 2334
+  },
+  {
+    "name": "Iguassu | 830 | Araucária/PR",
+    "city": "Mangueirinha",
+    "lat": -25.942981,
+    "lng": -52.176326,
+    "pmm": 394
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Céu Azul",
+    "lat": -25.149761,
+    "lng": -53.857269,
+    "pmm": 425
+  },
+  {
+    "name": "Chopinzinho",
+    "city": "Chopinzinho",
+    "lat": -25.854684,
+    "lng": -52.53396,
+    "pmm": 4584
+  },
+  {
+    "name": "Cidade Maracaju",
+    "city": "Maracaju",
+    "lat": -21.62361,
+    "lng": -55.15714,
+    "pmm": 3030
+  },
+  {
+    "name": "Kativa | 93,1 | Jataí/GO",
+    "city": "Rio Brilhante",
+    "lat": -21.801195,
+    "lng": -54.542242,
+    "pmm": 1065
+  },
+  {
+    "name": "Vicente Pallotti",
+    "city": "Coronel Vivida",
+    "lat": -25.978153,
+    "lng": -52.567087,
+    "pmm": 818
+  },
+  {
+    "name": "Divisa",
+    "city": "Ourinhos",
+    "lat": -22.977268,
+    "lng": -49.86858,
+    "pmm": 464
+  },
+  {
+    "name": "San | 106,3 | Capitão Leônidas Marques/PR",
+    "city": "Capitão Leônidas Marques",
+    "lat": -25.479468,
+    "lng": -53.617211,
+    "pmm": 344
+  },
+  {
+    "name": "Carlopolitana",
+    "city": "Carlópolis",
+    "lat": -23.427724,
+    "lng": -49.718724,
+    "pmm": 473
+  },
+  {
+    "name": "Antena Sul | 102,7 | Castro/PR",
+    "city": "Castro",
+    "lat": -24.795418,
+    "lng": -50.002811,
+    "pmm": 5419
+  },
+  {
+    "name": "Hiper | 93,9 | Tubarão/SC",
+    "city": "Tubarão",
+    "lat": -28.480034,
+    "lng": -49.005268,
+    "pmm": 305
+  },
+  {
+    "name": "Jovem Pan News | 104,5 | Londrina/PR",
+    "city": "Criciúma",
+    "lat": -28.673572,
+    "lng": -49.36594,
+    "pmm": 1318
+  },
+  {
+    "name": "Difusora | 91,5 | Laguna/SC",
+    "city": "Laguna",
+    "lat": -28.483586,
+    "lng": -48.781389,
+    "pmm": 588
+  },
+  {
+    "name": "Princesa | 95,7 | Lages/SC",
+    "city": "Lages",
+    "lat": -27.817259,
+    "lng": -50.330222,
+    "pmm": 427
+  },
+  {
+    "name": "Luz e Vida",
+    "city": "Orleans",
+    "lat": -28.360469,
+    "lng": -49.291426,
+    "pmm": 588
+  },
+  {
+    "name": "Deus é Amor",
+    "city": "Pedro Osório",
+    "lat": -31.863828,
+    "lng": -52.826312,
+    "pmm": 892
+  },
+  {
+    "name": "Araguaia | 96.7 | GURUPI/TO",
+    "city": "Gurupi",
+    "lat": -11.729772,
+    "lng": -49.071477,
+    "pmm": 1360
+  },
+  {
+    "name": "La Prima",
+    "city": "Nova Trento",
+    "lat": -27.287771,
+    "lng": -48.925795,
+    "pmm": 129
+  },
+  {
+    "name": "Trentina FM | 98,3 | Rodeio/SC",
+    "city": "Rodeio",
+    "lat": -26.943502,
+    "lng": -49.304707,
+    "pmm": 204
+  },
+  {
+    "name": "Apiúna",
+    "city": "Apiúna",
+    "lat": -27.041813,
+    "lng": -49.391638,
+    "pmm": 58
+  },
+  {
+    "name": "Menina Linda",
+    "city": "São João Batista",
+    "lat": -27.295881,
+    "lng": -48.857004,
+    "pmm": 90
+  },
+  {
+    "name": "Jaguarão",
+    "city": "Jaguarão",
+    "lat": -32.563569,
+    "lng": -53.377523,
+    "pmm": 1210
+  },
+  {
+    "name": "Mercosul",
+    "city": "Cerro Azul",
+    "lat": -24.818947,
+    "lng": -49.260317,
+    "pmm": 1670
+  },
+  {
+    "name": "Cerro Azul",
+    "city": "Cerro Largo",
+    "lat": -28.147841,
+    "lng": -54.739997,
+    "pmm": 3460
+  },
+  {
+    "name": "Supercap",
+    "city": "Cambará",
+    "lat": -23.041266,
+    "lng": -50.077571,
+    "pmm": 417
+  },
+  {
+    "name": "Onda Livre",
+    "city": "Campo Largo",
+    "lat": -25.459491,
+    "lng": -49.528841,
+    "pmm": 804
+  },
+  {
+    "name": "Serra | 95,7 | Candói/PR",
+    "city": "Candói",
+    "lat": -25.567932,
+    "lng": -52.055446,
+    "pmm": 1455
+  },
+  {
+    "name": "Voz",
+    "city": "Coronel Vivida",
+    "lat": -25.978153,
+    "lng": -52.567087,
+    "pmm": 1669
+  },
+  {
+    "name": "Evangelizar",
+    "city": "Lapa",
+    "lat": -25.765102,
+    "lng": -49.718596,
+    "pmm": 0
+  },
+  {
+    "name": "Cultura | 105,7 | Naviraí/MS",
+    "city": "Naviraí",
+    "lat": -23.059999,
+    "lng": -54.198836,
+    "pmm": 2399
+  },
+  {
+    "name": "Nova Mensagem",
+    "city": "Telêmaco Borba",
+    "lat": -24.328686,
+    "lng": -50.623123,
+    "pmm": 2832
+  },
+  {
+    "name": "96 FM | 96,1 | Nova Serrana/MG",
+    "city": "Manhuaçu",
+    "lat": -20.25868,
+    "lng": -42.033848,
+    "pmm": 3437
+  },
+  {
+    "name": "Difusora Jota",
+    "city": "Caarapó",
+    "lat": -22.636582,
+    "lng": -54.82697,
+    "pmm": 266
+  },
+  {
+    "name": "CANAL EXPRESS",
+    "city": "Amambai",
+    "lat": -23.100582,
+    "lng": -55.243828,
+    "pmm": 1896
+  },
+  {
+    "name": "Litorânea | 91.5 | Guaratuba/PR",
+    "city": "Guaratuba",
+    "lat": -25.874242,
+    "lng": -48.575726,
+    "pmm": 594
+  },
+  {
+    "name": "Modão |93,9|Pitanga/PR",
+    "city": "Pitanga",
+    "lat": -24.752748,
+    "lng": -51.763154,
+    "pmm": 4989
+  },
+  {
+    "name": "Guaçú AM",
+    "city": "Toledo",
+    "lat": -24.732077,
+    "lng": -53.741411,
+    "pmm": 3466
+  },
+  {
+    "name": "Itapoá | 87,9 |Itapoá/SC",
+    "city": "Itapoá",
+    "lat": -26.006048,
+    "lng": -48.604168,
+    "pmm": 202
+  },
+  {
+    "name": "Entre Rios",
+    "city": "Santo Antônio do Sudoeste",
+    "lat": -26.074975,
+    "lng": -53.723083,
+    "pmm": 0
+  },
+  {
+    "name": "Nortão | 89,5 | Borba/AM",
+    "city": "Borba",
+    "lat": -4.39062,
+    "lng": -59.594559,
+    "pmm": 0
+  },
+  {
+    "name": "Club | 101,5 | Faxinal/PR",
+    "city": "Faxinal",
+    "lat": -24.003927,
+    "lng": -51.320106,
+    "pmm": 630
+  },
+  {
+    "name": "Querência",
+    "city": "Santo Augusto",
+    "lat": -27.853491,
+    "lng": -53.77885,
+    "pmm": 1148
+  },
+  {
+    "name": "Nova Palma",
+    "city": "Nova Palma",
+    "lat": -29.473026,
+    "lng": -53.470635,
+    "pmm": 355
+  },
+  {
+    "name": "São Roque",
+    "city": "Faxinal do Soturno",
+    "lat": -29.57433,
+    "lng": -53.439065,
+    "pmm": 1698
+  },
+  {
+    "name": "Itapevi",
+    "city": "Maçambará",
+    "lat": -29.146144,
+    "lng": -56.063613,
+    "pmm": 958
+  },
+  {
+    "name": "Blau Nunes",
+    "city": "Santa Bárbara do Sul",
+    "lat": -28.365167,
+    "lng": -53.250527,
+    "pmm": 778
+  },
+  {
+    "name": "Líder | 105,9 | João Monlevade/MG",
+    "city": "Manoel Viana",
+    "lat": -29.580537,
+    "lng": -55.491663,
+    "pmm": 314
+  },
+  {
+    "name": "Cidade Canção",
+    "city": "Três de Maio",
+    "lat": -27.77966,
+    "lng": -54.235302,
+    "pmm": 8090
+  },
+  {
+    "name": "LED Piratini",
+    "city": "São Miguel das Missões",
+    "lat": -28.549537,
+    "lng": -54.561563,
+    "pmm": 830
+  },
+  {
+    "name": "Sete Colinas | 101,7 | Uberaba/MG",
+    "city": "Uberaba",
+    "lat": -19.713535,
+    "lng": -47.983625,
+    "pmm": 4457
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "Guarapari",
+    "lat": -20.665975,
+    "lng": -40.495021,
+    "pmm": 2945
+  },
+  {
+    "name": "Mundo Melhor | 97,7 | Governador Valadares/MG",
+    "city": "Governador Valadares",
+    "lat": -18.852882,
+    "lng": -41.947081,
+    "pmm": 3997
+  },
+  {
+    "name": "Difusora | 100,3| Imbituba/SC",
+    "city": "Colatina",
+    "lat": -19.53627,
+    "lng": -40.630318,
+    "pmm": 1868
+  },
+  {
+    "name": "Ciranda",
+    "city": "Chiapetta",
+    "lat": -27.917365,
+    "lng": -53.94575,
+    "pmm": 502
+  },
+  {
+    "name": "Clube | 88,7 | Panambi/RS",
+    "city": "Panambi",
+    "lat": -28.292731,
+    "lng": -53.500265,
+    "pmm": 814
+  },
+  {
+    "name": "107,5 FM",
+    "city": "Joinville",
+    "lat": -26.304518,
+    "lng": -48.849409,
+    "pmm": 2685
+  },
+  {
+    "name": "Tua Rádio São Francisco",
+    "city": "Caxias do Sul",
+    "lat": -29.166899,
+    "lng": -51.17886,
+    "pmm": 1106
+  },
+  {
+    "name": "Bahiana | 92,5 | Bom Jesus da Lapa/BA",
+    "city": "Itaberaba",
+    "lat": -12.532254,
+    "lng": -40.306995,
+    "pmm": 609
+  },
+  {
+    "name": "PEPITA | 89,7 | LAVRAS DO SUL",
+    "city": "Lavras do Sul",
+    "lat": -30.81201,
+    "lng": -53.898477,
+    "pmm": 895
+  },
+  {
+    "name": "96.3 A nossa Rádio",
+    "city": "Carazinho",
+    "lat": -28.286511,
+    "lng": -52.791897,
+    "pmm": 0
+  },
+  {
+    "name": "96.7 A nossa Rádio",
+    "city": "Caibi",
+    "lat": -27.073054,
+    "lng": -53.250527,
+    "pmm": 2352
+  },
+  {
+    "name": "98.3 A nossa Rádio",
+    "city": "Passo Fundo",
+    "lat": -28.261767,
+    "lng": -52.407095,
+    "pmm": 0
+  },
+  {
+    "name": "100.7 A nossa Rádio",
+    "city": "Passos Maia",
+    "lat": -26.780889,
+    "lng": -52.061724,
+    "pmm": 779
+  },
+  {
+    "name": "101.5 A nossa Rádio",
+    "city": "Palmitos",
+    "lat": -27.070251,
+    "lng": -53.162267,
+    "pmm": 1888
+  },
+  {
+    "name": "104.1 A nossa Rádio",
+    "city": "São Carlos",
+    "lat": -27.078635,
+    "lng": -53.017394,
+    "pmm": 1528
+  },
+  {
+    "name": "92FM| 92,1| Porto Alegre/RS",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 21285
+  },
+  {
+    "name": "Jornal | 91,3 | Caruaru/PE",
+    "city": "Caruaru",
+    "lat": -8.285898,
+    "lng": -35.967073,
+    "pmm": 9124
+  },
+  {
+    "name": "Grande Vale",
+    "city": "Ipatinga",
+    "lat": -19.481032,
+    "lng": -42.520351,
+    "pmm": 9017
+  },
+  {
+    "name": "Tribuna Soft",
+    "city": "Londrina",
+    "lat": -23.312156,
+    "lng": -51.162773,
+    "pmm": 2729
+  },
+  {
+    "name": "Marconi | 99,9 | Urussanga/SC",
+    "city": "Urussanga",
+    "lat": -28.519966,
+    "lng": -49.319108,
+    "pmm": 1687
+  },
+  {
+    "name": "Cruz de Malta | 89.9 | Lauro Müller/SC",
+    "city": "Lauro Müller",
+    "lat": -28.393585,
+    "lng": -49.394307,
+    "pmm": 373
+  },
+  {
+    "name": "RBelos Vales | 89,9| Ibirama/SC",
+    "city": "Ibirama",
+    "lat": -27.053541,
+    "lng": -49.522028,
+    "pmm": 829
+  },
+  {
+    "name": "CLUBE |98,3 | PATOS DE MINAS/MG",
+    "city": "Patos de Minas",
+    "lat": -18.592571,
+    "lng": -46.515916,
+    "pmm": 10360
+  },
+  {
+    "name": "ESMERALDA | 96,5 | VACARIA/RS",
+    "city": "Vacaria",
+    "lat": -28.502354,
+    "lng": -50.936599,
+    "pmm": 2698
+  },
+  {
+    "name": "PRINCESA | 92,3 | FRANCISCO BELTRÃO/PR",
+    "city": "Francisco Beltrão",
+    "lat": -26.07845,
+    "lng": -53.056136,
+    "pmm": 2937
+  },
+  {
+    "name": "RADIO NATIVA FM",
+    "city": "Dourados",
+    "lat": -22.227236,
+    "lng": -54.811289,
+    "pmm": 1211
+  },
+  {
+    "name": "Rádio Rio | 89.1 | Porto da Folha /SE",
+    "city": "Boa Vista",
+    "lat": 2.816682,
+    "lng": -60.670533,
+    "pmm": 3369
+  },
+  {
+    "name": "360 Digital Ooh",
+    "city": "Alagoinhas",
+    "lat": -12.134183,
+    "lng": -38.422616,
+    "pmm": 17693
+  },
+  {
+    "name": "RCB",
+    "city": "Baianópolis",
+    "lat": -12.304125,
+    "lng": -44.536098,
+    "pmm": 98
+  },
+  {
+    "name": "Novo Amanhecer",
+    "city": "Brotas de Macaúbas",
+    "lat": -12.002636,
+    "lng": -42.624691,
+    "pmm": 324
+  },
+  {
+    "name": "Paraguassú",
+    "city": "Cachoeira",
+    "lat": -12.596211,
+    "lng": -38.969398,
+    "pmm": 943
+  },
+  {
+    "name": "Líder | 105,9 | João Monlevade/MG",
+    "city": "Camaçari",
+    "lat": -12.698817,
+    "lng": -38.32574,
+    "pmm": 1110
+  },
+  {
+    "name": "Candeias",
+    "city": "Candeias",
+    "lat": -12.671923,
+    "lng": -38.543596,
+    "pmm": 630
+  },
+  {
+    "name": "Millenium",
+    "city": "Cipó",
+    "lat": -11.101144,
+    "lng": -38.517129,
+    "pmm": 3116
+  },
+  {
+    "name": "99FM - 99,9 Barcarena/PA",
+    "city": "Barcarena",
+    "lat": -1.505767,
+    "lng": -48.627073,
+    "pmm": 312
+  },
+  {
+    "name": "Itarantim",
+    "city": "Itarantim",
+    "lat": -15.65783,
+    "lng": -40.061545,
+    "pmm": 3722
+  },
+  {
+    "name": "Ponta Aguda",
+    "city": "Itatim",
+    "lat": -12.709247,
+    "lng": -39.703775,
+    "pmm": 366
+  },
+  {
+    "name": "Coribe",
+    "city": "Coribe",
+    "lat": -13.827842,
+    "lng": -44.453036,
+    "pmm": 800
+  },
+  {
+    "name": "Povo",
+    "city": "Ribeira do Pombal",
+    "lat": -10.836278,
+    "lng": -38.536099,
+    "pmm": 4917
+  },
+  {
+    "name": "A Tarde | 103,9 | Salvador/BA",
+    "city": "Salvador",
+    "lat": -13.014772,
+    "lng": -38.488061,
+    "pmm": 15551
+  },
+  {
+    "name": "São Vicente",
+    "city": "Cristópolis",
+    "lat": -12.231451,
+    "lng": -44.411842,
+    "pmm": 824
+  },
+  {
+    "name": "Portal Sudoeste",
+    "city": "Livramento de Nossa Senhora",
+    "lat": -13.649501,
+    "lng": -41.840387,
+    "pmm": 4716
+  },
+  {
+    "name": "Pontal | 101,1 | Nova Londrina/PR",
+    "city": "Carinhanha",
+    "lat": -14.302007,
+    "lng": -43.761777,
+    "pmm": 2233
+  },
+  {
+    "name": "Rochedo",
+    "city": "Ibititá",
+    "lat": -11.552771,
+    "lng": -41.975152,
+    "pmm": 537
+  },
+  {
+    "name": "Macaúbas",
+    "city": "Macaúbas",
+    "lat": -13.023672,
+    "lng": -42.694666,
+    "pmm": 1934
+  },
+  {
+    "name": "Inhambupe",
+    "city": "Inhambupe",
+    "lat": -11.789127,
+    "lng": -38.354019,
+    "pmm": 157
+  },
+  {
+    "name": "Lamarão",
+    "city": "Lamarão",
+    "lat": -11.791578,
+    "lng": -38.89298,
+    "pmm": 388
+  },
+  {
+    "name": "Nova Litoral",
+    "city": "Ituberá",
+    "lat": -13.736157,
+    "lng": -39.149042,
+    "pmm": 4542
+  },
+  {
+    "name": "Ipirá",
+    "city": "Ipirá",
+    "lat": -12.160287,
+    "lng": -39.740708,
+    "pmm": 2628
+  },
+  {
+    "name": "Elo Verde| 101,1 | Lavras de Mangabeira/CE",
+    "city": "Governador Mangabeira",
+    "lat": -12.601554,
+    "lng": -39.034024,
+    "pmm": 461
+  },
+  {
+    "name": "Iramaia",
+    "city": "Iramaia",
+    "lat": -13.293651,
+    "lng": -40.969582,
+    "pmm": 369
+  },
+  {
+    "name": "Tomba",
+    "city": "Paratinga",
+    "lat": -12.690697,
+    "lng": -43.182025,
+    "pmm": 227
+  },
+  {
+    "name": "Itamari",
+    "city": "Itamari",
+    "lat": -13.774837,
+    "lng": -39.676348,
+    "pmm": 206
+  },
+  {
+    "name": "Fascinação | 1080 | Itapetinga/BA",
+    "city": "Itapetinga",
+    "lat": -15.246167,
+    "lng": -40.247381,
+    "pmm": 0
+  },
+  {
+    "name": "Cultura Oeste",
+    "city": "Santa Maria da Vitória",
+    "lat": -13.393545,
+    "lng": -44.198309,
+    "pmm": 238
+  },
+  {
+    "name": "Santaluz",
+    "city": "Santaluz",
+    "lat": -11.25336,
+    "lng": -39.377378,
+    "pmm": 996
+  },
+  {
+    "name": "São Domingos",
+    "city": "São Domingos",
+    "lat": -11.463466,
+    "lng": -39.526265,
+    "pmm": 781
+  },
+  {
+    "name": "São Felix",
+    "city": "São Félix do Coribe",
+    "lat": -13.404218,
+    "lng": -44.196873,
+    "pmm": 284
+  },
+  {
+    "name": "São Gonçalo",
+    "city": "São Gonçalo dos Campos",
+    "lat": -12.43031,
+    "lng": -38.949772,
+    "pmm": 1151
+  },
+  {
+    "name": "Caraíbas | 100,7| Irecê/BA",
+    "city": "Irecê",
+    "lat": -11.30338,
+    "lng": -41.85886,
+    "pmm": 8222
+  },
+  {
+    "name": "Morena",
+    "city": "Serrinha",
+    "lat": -11.659532,
+    "lng": -39.008133,
+    "pmm": 16776
+  },
+  {
+    "name": "Taperoá",
+    "city": "Taperoá",
+    "lat": -13.530993,
+    "lng": -39.100622,
+    "pmm": 838
+  },
+  {
+    "name": "Tapiramutá",
+    "city": "Tapiramutá",
+    "lat": -11.852341,
+    "lng": -40.7887,
+    "pmm": 212
+  },
+  {
+    "name": "Valença",
+    "city": "Valença",
+    "lat": -13.370342,
+    "lng": -39.07235,
+    "pmm": 5736
+  },
+  {
+    "name": "Wanderley",
+    "city": "Wanderley",
+    "lat": -12.12015,
+    "lng": -43.88893,
+    "pmm": 149
+  },
+  {
+    "name": "Jacuípe",
+    "city": "Riachão do Jacuípe",
+    "lat": -11.805979,
+    "lng": -39.383035,
+    "pmm": 15967
+  },
+  {
+    "name": "Vale do Ribeira",
+    "city": "Registro",
+    "lat": -24.494251,
+    "lng": -47.841055,
+    "pmm": 590
+  },
+  {
+    "name": "Beira Mar | 101,5 | Ubatuba/SP",
+    "city": "Ubatuba",
+    "lat": -23.435965,
+    "lng": -45.072091,
+    "pmm": 1502
+  },
+  {
+    "name": "Amiga | 96,7 | Lins/SP",
+    "city": "Lins",
+    "lat": -21.672347,
+    "lng": -49.751423,
+    "pmm": 5485
+  },
+  {
+    "name": "Energia | 101,9 | Jaú/SP",
+    "city": "Jaú",
+    "lat": -22.295791,
+    "lng": -48.558141,
+    "pmm": 2710
+  },
+  {
+    "name": "Paulista | 99.5 | Avaré/SP",
+    "city": "Avaré",
+    "lat": -23.103194,
+    "lng": -48.923263,
+    "pmm": 1876
+  },
+  {
+    "name": "MEGA PAN",
+    "city": "Corumbá",
+    "lat": -19.006375,
+    "lng": -57.648985,
+    "pmm": 2231
+  },
+  {
+    "name": "Cidade Guaxupé | 105,5 | Guaxupé/MG",
+    "city": "Guaxupé",
+    "lat": -21.303781,
+    "lng": -46.713537,
+    "pmm": 1282
+  },
+  {
+    "name": "Atenas",
+    "city": "Alfenas",
+    "lat": -21.428178,
+    "lng": -45.948918,
+    "pmm": 1038
+  },
+  {
+    "name": "Vida | 94,1 | Três Pontas/MG",
+    "city": "Três Pontas",
+    "lat": -21.36877,
+    "lng": -45.515475,
+    "pmm": 3250
+  },
+  {
+    "name": "Itatiaia | 89,3 | Ouro Preto/MG",
+    "city": "Guaíra",
+    "lat": -24.085275,
+    "lng": -54.246758,
+    "pmm": 362
+  },
+  {
+    "name": "Estrada Real",
+    "city": "Itabirito",
+    "lat": -20.254177,
+    "lng": -43.802143,
+    "pmm": 0
+  },
+  {
+    "name": "Caraça | 90,5 | Itabira/MG",
+    "city": "Itabira",
+    "lat": -19.638169,
+    "lng": -43.223952,
+    "pmm": 2660
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Cachoeiro de Itapemirim",
+    "lat": -20.850112,
+    "lng": -41.111919,
+    "pmm": 2642
+  },
+  {
+    "name": "Serra Dourada | 95,7 | Cristalina/GO",
+    "city": "Cristalina",
+    "lat": -16.769434,
+    "lng": -47.606818,
+    "pmm": 1450
+  },
+  {
+    "name": "Alternativa | 90,7 | Januária/MG",
+    "city": "Januária",
+    "lat": -15.487873,
+    "lng": -44.359805,
+    "pmm": 1421
+  },
+  {
+    "name": "Torre | 91,7 | Janaúba/MG",
+    "city": "Janaúba",
+    "lat": -15.799028,
+    "lng": -43.307683,
+    "pmm": 6850
+  },
+  {
+    "name": "Andaiá | 97.1 | Santo Antônio de Jesus/BA",
+    "city": "Santo Antônio de Jesus",
+    "lat": -12.968008,
+    "lng": -39.261131,
+    "pmm": 3399
+  },
+  {
+    "name": "Excelsior Recôncavo | 105,1 | Cruz das Almas/BA",
+    "city": "Cruz das Almas",
+    "lat": -12.663786,
+    "lng": -39.100736,
+    "pmm": 3250
+  },
+  {
+    "name": "Você | 92,1 | Redenção/PA",
+    "city": "Redenção",
+    "lat": -8.027605,
+    "lng": -50.029642,
+    "pmm": 2031
+  },
+  {
+    "name": "Tocantins | 97,7 | Araguaína/TO",
+    "city": "Araguaína",
+    "lat": -7.191329,
+    "lng": -48.208705,
+    "pmm": 5696
+  },
+  {
+    "name": "Vale do Xingu",
+    "city": "Altamira",
+    "lat": -3.20566,
+    "lng": -52.214376,
+    "pmm": 5879
+  },
+  {
+    "name": "Clube de Parintins | 100,7 | Parintins/AM",
+    "city": "Parintins",
+    "lat": -2.627053,
+    "lng": -56.736292,
+    "pmm": 3324
+  },
+  {
+    "name": "Asa Branca | 99,5 | Boa Viagem/CE",
+    "city": "Boa Viagem",
+    "lat": -5.125744,
+    "lng": -39.733282,
+    "pmm": 7160
+  },
+  {
+    "name": "Difusora | 92,5 | Acaraú/CE",
+    "city": "Acaraú",
+    "lat": -2.885311,
+    "lng": -40.118241,
+    "pmm": 4522
+  },
+  {
+    "name": "Princesa | 107,3 | Capanema/PA",
+    "city": "Crato",
+    "lat": -7.231753,
+    "lng": -39.40839,
+    "pmm": 4504
+  },
+  {
+    "name": "Mirante | 100,3 | Santa Inês/MA",
+    "city": "Santa Inês",
+    "lat": -3.658575,
+    "lng": -45.378272,
+    "pmm": 3935
+  },
+  {
+    "name": "Bacabal | 93,1 | Bacabal/MA",
+    "city": "Bacabal",
+    "lat": -4.231525,
+    "lng": -44.781556,
+    "pmm": 3076
+  },
+  {
+    "name": "Educadora | 97,3 | Conceição/PB",
+    "city": "Abaetetuba",
+    "lat": -1.72347,
+    "lng": -48.884404,
+    "pmm": 0
+  },
+  {
+    "name": "Nova Timbaúba | 96,9 | Timbaúba/PE",
+    "city": "Imbaú",
+    "lat": -24.442797,
+    "lng": -50.749309,
+    "pmm": 151
+  },
+  {
+    "name": "Placar",
+    "city": "Ortigueira",
+    "lat": -24.212011,
+    "lng": -50.92693,
+    "pmm": 882
+  },
+  {
+    "name": "Reserva",
+    "city": "Reserva",
+    "lat": -24.651648,
+    "lng": -50.850596,
+    "pmm": 439
+  },
+  {
+    "name": "Terra Nativa",
+    "city": "Ribeirão do Pinhal",
+    "lat": -23.408258,
+    "lng": -50.358061,
+    "pmm": 316
+  },
+  {
+    "name": "Costa azul | 103.1 | Ubatuba/SP",
+    "city": "Ubatuba",
+    "lat": -23.435965,
+    "lng": -45.072091,
+    "pmm": 557
+  },
+  {
+    "name": "Líder | 95.7  | Paraíso do Tocantins/TO",
+    "city": "Paraíso do Tocantins",
+    "lat": -10.171221,
+    "lng": -48.88663,
+    "pmm": 1948
+  },
+  {
+    "name": "Clube | 101,9 | Rio Verde/GO",
+    "city": "Rio Verde",
+    "lat": -17.794543,
+    "lng": -50.929681,
+    "pmm": 1541
+  },
+  {
+    "name": "Líder | 105,9 | João Monlevade/MG",
+    "city": "Colinas do Tocantins",
+    "lat": -8.054625,
+    "lng": -48.481595,
+    "pmm": 418
+  },
+  {
+    "name": "Gurguéia | 87,9 | Bom Jesus/PI",
+    "city": "Bom Jesus",
+    "lat": -9.070949,
+    "lng": -44.360525,
+    "pmm": 565
+  },
+  {
+    "name": "TCM 95 FM",
+    "city": "Mossoró",
+    "lat": -5.193801,
+    "lng": -37.356874,
+    "pmm": 17215
+  },
+  {
+    "name": "Tropical FM | 103,7 | Vitória/ES",
+    "city": "Lagoa da Prata",
+    "lat": -20.023765,
+    "lng": -45.541692,
+    "pmm": 1124
+  },
+  {
+    "name": "Muriaé",
+    "city": "Muriaé",
+    "lat": -21.132047,
+    "lng": -42.361075,
+    "pmm": 2984
+  },
+  {
+    "name": "Raízes | 98,7 | Capivari/SP",
+    "city": "Capivari",
+    "lat": -22.999549,
+    "lng": -47.502206,
+    "pmm": 1239
+  },
+  {
+    "name": "Sir | 104.1 | São Joaquim da Barra/SP",
+    "city": "Barras",
+    "lat": -4.243093,
+    "lng": -42.29534,
+    "pmm": 443
+  },
+  {
+    "name": "Difusora | 100,3| Imbituba/SC",
+    "city": "Santa Cruz do Rio Pardo",
+    "lat": -22.905723,
+    "lng": -49.624609,
+    "pmm": 1638
+  },
+  {
+    "name": "Jovem Pan | 90,9 | Cuiabá/MT",
+    "city": "Cuiabá",
+    "lat": -15.569989,
+    "lng": -56.073252,
+    "pmm": 1632
+  },
+  {
+    "name": "Jovem Pan | 94,9 | Tubarão/SC",
+    "city": "Tubarão",
+    "lat": -28.480034,
+    "lng": -49.005268,
+    "pmm": 1160
+  },
+  {
+    "name": "Mega Hits | 92,5 | Porto Belo/SC | Rádio de fundação",
+    "city": "Porto Belo",
+    "lat": -27.149466,
+    "lng": -48.602757,
+    "pmm": 684
+  },
+  {
+    "name": "Guabiruba",
+    "city": "Guabiruba",
+    "lat": -27.060325,
+    "lng": -48.98356,
+    "pmm": 322
+  },
+  {
+    "name": "Nova | 101 FM | São Lourenço do Oeste/SC",
+    "city": "São Lourenço do Oeste",
+    "lat": -26.35519,
+    "lng": -52.851334,
+    "pmm": 926
+  },
+  {
+    "name": "Raio de Luz",
+    "city": "Guaraciaba",
+    "lat": -26.600348,
+    "lng": -53.52209,
+    "pmm": 3392
+  },
+  {
+    "name": "Lontras",
+    "city": "Lontras",
+    "lat": -27.157487,
+    "lng": -49.544829,
+    "pmm": 460
+  },
+  {
+    "name": "Rainha | 90,9 | Bento Gonçalves/RS",
+    "city": "Benedito Novo",
+    "lat": -26.777508,
+    "lng": -49.364403,
+    "pmm": 845
+  },
+  {
+    "name": "SINTONIA | 94,7 | ITUPORANGA/SC",
+    "city": "Ituporanga",
+    "lat": -27.414858,
+    "lng": -49.603415,
+    "pmm": 2708
+  },
+  {
+    "name": "Onda Jovem",
+    "city": "Forquilhinha",
+    "lat": -28.742415,
+    "lng": -49.468861,
+    "pmm": 203
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "Corumbá",
+    "lat": -19.006375,
+    "lng": -57.648985,
+    "pmm": 1362
+  },
+  {
+    "name": "Maristela",
+    "city": "Torres",
+    "lat": -29.335931,
+    "lng": -49.730404,
+    "pmm": 1685
+  },
+  {
+    "name": "Jovem Pan | 104,3 | Criciúma/SC",
+    "city": "Criciúma",
+    "lat": -28.673572,
+    "lng": -49.36594,
+    "pmm": 698
+  },
+  {
+    "name": "Imigrantes",
+    "city": "Turvo",
+    "lat": -28.924749,
+    "lng": -49.680866,
+    "pmm": 893
+  },
+  {
+    "name": "Lance",
+    "city": "Formosa",
+    "lat": -15.540945,
+    "lng": -47.335816,
+    "pmm": 30
+  },
+  {
+    "name": "Mariana",
+    "city": "Mariana",
+    "lat": -20.374493,
+    "lng": -43.41614,
+    "pmm": 437
+  },
+  {
+    "name": "Nova Mundial",
+    "city": "Peruíbe",
+    "lat": -24.319509,
+    "lng": -46.997302,
+    "pmm": 305
+  },
+  {
+    "name": "Alpha | 89,9 | Brasília/DF",
+    "city": "Santa Bárbara d'Oeste",
+    "lat": -22.755394,
+    "lng": -47.413955,
+    "pmm": 2553
+  },
+  {
+    "name": "Scalla",
+    "city": "Sumaré",
+    "lat": -22.822145,
+    "lng": -47.265803,
+    "pmm": 0
+  },
+  {
+    "name": "Fonte & Vida",
+    "city": "Embu das Artes",
+    "lat": -23.647313,
+    "lng": -46.85086,
+    "pmm": 524
+  },
+  {
+    "name": "96 FM | 96,5 | Maceio/AL",
+    "city": "Maceió",
+    "lat": -9.660822,
+    "lng": -35.70163,
+    "pmm": 5354
+  },
+  {
+    "name": "95 Mais FM",
+    "city": "Natal",
+    "lat": -5.750899,
+    "lng": -35.252255,
+    "pmm": 5532
+  },
+  {
+    "name": "Digital | 98,5 | Escada/PE",
+    "city": "Escada",
+    "lat": -8.362522,
+    "lng": -35.236157,
+    "pmm": 388
+  },
+  {
+    "name": "Jovem Pan | 92,5 | BENTO GONÇALVES/RS",
+    "city": "Bento Gonçalves",
+    "lat": -29.167402,
+    "lng": -51.51556,
+    "pmm": 1646
+  },
+  {
+    "name": "Itapuama | 92,7 | Arcoverde/PE",
+    "city": "Arcoverde",
+    "lat": -8.423941,
+    "lng": -37.056506,
+    "pmm": 4462
+  },
+  {
+    "name": "101 FM | 101,3 | Xanxerê/SC",
+    "city": "Xanxerê",
+    "lat": -26.874584,
+    "lng": -52.404667,
+    "pmm": 1018
+  },
+  {
+    "name": "Entre Rios",
+    "city": "Palmitos",
+    "lat": -27.070251,
+    "lng": -53.162267,
+    "pmm": 1036
+  },
+  {
+    "name": "Centro Oeste | 100,9 | Pinhalzinho/SC",
+    "city": "Espírito Santo do Pinhal",
+    "lat": -22.197054,
+    "lng": -46.745514,
+    "pmm": 1250
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Ourinhos",
+    "lat": -22.977268,
+    "lng": -49.86858,
+    "pmm": 490
+  },
+  {
+    "name": "Conecta",
+    "city": "Marília",
+    "lat": -22.214933,
+    "lng": -49.951646,
+    "pmm": 1292
+  },
+  {
+    "name": "FM Diário| 89.9| São José do Rio Preto|SP",
+    "city": "São José do Rio Preto",
+    "lat": -20.812637,
+    "lng": -49.381348,
+    "pmm": 9445
+  },
+  {
+    "name": "Caçula",
+    "city": "Três Lagoas",
+    "lat": -20.788679,
+    "lng": -51.710001,
+    "pmm": 784
+  },
+  {
+    "name": "012 News",
+    "city": "São Sebastião",
+    "lat": -23.806688,
+    "lng": -45.40268,
+    "pmm": 874
+  },
+  {
+    "name": "Espaço Livre",
+    "city": "Olímpia",
+    "lat": -20.737284,
+    "lng": -48.913492,
+    "pmm": 5744
+  },
+  {
+    "name": "Cidade | 88,5 |Corumbá/MS",
+    "city": "Corumbá",
+    "lat": -19.006375,
+    "lng": -57.648985,
+    "pmm": 1055
+  },
+  {
+    "name": "Atibaia | 90,7 | Atibaia/SP",
+    "city": "Atibaia",
+    "lat": -23.116308,
+    "lng": -46.555063,
+    "pmm": 757
+  },
+  {
+    "name": "Difusora | 100,3| Imbituba/SC",
+    "city": "Paranaguá",
+    "lat": -25.506842,
+    "lng": -48.524733,
+    "pmm": 2406
+  },
+  {
+    "name": "Coroado",
+    "city": "Curitibanos",
+    "lat": -27.282983,
+    "lng": -50.582601,
+    "pmm": 3040
+  },
+  {
+    "name": "Rainha | 90,9 | Bento Gonçalves/RS",
+    "city": "Bento Gonçalves",
+    "lat": -29.167402,
+    "lng": -51.51556,
+    "pmm": 1415
+  },
+  {
+    "name": "Difusora | 100,3| Imbituba/SC",
+    "city": "Bento Gonçalves",
+    "lat": -29.167402,
+    "lng": -51.51556,
+    "pmm": 3030
+  },
+  {
+    "name": "Alpha | 102,1 | Goiânia/GO",
+    "city": "Goiânia",
+    "lat": -16.67331,
+    "lng": -49.255814,
+    "pmm": 12891
+  },
+  {
+    "name": "Transamérica| 101,9 | Porto Velho/RO",
+    "city": "Porto Velho",
+    "lat": -8.768892,
+    "lng": -63.831446,
+    "pmm": 859
+  },
+  {
+    "name": "excluir",
+    "city": "Palmas",
+    "lat": -10.163253,
+    "lng": -48.351044,
+    "pmm": 1049
+  },
+  {
+    "name": "89 ROCK |102,9 | Goiânia/GO",
+    "city": "Goiânia",
+    "lat": -16.67331,
+    "lng": -49.255814,
+    "pmm": 18503
+  },
+  {
+    "name": "Correio do Sertão",
+    "city": "Santana do Ipanema",
+    "lat": -9.372284,
+    "lng": -37.245407,
+    "pmm": 4649
+  },
+  {
+    "name": "Angiquinho | 98.5 | Delmiro Gouveia/AL",
+    "city": "Delmiro Gouveia",
+    "lat": -9.384574,
+    "lng": -37.999233,
+    "pmm": 8780
+  },
+  {
+    "name": "Antena do Sertão | 87.9 | Mata Grande/AL",
+    "city": "Mata Grande",
+    "lat": -9.114806,
+    "lng": -37.725224,
+    "pmm": 189
+  },
+  {
+    "name": "Autazes | 89,1 | Autazes/AM",
+    "city": "Autazes",
+    "lat": -3.578664,
+    "lng": -59.133567,
+    "pmm": 158
+  },
+  {
+    "name": "Mais | 102,9 | Praia Grande/SP",
+    "city": "Bertioga",
+    "lat": -23.854015,
+    "lng": -46.136538,
+    "pmm": 641
+  },
+  {
+    "name": "Nova Voz",
+    "city": "Fartura",
+    "lat": -23.388961,
+    "lng": -49.512053,
+    "pmm": 1096
+  },
+  {
+    "name": "91FM | 91,1 | Bariri/SP",
+    "city": "Bariri",
+    "lat": -22.071978,
+    "lng": -48.741525,
+    "pmm": 848
+  },
+  {
+    "name": "Ternura | 99.3 | Ibitinga/SP",
+    "city": "Ibitinga",
+    "lat": -21.757083,
+    "lng": -48.827695,
+    "pmm": 1713
+  },
+  {
+    "name": "Caueira | 105.9 | Itaporanga D Ajuda/SE",
+    "city": "Itaporanga d'Ajuda",
+    "lat": -10.996733,
+    "lng": -37.307827,
+    "pmm": 273
+  },
+  {
+    "name": "Clube | 100.9 | Colorado do Oeste/RO",
+    "city": "Colorado do Oeste",
+    "lat": -13.130564,
+    "lng": -60.555067,
+    "pmm": 1277
+  },
+  {
+    "name": "Rondônia | 89.9 | Guajará-Mirim/RO",
+    "city": "Guajará-Mirim",
+    "lat": -10.773884,
+    "lng": -65.323952,
+    "pmm": 3442
+  },
+  {
+    "name": "Costa Azul | 93,1 | Angra dos Reis/RJ",
+    "city": "Angra dos Reis",
+    "lat": -23.009116,
+    "lng": -44.319627,
+    "pmm": 1825
+  },
+  {
+    "name": "Tâmara | 105.9 | Nova Esperança/PR",
+    "city": "Nova Esperança",
+    "lat": -23.184251,
+    "lng": -52.204866,
+    "pmm": 34
+  },
+  {
+    "name": "Sertânia | 100.1 | Sertânia/PE",
+    "city": "Sertânia",
+    "lat": -8.07245,
+    "lng": -37.26739,
+    "pmm": 1456
+  },
+  {
+    "name": "Sucesso | 96.3 | Oriximiná/PA",
+    "city": "Oriximiná",
+    "lat": -1.763754,
+    "lng": -55.8628,
+    "pmm": 0
+  },
+  {
+    "name": "Difusora | 102.3 | Cáceres/MT",
+    "city": "Cáceres",
+    "lat": -16.074096,
+    "lng": -57.674762,
+    "pmm": 2091
+  },
+  {
+    "name": "Luz | 95.9 | Luz/MG",
+    "city": "Luz",
+    "lat": -19.796247,
+    "lng": -45.683881,
+    "pmm": 584
+  },
+  {
+    "name": "Novo Tempo | 96.1 | Capinópolis/MG",
+    "city": "São José do Rio Preto",
+    "lat": -20.812637,
+    "lng": -49.381348,
+    "pmm": 2455
+  },
+  {
+    "name": "Meio Norte | 93.3 | Coelho Neto/MA",
+    "city": "Coelho Neto",
+    "lat": -4.254738,
+    "lng": -43.014014,
+    "pmm": 418
+  },
+  {
+    "name": "Sisal | 97.3 | Conceição do Coité/BA",
+    "city": "Conceição do Coité",
+    "lat": -11.561826,
+    "lng": -39.281684,
+    "pmm": 10915
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Nazaré",
+    "lat": -13.035148,
+    "lng": -39.010623,
+    "pmm": 237
+  },
+  {
+    "name": "Juruá | 100.9 | Cruzeiro do Sul/AC",
+    "city": "Sorocaba",
+    "lat": -23.499323,
+    "lng": -47.457853,
+    "pmm": 2040
+  },
+  {
+    "name": "Antena 1 | 92,1 | Florianópolis/SC",
+    "city": "Blumenau",
+    "lat": -26.916108,
+    "lng": -49.057631,
+    "pmm": 892
+  },
+  {
+    "name": "Uruaçu | 93.5 | Uruaçu/GO",
+    "city": "Uruaçu",
+    "lat": -14.52022,
+    "lng": -49.147486,
+    "pmm": 956
+  },
+  {
+    "name": "São Carlos | 103.9 | Goianésia/GO",
+    "city": "Goianésia",
+    "lat": -15.322289,
+    "lng": -49.11581,
+    "pmm": 1114
+  },
+  {
+    "name": "NOVA ERA | 94,1 | PORANGATU|GO",
+    "city": "Porangatu",
+    "lat": -13.442186,
+    "lng": -49.146226,
+    "pmm": 1771
+  },
+  {
+    "name": "NOVA LIBERDADE | 102.7 | CATALÃO",
+    "city": "Catalão",
+    "lat": -18.169573,
+    "lng": -47.947703,
+    "pmm": 8337
+  },
+  {
+    "name": "Sucesso | 91.5 | Jataí/GO",
+    "city": "Jataí",
+    "lat": -17.886232,
+    "lng": -51.720818,
+    "pmm": 2431
+  },
+  {
+    "name": "Rio Claro | 91.9 | Iporá/GO",
+    "city": "Iporá",
+    "lat": -16.440003,
+    "lng": -51.119595,
+    "pmm": 3693
+  },
+  {
+    "name": "Silvestre | 91.1 | Itaberaí/GO",
+    "city": "Itaberaí",
+    "lat": -16.02113,
+    "lng": -49.803479,
+    "pmm": 498
+  },
+  {
+    "name": "BAND| 101,1| POUSO ALEGRE/MG",
+    "city": "Pouso Alegre",
+    "lat": -22.230303,
+    "lng": -45.937144,
+    "pmm": 5226
+  },
+  {
+    "name": "NATIVA | 91,5 | BAURU/SP",
+    "city": "Bauru",
+    "lat": -22.325123,
+    "lng": -49.083001,
+    "pmm": 3843
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "São José do Rio Preto",
+    "lat": -20.812637,
+    "lng": -49.381348,
+    "pmm": 2050
+  },
+  {
+    "name": "Canadá",
+    "city": "Quirinópolis",
+    "lat": -18.451507,
+    "lng": -50.452263,
+    "pmm": 1428
+  },
+  {
+    "name": "Caratinga | 94.1 | CARATINGA/MG",
+    "city": "Caratinga",
+    "lat": -19.789635,
+    "lng": -42.143707,
+    "pmm": 849
+  },
+  {
+    "name": "Cidade | 89.1 | CARATINGA/MG",
+    "city": "Caratinga",
+    "lat": -19.789635,
+    "lng": -42.143707,
+    "pmm": 952
+  },
+  {
+    "name": "Arapuan | 98.9 | PATOS/PB",
+    "city": "Patos",
+    "lat": -7.024492,
+    "lng": -37.276913,
+    "pmm": 11526
+  },
+  {
+    "name": "Nova Paranaíba | 94.7 | ITUMBIARA/GO",
+    "city": "Itumbiara",
+    "lat": -18.417682,
+    "lng": -49.22087,
+    "pmm": 1349
+  },
+  {
+    "name": "Difusora | 94.5| POUSO ALEGRE/MG",
+    "city": "Pouso Alegre",
+    "lat": -22.230303,
+    "lng": -45.937144,
+    "pmm": 1634
+  },
+  {
+    "name": "Master | 100.9 | GURUPI/TO",
+    "city": "Gurupi",
+    "lat": -11.729772,
+    "lng": -49.071477,
+    "pmm": 1003
+  },
+  {
+    "name": "Resistência | 93.7 | MOSSORO/RN",
+    "city": "Mossoró",
+    "lat": -5.193801,
+    "lng": -37.356874,
+    "pmm": 16943
+  },
+  {
+    "name": "Angiquinho | 98.5 | Delmiro Gouveia/AL",
+    "city": "Delmiro Gouveia",
+    "lat": -9.384574,
+    "lng": -37.999233,
+    "pmm": 8435
+  },
+  {
+    "name": "Sucesso | 91.9 | Tupaciguara/MG",
+    "city": "Tupaciguara",
+    "lat": -18.599353,
+    "lng": -48.693736,
+    "pmm": 30
+  },
+  {
+    "name": "Nossa | 89,7 | Belo Oriente/MG",
+    "city": "Belo Oriente",
+    "lat": -19.224645,
+    "lng": -42.487283,
+    "pmm": 42
+  },
+  {
+    "name": "Somzoom Cariri",
+    "city": "Crato",
+    "lat": -7.231753,
+    "lng": -39.40839,
+    "pmm": 3527
+  },
+  {
+    "name": "Milênio | 90.7 | Santana do Ipanema/AL",
+    "city": "Santana do Ipanema",
+    "lat": -9.372284,
+    "lng": -37.245407,
+    "pmm": 4427
+  },
+  {
+    "name": "Eduvale  | 104.3 | Piraju/SP",
+    "city": "Piraju",
+    "lat": -23.192991,
+    "lng": -49.383974,
+    "pmm": 1212
+  },
+  {
+    "name": "Nova Onda | 99,3 | Mogi Guaçu/SP",
+    "city": "Mogi Guaçu",
+    "lat": -22.36572,
+    "lng": -46.944474,
+    "pmm": 2630
+  },
+  {
+    "name": "O Diário Independente | 93.5 | Barretos/SP",
+    "city": "Barretos",
+    "lat": -20.558456,
+    "lng": -48.567378,
+    "pmm": 418
+  },
+  {
+    "name": "Itatiunga | 102,9 | PATOS/PB",
+    "city": "Patos",
+    "lat": -7.024492,
+    "lng": -37.276913,
+    "pmm": 2131
+  },
+  {
+    "name": "Favorita",
+    "city": "Ituiutaba",
+    "lat": -18.973068,
+    "lng": -49.462235,
+    "pmm": 3794
+  },
+  {
+    "name": "Roma | 90,5 | Belém/PA",
+    "city": "Castanhal",
+    "lat": -1.295757,
+    "lng": -47.926643,
+    "pmm": 684
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "Barretos",
+    "lat": -20.558456,
+    "lng": -48.567378,
+    "pmm": 1533
+  },
+  {
+    "name": "Conecta",
+    "city": "Araras",
+    "lat": -22.357087,
+    "lng": -47.38583,
+    "pmm": 1177
+  },
+  {
+    "name": "Conecta",
+    "city": "Mogi Guaçu",
+    "lat": -22.36572,
+    "lng": -46.944474,
+    "pmm": 459
+  },
+  {
+    "name": "Conecta",
+    "city": "Porto Ferreira",
+    "lat": -21.858363,
+    "lng": -47.48141,
+    "pmm": 536
+  },
+  {
+    "name": "Conecta",
+    "city": "Ribeirão Preto",
+    "lat": -21.184835,
+    "lng": -47.805476,
+    "pmm": 101
+  },
+  {
+    "name": "Conecta",
+    "city": "Campinas",
+    "lat": -22.907343,
+    "lng": -47.060156,
+    "pmm": 0
+  },
+  {
+    "name": "Show | 101,1 | Oliveira/MG",
+    "city": "Oliveira",
+    "lat": -20.697516,
+    "lng": -44.826411,
+    "pmm": 3437
+  },
+  {
+    "name": "Nossa | 96.3 | Oliveira/MG",
+    "city": "Campos dos Goytacazes",
+    "lat": -21.751899,
+    "lng": -41.330476,
+    "pmm": 1627
+  },
+  {
+    "name": "Nova Sertaneja | 95,3 | Divinópolos/MG",
+    "city": "Divinópolis",
+    "lat": -20.142074,
+    "lng": -44.893886,
+    "pmm": 14948
+  },
+  {
+    "name": "94 FM | 94,7 | Dourados/MS",
+    "city": "Santarém",
+    "lat": -2.436213,
+    "lng": -54.71857,
+    "pmm": 9766
+  },
+  {
+    "name": "Antena1 | 88.3 | Sorocaba/SP",
+    "city": "Sorocaba",
+    "lat": -23.499323,
+    "lng": -47.457853,
+    "pmm": 7882
+  },
+  {
+    "name": "Equinócio FM | 99,1 | Macapá/AP",
+    "city": "Macapá",
+    "lat": 0.038951,
+    "lng": -51.057405,
+    "pmm": 2688
+  },
+  {
+    "name": "LASER 93.3 FM | 93.3| Campinas/SP",
+    "city": "Campinas",
+    "lat": -22.907343,
+    "lng": -47.060156,
+    "pmm": 6271
+  },
+  {
+    "name": "Viçosa | 95,1 | Viçosa/MG",
+    "city": "Viçosa",
+    "lat": -20.752072,
+    "lng": -42.879477,
+    "pmm": 2953
+  },
+  {
+    "name": "Copas Verdes |  101,3 | Prudentópolis/PR",
+    "city": "Bauru",
+    "lat": -22.325123,
+    "lng": -49.083001,
+    "pmm": 2103
+  },
+  {
+    "name": "Panorâmica",
+    "city": "Campina Grande",
+    "lat": -7.221497,
+    "lng": -35.883859,
+    "pmm": 2876
+  },
+  {
+    "name": "Povo",
+    "city": "Feira de Santana",
+    "lat": -12.229284,
+    "lng": -38.960033,
+    "pmm": 7272
+  },
+  {
+    "name": "Universidade",
+    "city": "Pelotas",
+    "lat": -31.719598,
+    "lng": -52.34432,
+    "pmm": 9566
+  },
+  {
+    "name": "Arapuan | 95,3 | João Pessoa/PB",
+    "city": "Campina Grande",
+    "lat": -7.221497,
+    "lng": -35.883859,
+    "pmm": 10369
+  },
+  {
+    "name": "Costa oeste Terras das águas | 93,3 | Santa Helena/PR",
+    "city": "Montes Claros",
+    "lat": -16.722707,
+    "lng": -43.865422,
+    "pmm": 3143
+  },
+  {
+    "name": "FLY MIDIA",
+    "city": "Santos",
+    "lat": -23.933738,
+    "lng": -46.331371,
+    "pmm": 229
+  },
+  {
+    "name": "Francês | 90,5 | Rio Formoso (Tamandaré)/PE",
+    "city": "Maceió",
+    "lat": -9.660822,
+    "lng": -35.70163,
+    "pmm": 1087
+  },
+  {
+    "name": "Nova Difusora",
+    "city": "Cáceres",
+    "lat": -16.074096,
+    "lng": -57.674762,
+    "pmm": 677
+  },
+  {
+    "name": "OSCAR PORCELLI FLORIS SOCIEDADE LTDA",
+    "city": "Volta Redonda",
+    "lat": -22.509968,
+    "lng": -44.093522,
+    "pmm": 6964
+  },
+  {
+    "name": "Cocais",
+    "city": "Teresina",
+    "lat": -5.086342,
+    "lng": -42.80527,
+    "pmm": 12987
+  },
+  {
+    "name": "95 FM|  95,0 | MOSSORO/RN",
+    "city": "Nepomuceno",
+    "lat": -21.234577,
+    "lng": -45.237429,
+    "pmm": 1107
+  },
+  {
+    "name": "Nova Friburgo",
+    "city": "Nova Friburgo",
+    "lat": -22.286461,
+    "lng": -42.532771,
+    "pmm": 2463
+  },
+  {
+    "name": "102 FM | 102,9 | Macapá/AP",
+    "city": "Macapá",
+    "lat": 0.038951,
+    "lng": -51.057405,
+    "pmm": 3479
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "São José dos Campos",
+    "lat": -23.184062,
+    "lng": -45.884175,
+    "pmm": 10581
+  },
+  {
+    "name": "Saudades | 90,9 | Matão/SP",
+    "city": "Matão",
+    "lat": -21.602995,
+    "lng": -48.367748,
+    "pmm": 1555
+  },
+  {
+    "name": "101 FM | 101,7 | Jaboticabal/SP",
+    "city": "Jaboticabal",
+    "lat": -21.254471,
+    "lng": -48.32035,
+    "pmm": 511
+  },
+  {
+    "name": "Matelândia",
+    "city": "Matelândia",
+    "lat": -25.237921,
+    "lng": -53.974387,
+    "pmm": 1392
+  },
+  {
+    "name": "Independência | 94,1 | Salto do Lontra/PR",
+    "city": "Salto do Lontra",
+    "lat": -25.776765,
+    "lng": -53.314935,
+    "pmm": 1900
+  },
+  {
+    "name": "Potência",
+    "city": "Quedas do Iguaçu",
+    "lat": -25.456781,
+    "lng": -52.909832,
+    "pmm": 359
+  },
+  {
+    "name": "Poema| 104,1| Pitanga/PR",
+    "city": "Pitanga",
+    "lat": -24.752748,
+    "lng": -51.763154,
+    "pmm": 2880
+  },
+  {
+    "name": "Campo Aberto | 94,1 | Laranjeiras do Sul/PR",
+    "city": "Laranjeiras do Sul",
+    "lat": -25.401682,
+    "lng": -52.408847,
+    "pmm": 2468
+  },
+  {
+    "name": "Cultura Católica FM | 94,3 |Guarapuava/PR",
+    "city": "Guarapuava",
+    "lat": -25.393592,
+    "lng": -51.463431,
+    "pmm": 899
+  },
+  {
+    "name": "Terra Nativa",
+    "city": "Juranda",
+    "lat": -24.416391,
+    "lng": -52.844486,
+    "pmm": 550
+  },
+  {
+    "name": "Esperança | 98,1 | Ivaiporã/PR",
+    "city": "Ivaiporã",
+    "lat": -24.241948,
+    "lng": -51.674552,
+    "pmm": 802
+  },
+  {
+    "name": "Capital | 91,9 | Cianorte/PR",
+    "city": "Cianorte",
+    "lat": -23.653813,
+    "lng": -52.609151,
+    "pmm": 1277
+  },
+  {
+    "name": "Pé Vermelho | 100,3 | Barbosa Ferraz/PR",
+    "city": "Barbosa Ferraz",
+    "lat": -24.027715,
+    "lng": -52.007117,
+    "pmm": 402
+  },
+  {
+    "name": "Banda 1",
+    "city": "Sarandi",
+    "lat": -23.443172,
+    "lng": -51.873682,
+    "pmm": 978
+  },
+  {
+    "name": "Graúna | 95,3 | Cornélio Procópio/PR",
+    "city": "Cornélio Procópio",
+    "lat": -23.183258,
+    "lng": -50.651484,
+    "pmm": 1249
+  },
+  {
+    "name": "Jovem Pan | 103,1 | Arapoti/PR",
+    "city": "Arapoti",
+    "lat": -24.146569,
+    "lng": -49.824829,
+    "pmm": 124
+  },
+  {
+    "name": "Sertão | 87.9 | Sertanópolis/PR",
+    "city": "Sertanópolis",
+    "lat": -23.058482,
+    "lng": -51.042244,
+    "pmm": 260
+  },
+  {
+    "name": "RCV",
+    "city": "Dois Vizinhos",
+    "lat": -25.74601,
+    "lng": -53.054836,
+    "pmm": 515
+  },
+  {
+    "name": "Clube | 106,5 | Salto do Lontra/PR",
+    "city": "Salto do Lontra",
+    "lat": -25.776765,
+    "lng": -53.314935,
+    "pmm": 0
+  },
+  {
+    "name": "Jovem Pan | 93.5 | Monte Carlo/SC",
+    "city": "Criciúma",
+    "lat": -28.673572,
+    "lng": -49.36594,
+    "pmm": 1286
+  },
+  {
+    "name": "A Hora",
+    "city": "Lajeado",
+    "lat": -29.465454,
+    "lng": -51.967828,
+    "pmm": 1978
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Nova Mutum",
+    "lat": -13.832726,
+    "lng": -56.110005,
+    "pmm": 1777
+  },
+  {
+    "name": "RADIO SAO JOSE CANCAO NOVA",
+    "city": "Vitória da Conquista",
+    "lat": -14.848005,
+    "lng": -40.83981,
+    "pmm": 2201
+  },
+  {
+    "name": "Rede Aleluia FM 103,5",
+    "city": "São José do Rio Preto",
+    "lat": -20.812637,
+    "lng": -49.381348,
+    "pmm": 316
+  },
+  {
+    "name": "Catedral",
+    "city": "Juiz de Fora",
+    "lat": -21.760924,
+    "lng": -43.348817,
+    "pmm": 6041
+  },
+  {
+    "name": "Renascer",
+    "city": "Ipatinga",
+    "lat": -19.481032,
+    "lng": -42.520351,
+    "pmm": 3053
+  },
+  {
+    "name": "Vale | 90,5 | Barreiras/BA",
+    "city": "Barreiras",
+    "lat": -12.144925,
+    "lng": -45.004168,
+    "pmm": 1941
+  },
+  {
+    "name": "Nativa| 93,7 | Iracê/BA",
+    "city": "Irecê",
+    "lat": -11.30338,
+    "lng": -41.85886,
+    "pmm": 1758
+  },
+  {
+    "name": "Alvorada |90,9 | Guanambi/BA",
+    "city": "Guanambi",
+    "lat": -14.225315,
+    "lng": -42.778562,
+    "pmm": 6905
+  },
+  {
+    "name": "Sucesso | 97,5 |Catalão/GO",
+    "city": "Catalão",
+    "lat": -18.169573,
+    "lng": -47.947703,
+    "pmm": 2717
+  },
+  {
+    "name": "Atlântida Zona Sul",
+    "city": "Pelotas",
+    "lat": -31.719598,
+    "lng": -52.34432,
+    "pmm": 3511
+  },
+  {
+    "name": "Armazém Lush Fábrica e Comércio de Confecções",
+    "city": "Americana",
+    "lat": -22.740884,
+    "lng": -47.330363,
+    "pmm": 0
+  },
+  {
+    "name": "Vida Nova",
+    "city": "Americana",
+    "lat": -22.740884,
+    "lng": -47.330363,
+    "pmm": 0
+  },
+  {
+    "name": "Cidade | 106,5 | Matão/SP",
+    "city": "Matão",
+    "lat": -21.602995,
+    "lng": -48.367748,
+    "pmm": 1085
+  },
+  {
+    "name": "Rádio 102",
+    "city": "Porto Alegre",
+    "lat": -30.030037,
+    "lng": -51.22866,
+    "pmm": 19984
+  },
+  {
+    "name": "Antena 1|103.7| Rio de Janeiro/RJ",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 25675
+  },
+  {
+    "name": "Band News | 99,1| Salvador/BA",
+    "city": "Salvador",
+    "lat": -13.014772,
+    "lng": -38.488061,
+    "pmm": 13756
+  },
+  {
+    "name": "Jovem Pan | 100,1 | Vitória/ES",
+    "city": "Vitória",
+    "lat": -20.320154,
+    "lng": -40.322209,
+    "pmm": 6624
+  },
+  {
+    "name": "94 FM | 94,7 | Dourados/MS",
+    "city": "Cordeiro",
+    "lat": -22.027777,
+    "lng": -42.363031,
+    "pmm": 2286
+  },
+  {
+    "name": "Stereo Vale",
+    "city": "São José dos Campos",
+    "lat": -23.184062,
+    "lng": -45.884175,
+    "pmm": 2558
+  },
+  {
+    "name": "Univates",
+    "city": "Lajeado",
+    "lat": -29.465454,
+    "lng": -51.967828,
+    "pmm": 867
+  },
+  {
+    "name": "Mundo Livre",
+    "city": "Curitiba",
+    "lat": -25.432956,
+    "lng": -49.271848,
+    "pmm": 26932
+  },
+  {
+    "name": "Jovem Prata FM | 93,3 |Nova Prata do Iguaçu/PR",
+    "city": "Nova Prata do Iguaçu",
+    "lat": -25.631877,
+    "lng": -53.347957,
+    "pmm": 1044
+  },
+  {
+    "name": "Antena 1 | 92,1 | Florianópolis/SC",
+    "city": "Jales",
+    "lat": -20.267853,
+    "lng": -50.550356,
+    "pmm": 2064
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "São Luís",
+    "lat": -2.531886,
+    "lng": -44.297919,
+    "pmm": 2831
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Ouro Fino",
+    "lat": -22.283524,
+    "lng": -46.380081,
+    "pmm": 3582
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Cuiabá",
+    "lat": -15.569989,
+    "lng": -56.073252,
+    "pmm": 2357
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Capanema",
+    "lat": -25.682977,
+    "lng": -53.800179,
+    "pmm": 631
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Jaru",
+    "lat": -10.435949,
+    "lng": -62.476231,
+    "pmm": 1728
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Lucélia",
+    "lat": -21.723416,
+    "lng": -51.018349,
+    "pmm": 3857
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Taquaritinga",
+    "lat": -21.410008,
+    "lng": -48.506742,
+    "pmm": 2274
+  },
+  {
+    "name": "Massa | 100,7 | Ivaiporã/PR",
+    "city": "Ribeirão Preto",
+    "lat": -21.184835,
+    "lng": -47.805476,
+    "pmm": 1308
+  },
+  {
+    "name": "Massa | 104,1 | Itapeva/SP",
+    "city": "Itapeva",
+    "lat": -23.983438,
+    "lng": -48.877389,
+    "pmm": 2908
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Novo Horizonte",
+    "lat": -21.468475,
+    "lng": -49.22175,
+    "pmm": 678
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "São Carlos",
+    "lat": -22.015999,
+    "lng": -47.889238,
+    "pmm": 1816
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Poços de Caldas",
+    "lat": -21.787364,
+    "lng": -46.56641,
+    "pmm": 3092
+  },
+  {
+    "name": "Alternativa | 104,9 | Lucas do Rio Verde/MT",
+    "city": "Juína",
+    "lat": -11.422018,
+    "lng": -58.762217,
+    "pmm": 0
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "Poços de Caldas",
+    "lat": -21.787364,
+    "lng": -46.56641,
+    "pmm": 1751
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "Feira de Santana",
+    "lat": -12.229284,
+    "lng": -38.960033,
+    "pmm": 2566
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "Santa Cruz do Rio Pardo",
+    "lat": -22.905723,
+    "lng": -49.624609,
+    "pmm": 1854
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "Caruaru",
+    "lat": -8.285898,
+    "lng": -35.967073,
+    "pmm": 1731
+  },
+  {
+    "name": "Band  | 94,9 | Guarapari/ES",
+    "city": "Promissão",
+    "lat": -21.538867,
+    "lng": -49.857735,
+    "pmm": 1856
+  },
+  {
+    "name": "Poatã",
+    "city": "São José do Ouro",
+    "lat": -27.771255,
+    "lng": -51.594768,
+    "pmm": 719
+  },
+  {
+    "name": "Rádio Sul",
+    "city": "Cerro Negro",
+    "lat": -27.795828,
+    "lng": -50.870062,
+    "pmm": 86
+  },
+  {
+    "name": "Alvorada | 94,5 | Santa Cecília/SC",
+    "city": "Santa Cecília",
+    "lat": -26.956901,
+    "lng": -50.422902,
+    "pmm": 914
+  },
+  {
+    "name": "Municipal",
+    "city": "Quedas do Iguaçu",
+    "lat": -25.456781,
+    "lng": -52.909832,
+    "pmm": 636
+  },
+  {
+    "name": "Aranãs FM | 105,3 | Capelinha/MG",
+    "city": "Capelinha",
+    "lat": -17.695385,
+    "lng": -42.516075,
+    "pmm": 7225
+  },
+  {
+    "name": "Olinda",
+    "city": "Tucunduva",
+    "lat": -27.65006,
+    "lng": -54.433129,
+    "pmm": 644
+  },
+  {
+    "name": "Aratiba",
+    "city": "Aratiba",
+    "lat": -27.394444,
+    "lng": -52.303832,
+    "pmm": 3370
+  },
+  {
+    "name": "Emboaba",
+    "city": "São João del Rei",
+    "lat": -21.135509,
+    "lng": -44.260973,
+    "pmm": 3566
+  },
+  {
+    "name": "Alvorada | 94,5 | Santa Cecília/SC",
+    "city": "Santa Terezinha",
+    "lat": -26.780982,
+    "lng": -50.005529,
+    "pmm": 232
+  },
+  {
+    "name": "Mais Nova | 94,7 |Marau/RS",
+    "city": "Marau",
+    "lat": -28.448454,
+    "lng": -52.196777,
+    "pmm": 705
+  },
+  {
+    "name": "Difusora | 100,3| Imbituba/SC",
+    "city": "Imbituba",
+    "lat": -28.239951,
+    "lng": -48.669284,
+    "pmm": 460
+  },
+  {
+    "name": "Itabaiana",
+    "city": "Itabaiana",
+    "lat": -10.685716,
+    "lng": -37.426861,
+    "pmm": 0
+  },
+  {
+    "name": "Coroados",
+    "city": "São Fidélis",
+    "lat": -21.643627,
+    "lng": -41.755592,
+    "pmm": 634
+  },
+  {
+    "name": "Embalo",
+    "city": "Itaocara",
+    "lat": -21.670503,
+    "lng": -42.07773,
+    "pmm": 603
+  },
+  {
+    "name": "Difusora| 95,3 | Patrocínio/MG",
+    "city": "Patrocínio",
+    "lat": -18.940813,
+    "lng": -46.997438,
+    "pmm": 1023
+  },
+  {
+    "name": "Sucesso | 96,1 | Tocantinópolis/TO",
+    "city": "Tocantinópolis",
+    "lat": -6.325634,
+    "lng": -47.427413,
+    "pmm": 984
+  },
+  {
+    "name": "Clube | 95,7 | Não Me Toque/RS",
+    "city": "Não-Me-Toque",
+    "lat": -28.459907,
+    "lng": -52.819279,
+    "pmm": 222
+  },
+  {
+    "name": "Francês | 90,5 | Rio Formoso (Tamandaré)/PE",
+    "city": "Rio Formoso",
+    "lat": -8.662171,
+    "lng": -35.155433,
+    "pmm": 232
+  },
+  {
+    "name": "Difusora | 90,3 | Maravilha/SC",
+    "city": "Maravilha",
+    "lat": -26.761624,
+    "lng": -53.174819,
+    "pmm": 830
+  },
+  {
+    "name": "Oeste | 94,5 | Iporã/SC",
+    "city": "Iporã do Oeste",
+    "lat": -26.996017,
+    "lng": -53.539512,
+    "pmm": 4256
+  },
+  {
+    "name": "Sauípe | 102,9 | Mata de São João/BA",
+    "city": "Mata de São João",
+    "lat": -12.529971,
+    "lng": -38.297299,
+    "pmm": 269
+  },
+  {
+    "name": "98 FM| 98,9 |Montes Claros/MG",
+    "city": "Monte Carmelo",
+    "lat": -18.729038,
+    "lng": -47.495972,
+    "pmm": 402
+  },
+  {
+    "name": "Veredas",
+    "city": "Unaí",
+    "lat": -16.359008,
+    "lng": -46.899957,
+    "pmm": 2321
+  },
+  {
+    "name": "Tocatins",
+    "city": "Porto Nacional",
+    "lat": -10.70857,
+    "lng": -48.412153,
+    "pmm": 346
+  },
+  {
+    "name": "Madasol|91,7| Pirai do Sul",
+    "city": "Piraí do Sul",
+    "lat": -24.532358,
+    "lng": -49.941331,
+    "pmm": 332
+  },
+  {
+    "name": "LASER 93.3 FM | 93.3| Campinas/SP",
+    "city": "Mogi das Cruzes",
+    "lat": -23.522707,
+    "lng": -46.19676,
+    "pmm": 349
+  },
+  {
+    "name": "Antena 1 | 92,1 | Florianópolis/SC",
+    "city": "Vitória",
+    "lat": -20.320154,
+    "lng": -40.322209,
+    "pmm": 4842
+  },
+  {
+    "name": "Antena 1 | 92,1 | Florianópolis/SC",
+    "city": "Salvador",
+    "lat": -13.014772,
+    "lng": -38.488061,
+    "pmm": 3154
+  },
+  {
+    "name": "Emoção | 90,1 | Arroio do meio/RS",
+    "city": "Progresso",
+    "lat": -29.240309,
+    "lng": -52.301717,
+    "pmm": 538
+  },
+  {
+    "name": "rádio pajeú",
+    "city": "Afogados da Ingazeira",
+    "lat": -7.748328,
+    "lng": -37.637686,
+    "pmm": 3622
+  },
+  {
+    "name": "Portal | 106,5 | Extrema/MG",
+    "city": "Extrema",
+    "lat": -22.85819,
+    "lng": -46.322162,
+    "pmm": 867
+  },
+  {
+    "name": "Rádio Tropical | 97,7 | São Carlos/SC",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 18729
+  },
+  {
+    "name": "Eldorado | 104,9 | Porto Alegre/RS",
+    "city": "São Paulo",
+    "lat": -23.567387,
+    "lng": -46.570383,
+    "pmm": 11121
+  },
+  {
+    "name": "Gospel FM | 89,3 | Curitiba/PR",
+    "city": "Rio de Janeiro",
+    "lat": -22.876652,
+    "lng": -43.227875,
+    "pmm": 0
+  },
+  {
+    "name": "Massa | 106,9 | Joinville/SC",
+    "city": "Joinville",
+    "lat": -26.304518,
+    "lng": -48.849409,
+    "pmm": 812
+  },
+  {
+    "name": "93 FM | 93,3 | Jequié/BA",
+    "city": "Jequié",
+    "lat": -13.855664,
+    "lng": -40.088607,
+    "pmm": 4934
+  },
+  {
+    "name": "Alvorada | 106,3 |  Londrina/PR",
+    "city": "Salinas",
+    "lat": -16.169856,
+    "lng": -42.293506,
+    "pmm": 298
+  }
+]

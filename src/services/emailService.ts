@@ -887,9 +887,14 @@ export const sendNewOrderToAdmin = async (order: {
   buyerPhone: string,
   totalValue: number,
   itemsCount: number,
-  adminEmails: string[]
+  adminEmails: string[],
+  isMonitoringEnabled?: boolean
 }) => {
   if (!order.adminEmails || order.adminEmails.length === 0) return;
+
+  const monitoringBadge = order.isMonitoringEnabled
+    ? `<span style="display:inline-block; padding: 2px 8px; background-color: ${colors.success}; color: #fff; border-radius: 4px; font-size: 11px; margin-left: 8px;">Monitoramento Ativo</span>`
+    : '';
 
   const content = `
     <p>👋 Olá Admin,</p>
@@ -902,7 +907,7 @@ export const sendNewOrderToAdmin = async (order: {
       <p style="margin: 5px 0;"><strong>Email:</strong> ${order.buyerEmail}</p>
       <p style="margin: 5px 0;"><strong>Telefone:</strong> ${order.buyerPhone || 'Não informado'}</p>
       <p style="margin: 5px 0;"><strong>Itens:</strong> ${order.itemsCount}</p>
-      <p style="margin: 5px 0;"><strong>Valor Total:</strong> ${formatCurrency(order.totalValue)}</p>
+      <p style="margin: 5px 0;"><strong>Valor Total:</strong> ${formatCurrency(order.totalValue)} ${monitoringBadge}</p>
     </div>
 
     <p style="color: ${colors.error}; font-weight: 600;">Ação Necessária: Entrar em contato com o cliente.</p>

@@ -138,7 +138,7 @@ export class AIService {
       - Business: ${criteria.businessDescription}
       - Briefing: ${criteria.briefing || 'N/A'}
       - Objective: ${criteria.objective}
-      - Budget: R$ ${criteria.budget} (Target) - You can exceed this if necessary for the Leader strategy.
+      - Budget: R$ ${criteria.budget} (HARD TARGET - YOU MUST USE AS MUCH AS POSSIBLE)
       - Target Location: ${criteria.location}
       - Preferred Audience Tags: ${criteria.targetAudience?.join(', ') || 'General'}
 
@@ -146,6 +146,16 @@ export class AIService {
       ${JSON.stringify(topCandidates)}
       
       STRATEGY INSTRUCTIONS (The "Leader + Niche" Method):
+
+      **>>> RULE ZERO: BUDGET MAXIMIZATION (HIGHEST PRIORITY) <<<**
+      - You MUST spend as close to R$ ${criteria.budget} as possible WITHOUT exceeding it.
+      - Target: **95% to 100%** of the budget. The closer to 100%, the better.
+      - **NEVER** stop at 60% or 70% thinking "it's enough". USE THE FULL BUDGET.
+      - If the only way to get closer to the budget is to increase spots (44, 66, 88, 110, 132...), DO IT, BUT SPREAD THE SPOTS ACROSS VARIOUS STATIONS, DONT PUT ALL OF IT IN THE SAME ONE, Remember the Leader + Complementary strategy.
+      - If adding another station helps fill the budget, ADD IT.
+      - The budget was set by the client. Leaving money on the table is UNACCEPTABLE.
+      - If you MUST exceed the budget (e.g., the minimum viable plan costs more), you MAY exceed by up to 10%, but you MUST explain why in the analysis field.
+
       0. **GEOGRAPHIC PROXIMITY (CRITICAL)**: If you select a station NOT physically located in '${criteria.location}', ensure it is from a **Neighboring City (Max 20km)**.
          - STRICTLY EXCLUDE stations from far away cities (>20km) unless they are famous state-wide giants.
          - Priority is always for local stations.
@@ -156,39 +166,43 @@ export class AIService {
          
          - **SCENARIO 1: LEADER IS AFFORDABLE (< 60% of Budget)**:
              - **Ideal Plan**: Select Leader (High Freq) + 2-3 Complementary Stations.
+             - **INCREASE SPOTS** on all stations until the budget is filled.
          
          - **SCENARIO 2: LEADER IS EXPENSIVE (60% - 100% of Budget)**:
              - **Solo Plan**: Select **ONLY** the Leader.
-             - Maximize spots on the Leader (e.g., 44, 66) to use the full budget.
+             - Maximize spots on the Leader (e.g., 44, 66, 88, 110) to USE THE FULL BUDGET.
              - **DO NOT** add cheap stations just to add count. Quality over Quantity.
          
          - **SCENARIO 3: LEADER IS UNAFFORDABLE (> Budget)**:
              - **Skip Leader**: It is mathematically impossible.
              - **Alternative Plan**: Select 3-4 best "Complementary" stations that fit the budget together.
-      
+             - **MAXIMIZE SPOTS** on all selected stations to fill the budget.
+       
       2. **ADD COMPLEMENTARY STATIONS (FREQUENCY > FRAGMENTATION)**:
          - **CONSOLIDATION RULE**: It is better to have **1 strong complementary station with 44 spots** than 2 weak ones with 22 spots each.
          - **Execution**:
              - If you have budget for 2 complementary stations (22 spots each), check if it's better to give 44 spots to the *Best* one instead.
              - Only split the budget into multiple complementary stations if you can afford decent frequency (at least 22-44 spots) on ALL of them.
          - **Growth**: If budget is large, THEN expand to 3 or 4 stations, but ensure they all have good impact.
-      
+       
       3. **BUDGET FILLING ALGORITHM (FREQUENCY > REACH)**:
-         - **Target**: Reach close to R$ ${criteria.budget} (Min 90%, Max 110%).
+         - **Target**: Reach as close to R$ ${criteria.budget} as possible (Min 95%, IDEALLY 98-100%). DO NOT EXCEED.
          - **Golden Rule**: **Consolidate Budget**. It is better to have 2 stations with 44 spots than 3 stations with 22 spots.
          
          - **Filling Logic (Step-by-Step)**:
              1. **Start**: Leader @ 44 spots.
              2. **Add 1st Complementary**: @ 44 spots. (If budget allows).
              3. **Budget Check**:
-                 - **IF UNDERBUDGET**: Increase **LEADER** to 66 or 88 spots.
-                 - **IF STILL UNDERBUDGET**: Increase **1st COMPLEMENTARY** to 66 spots.
+                 - **IF UNDERBUDGET**: Increase **LEADER** to 66, 88, 110, or even higher.
+                 - **IF STILL UNDERBUDGET**: Increase **1st COMPLEMENTARY** to 66, 88 spots.
                  - **ONLY THEN**: Add a **2nd Complementary** station (starting at 44 spots).
+                 - **KEEP INCREASING** spots until budget is ≥ 95% used.
                  - **IF OVERBUDGET**:
-                     - Reduce 1st Comp to 22 spots.
-                     - If still over, remove 1st Comp (Left with Leader only).
+                     - Reduce spots on the last added station by 22.
+                     - If still over, remove that station.
          
          - **Constraint**: **NEVER** add a 2nd Complementary station if the 1st one has only 22 spots. Consolidate them!
+         - **FINAL CHECK**: After building the plan, verify total cost is ≥ 95% of budget. If not, INCREASE SPOTS.
 
       4. **ANALYSIS (IMPORTANT)**:
          - Write the specific \`analysis\` field as if you are a Senior Media Planner presenting to a client.
@@ -200,6 +214,7 @@ export class AIService {
              - "A estratégia de concentração permite dominar a audiência..."
              - "Selecionamos emissoras complementares para ampliar o alcance em nichos específicos..."
          - Explain **WHY** these specific stations help the client achieve their objective (${criteria.objective}).
+         - **IF the total cost exceeds the budget**: Include a brief, professional justification explaining WHY the budget was exceeded (e.g., "O investimento ultrapassa levemente a verba definida para garantir a frequência mínima necessária na emissora líder.").
 
       OUTPUT FORMAT (JSON):
       {
@@ -283,11 +298,46 @@ export class AIService {
                 };
             }).filter((item: any) => item !== null);
 
-            // REMOVED PROGRAMMATIC BUDGET TRIMMER
-            // We now trust the AI to exceed budget only if strategically necessary, as requested.
-
-            // Just calculate totals
+            // PROGRAMMATIC BUDGET FILLING LOOP
+            // After AI response, maximize budget usage by increasing spots on existing items
             let totalCost = items.reduce((sum: number, item: any) => sum + item.totalCost, 0);
+            let remainingBudget = criteria.budget - totalCost;
+
+            if (remainingBudget > 0 && items.length > 0) {
+                // Sort items by cheapest unitPrice first to maximize spots per dollar
+                const sortedByPrice = [...items].sort((a: any, b: any) => a.unitPrice - b.unitPrice);
+
+                let fillingDone = false;
+                while (!fillingDone) {
+                    fillingDone = true; // Assume done unless we add spots
+                    for (const cheapItem of sortedByPrice) {
+                        const costFor22 = cheapItem.unitPrice * 22;
+                        if (costFor22 <= remainingBudget) {
+                            // Find the item in the original array and increase spots
+                            const originalItem = items.find((i: any) => i.broadcasterId === cheapItem.broadcasterId);
+                            if (originalItem) {
+                                originalItem.spots += 22;
+                                originalItem.totalCost = originalItem.spots * originalItem.unitPrice;
+                                remainingBudget -= costFor22;
+                                fillingDone = false; // We added spots, try again
+                            }
+                        }
+                    }
+                }
+
+                // Recalculate total cost after filling
+                totalCost = items.reduce((sum: number, item: any) => sum + item.totalCost, 0);
+                console.log(`[AI] Budget Filling: Used R$ ${totalCost} of R$ ${criteria.budget} (${((totalCost / criteria.budget) * 100).toFixed(1)}%)`);
+            }
+
+            // OVER-BUDGET JUSTIFICATION
+            // If the plan exceeds the budget, append a professional justification to the analysis
+            let analysis = planData.analysis || 'Plano de mídia gerado com base em inteligência de dados.';
+            if (totalCost > criteria.budget) {
+                const excessPercentage = (((totalCost - criteria.budget) / criteria.budget) * 100).toFixed(1);
+                const excessValue = (totalCost - criteria.budget).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                analysis += `\n\n⚠️ Nota sobre o investimento: O valor total ultrapassa a verba definida em ${excessPercentage}% (R$ ${excessValue}). Isso se deve à estrutura de pacotes das emissoras selecionadas (blocos de 22 inserções), onde o plano mínimo viável para garantir frequência e impacto adequados exige este investimento.`;
+            }
 
             // Emergency Fallback: If AI returns nothing (e.g. extremely confused), pick top relevance candidate?
             if (items.length === 0 && topCandidates.length > 0) {
@@ -326,7 +376,7 @@ export class AIService {
                 totalCost,
                 totalSpots,
                 totalBroadcasters: items.length,
-                analysis: planData.analysis || 'Plano de mídia gerado com base em inteligência de dados.'
+                analysis
             };
 
         } catch (error) {

@@ -3,6 +3,24 @@ import { Product } from '../models/Product';
 import { User } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 import { toAccentInsensitiveRegex } from '../utils/stringUtils';
+import NodeGeocoder from 'node-geocoder';
+const options: NodeGeocoder.Options = {
+  provider: 'openstreetmap'
+};
+const geocoder = NodeGeocoder(options);
+
+// Função para calcular distância entre duas coordenadas usando fórmula de Haversine
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Raio da Terra em km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distância em km
+}
 
 // Listar produtos da emissora (broadcaster) ou produtos de qualquer emissora (admin)
 export const getMyProducts = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -237,10 +255,28 @@ export const deleteProduct = async (req: AuthRequest, res: Response): Promise<vo
 export const getAllActiveProducts = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     // Parâmetros de paginação
+    console.log('========================================');
+    console.log('🛒 MARKETPLACE ENDPOINT CHAMADO');
+    console.log('========================================');
+    console.log('🌍 Backend recebeu:', {
+      lat: req.query.lat,
+      lng: req.query.lng,
+      userId: req.userId,
+      query: req.query
+    });
+
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 25;
     const skip = (page - 1) * limit;
     const search = (req.query.search as string) || '';
+
+    console.log('🌍 Parâmetros recebidos:', {
+      lat: req.query.lat,
+      lng: req.query.lng,
+      userId: req.userId,
+      page,
+      search
+    });
 
     // PASSO 1: Filtro de Preço (nos Produtos)
     let validBroadcasterIdsViaProduct: any[] = [];
@@ -391,14 +427,169 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     sortOptions['broadcasterProfile.pmm'] = -1;
     sortOptions['createdAt'] = -1;
 
-    // Busca emissoras COM paginação
-    const paginatedBroadcasters = await User.find(broadcasterQuery)
-      .select('_id')
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(limit);
+    let userLat = req.query.lat ? parseFloat(req.query.lat as string) : null;
+    let userLng = req.query.lng ? parseFloat(req.query.lng as string) : null;
+    let userCity: string | null = null;
 
-    const paginatedBroadcasterIds = paginatedBroadcasters.map(b => b._id);
+    // Se as coordenadas não vieram na query (navegador bloqueado/não autorizado) 
+    // e o usuário estiver logado, buscar do banco de dados (endereço de registro)
+    if (req.userId && (userLat === null || userLng === null || Number.isNaN(userLat) || Number.isNaN(userLng))) {
+      try {
+        const loggedUser = await User.findById(req.userId).select('address').lean();
+        if (loggedUser && loggedUser.address) {
+          if (loggedUser.address.latitude && loggedUser.address.longitude) {
+            userLat = loggedUser.address.latitude;
+            userLng = loggedUser.address.longitude;
+          } else if (loggedUser.address.city && loggedUser.address.state) {
+            // Se o usuário não tem lat/lng, mas tem cidade, tentamos geocodificar a cidade dele!
+            const resData = await geocoder.geocode(`${loggedUser.address.city}, ${loggedUser.address.state}, Brasil`);
+            if (resData && resData.length > 0 && resData[0]) {
+              userLat = resData[0].latitude || null;
+              userLng = resData[0].longitude || null;
+            }
+          }
+          if (loggedUser.address.city) {
+            userCity = loggedUser.address.city;
+            console.log(`📍 Usando localização do perfil do usuário: ${userCity} (Lat: ${userLat}, Lng: ${userLng})`);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao buscar endereço do usuário logado:', err);
+      }
+    }
+
+    // Se temos coordenadas mas não temos cidade, tenta obter via geocoding reverso ANTES de ordenar
+    if ((userLat !== null && userLng !== null && !Number.isNaN(userLat) && !Number.isNaN(userLng)) && !userCity) {
+      try {
+        console.log('🔍 Buscando cidade via geocoding reverso (antes da ordenação)...');
+        const reverseResult = await geocoder.reverse({ lat: userLat, lon: userLng });
+        if (reverseResult && reverseResult.length > 0 && reverseResult[0]) {
+          userCity = reverseResult[0].city || (reverseResult[0].administrativeLevels && reverseResult[0].administrativeLevels.level2long) || null;
+          console.log('✅ Cidade obtida via geocoding reverso (antes da ordenação):', userCity);
+        } else {
+          console.log('⚠️ Geocoding reverso não retornou cidade');
+        }
+      } catch (err) {
+        console.error('❌ Erro no geocoding reverso (antes da ordenação):', err);
+      }
+    }
+
+    console.log('========================================');
+    console.log('📍 Coordenadas finais para ordenação:', { 
+      userLat, 
+      userLng, 
+      userCity,
+      userId: req.userId || 'não logado'
+    });
+
+    let paginatedBroadcasters;
+    let proximitySortApplied = false;
+
+    const hasValidCoords = userLat !== null && userLng !== null && !Number.isNaN(userLat) && !Number.isNaN(userLng);
+
+    if (hasValidCoords && !req.query.city) {
+      try {
+        console.log('📊 Iniciando ordenação por proximidade...');
+
+        // Busca todas as emissoras que batem com os filtros para ordenar em memória
+        const allMatching = await User.find(broadcasterQuery)
+          .select('_id address.city address.latitude address.longitude broadcasterProfile.pmm companyName')
+          .lean();
+
+        console.log(`📊 Total de emissoras para ordenar: ${allMatching.length}`);
+
+        const normalizeCityStr = (city?: string) => {
+          if (!city) return '';
+          return city
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, ' ');
+        };
+        const normalizedUserCity = normalizeCityStr(userCity || '');
+
+        console.log('🏙️ Cidade do usuário para ordenação:', {
+          original: userCity,
+          normalized: normalizedUserCity
+        });
+
+        // Pré-calcula distância de cada emissora (evita recalcular durante o sort)
+        const distanceCache = new Map<string, number>();
+        const safeUserLat = userLat as number;
+        const safeUserLng = userLng as number;
+
+        allMatching.forEach((b: any) => {
+          const bLat = b.address?.latitude;
+          const bLng = b.address?.longitude;
+          if (bLat != null && bLng != null && typeof bLat === 'number' && typeof bLng === 'number') {
+            distanceCache.set(b._id.toString(), getDistance(safeUserLat, safeUserLng, bLat, bLng));
+          }
+        });
+
+        console.log(`📊 Emissoras com coordenadas válidas: ${distanceCache.size} de ${allMatching.length}`);
+
+        // Ordena: mesma cidade primeiro (por PMM), depois por distância crescente (PMM como desempate)
+        allMatching.sort((a: any, b: any) => {
+          const aCity = normalizeCityStr(a.address?.city);
+          const bCity = normalizeCityStr(b.address?.city);
+          const pmmA = a.broadcasterProfile?.pmm || 0;
+          const pmmB = b.broadcasterProfile?.pmm || 0;
+
+          const aIsUserCity = normalizedUserCity !== '' && aCity === normalizedUserCity;
+          const bIsUserCity = normalizedUserCity !== '' && bCity === normalizedUserCity;
+
+          // Regra 1: Emissoras da mesma cidade do usuário sempre no topo
+          if (aIsUserCity && bIsUserCity) return pmmB - pmmA;
+          if (aIsUserCity && !bIsUserCity) return -1;
+          if (!aIsUserCity && bIsUserCity) return 1;
+
+          // Regra 2: Por distância crescente (PMM como desempate se < 30km de diferença)
+          const distA = distanceCache.get(a._id.toString());
+          const distB = distanceCache.get(b._id.toString());
+
+          if (distA != null && distB != null) {
+            const distDiff = distA - distB;
+            if (Math.abs(distDiff) < 30) return pmmB - pmmA;
+            return distDiff;
+          }
+          // Emissoras sem coordenadas vão para o final, ordenadas por PMM
+          if (distA != null && distB == null) return -1;
+          if (distA == null && distB != null) return 1;
+          return pmmB - pmmA;
+        });
+
+        // Debug: log das primeiras 10 emissoras após ordenação
+        console.log('========================================');
+        console.log('📊 Primeiras 10 emissoras após ordenação por proximidade:');
+        allMatching.slice(0, 10).forEach((b: any, idx: number) => {
+          const dist = distanceCache.get(b._id.toString());
+          console.log(`  ${idx + 1}. ${b.companyName} | Cidade: "${b.address?.city}" | Dist: ${dist != null ? dist.toFixed(1) + 'km' : 'N/A'} | PMM: ${b.broadcasterProfile?.pmm || 0}`);
+        });
+
+        // Aplica paginação manual após ordenação
+        paginatedBroadcasters = allMatching.slice(skip, skip + limit);
+        res.locals.filteredTotalItems = allMatching.length;
+        proximitySortApplied = true;
+
+      } catch (proxError) {
+        console.error('❌ Erro na ordenação por proximidade, usando fallback:', proxError);
+        // Fallback: usa ordenação padrão do banco
+        paginatedBroadcasters = null;
+        proximitySortApplied = false;
+      }
+    }
+
+    // Fallback: ordenação padrão do banco de dados (sem proximidade)
+    if (!paginatedBroadcasters) {
+      paginatedBroadcasters = await User.find(broadcasterQuery)
+        .select('_id address.city')
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit);
+    }
+
+    const paginatedBroadcasterIds = paginatedBroadcasters.map((b: any) => b._id);
 
     // Busca produtos dessas emissoras (reaplicando filtro de preço se necessário)
     const productQuery: any = {
@@ -409,12 +600,29 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     if (priceMin !== null) productQuery.pricePerInsertion = { ...productQuery.pricePerInsertion, $gte: priceMin };
     if (priceMax !== null) productQuery.pricePerInsertion = { ...productQuery.pricePerInsertion, $lte: priceMax };
 
-    const products = await Product.find(productQuery)
+    let products = await Product.find(productQuery)
       .populate({
         path: 'broadcasterId',
         select: '-password'
       })
-      .sort({ createdAt: -1 });
+      .lean();
+
+    // Reordenar os produtos com base na ordem dos broadcasters (paginatedBroadcasterIds)
+    const broadcasterIdStrings = paginatedBroadcasterIds.map((id: any) => id.toString());
+
+    products.sort((a: any, b: any) => {
+      const idA = a.broadcasterId?._id ? a.broadcasterId._id.toString() : '';
+      const idB = b.broadcasterId?._id ? b.broadcasterId._id.toString() : '';
+      const indexA = broadcasterIdStrings.indexOf(idA);
+      const indexB = broadcasterIdStrings.indexOf(idB);
+
+      // Se forem da mesma emissora, ordena por data de criação do produto (mais novo primeiro)
+      if (indexA === indexB) {
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      }
+
+      return indexA - indexB;
+    });
 
 
     // Aggregation de PMM por Cidade (Server-Side Context)
@@ -445,15 +653,22 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       }, {} as Record<string, number>);
     }
 
+    // Calcula totalItems real dependendo se foi filtrado por proximidade na memória ou não
+    const finalTotalItems = res.locals.filteredTotalItems !== undefined ? res.locals.filteredTotalItems : totalBroadcasters;
+    const finalTotalPages = Math.ceil(finalTotalItems / limit);
+
+    console.log(`✅ Marketplace response: ${products.length} produtos, proximidade=${proximitySortApplied}, total=${finalTotalItems}`);
+
     res.json({
       products,
-      cityMaxPmm, // Inclui o mapa de PMM máximo por cidade
+      cityMaxPmm,
+      isSortedByProximity: proximitySortApplied,
       pagination: {
         currentPage: page,
-        totalPages,
-        totalItems: totalBroadcasters,
+        totalPages: finalTotalPages,
+        totalItems: finalTotalItems,
         itemsPerPage: limit,
-        hasNextPage: page < totalPages,
+        hasNextPage: page < finalTotalPages,
         hasPrevPage: page > 1
       }
     });

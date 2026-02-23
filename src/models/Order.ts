@@ -181,7 +181,9 @@ export interface IOrder extends Document {
   platformSplit: number; // 20% do gross
   techFee: number; // 5% do gross (taxa técnica adicional)
   agencyCommission: number; // 12% do gross (se aplicável)
-  totalAmount: number; // grossAmount + techFee + agencyCommission (o que o cliente paga)
+  monitoringCost: number; // Valor do serviço de monitoramento
+  isMonitoringEnabled: boolean; // Flag se contratou o serviço
+  totalAmount: number; // grossAmount + techFee + agencyCommission + monitoringCost (o que o cliente paga)
 
   // DEPRECATED (manter por compatibilidade)
   subtotal: number;
@@ -388,6 +390,8 @@ const OrderSchema = new Schema<IOrder>({
   platformSplit: { type: Number, required: true },
   techFee: { type: Number, required: true },
   agencyCommission: { type: Number, default: 0 },
+  monitoringCost: { type: Number, default: 0 },
+  isMonitoringEnabled: { type: Boolean, default: true },
   totalAmount: { type: Number, required: true },
 
   // DEPRECATED (manter por compatibilidade)

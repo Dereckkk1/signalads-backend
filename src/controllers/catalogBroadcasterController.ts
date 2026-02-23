@@ -5,6 +5,36 @@ import { Product } from '../models/Product';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { uploadFile } from '../config/storage';
+import NodeGeocoder from 'node-geocoder';
+
+const geocoderOptions: NodeGeocoder.Options = { provider: 'openstreetmap' };
+const geocoder = NodeGeocoder(geocoderOptions);
+
+/**
+ * Helper: Geocodifica a cidade/estado de um endereço e retorna lat/lng.
+ * Usado ao criar/atualizar emissoras para preencher address.latitude/longitude.
+ */
+async function geocodeAddress(address: any): Promise<{ latitude: number; longitude: number } | null> {
+  try {
+    const city = address?.city;
+    const state = address?.state;
+    if (!city) return null;
+
+    const query = state ? `${city}, ${state}, Brasil` : `${city}, Brasil`;
+    const results = await geocoder.geocode(query);
+
+    const first = results?.[0];
+    if (first && first.latitude != null && first.longitude != null) {
+      console.log(`📍 Geocodificação OK: "${query}" → (${first.latitude}, ${first.longitude})`);
+      return { latitude: first.latitude, longitude: first.longitude };
+    }
+    console.log(`⚠️ Geocodificação sem resultado para: "${query}"`);
+    return null;
+  } catch (err) {
+    console.error('❌ Erro ao geocodificar endereço:', err);
+    return null;
+  }
+}
 
 /**
  * Controller de Emissoras Catálogo
@@ -92,6 +122,15 @@ export const createCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       cleanBroadcasterProfile = removeUndefined(broadcasterProfile);
     }
 
+    // Geocodifica o endereço para obter lat/lng (necessário para ordenação por proximidade no marketplace)
+    let finalAddress = address || {};
+    if (finalAddress.city && (!finalAddress.latitude || !finalAddress.longitude)) {
+      const coords = await geocodeAddress(finalAddress);
+      if (coords) {
+        finalAddress = { ...finalAddress, latitude: coords.latitude, longitude: coords.longitude };
+      }
+    }
+
     // Cria a emissora catálogo
     const catalogBroadcaster = new User({
       companyName,
@@ -107,7 +146,7 @@ export const createCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       isCatalogOnly: true, // MARCA COMO CATÁLOGO
       managedByAdmin: true, // GERENCIADA PELO ADMIN
       createdBy: adminId, // QUEM CRIOU
-      address: address || {},
+      address: finalAddress,
       broadcasterProfile: cleanBroadcasterProfile
     });
 
@@ -342,7 +381,18 @@ export const updateCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       }
       broadcaster.email = email.toLowerCase();
     }
-    if (address) broadcaster.address = { ...broadcaster.address, ...address };
+    if (address) {
+      broadcaster.address = { ...broadcaster.address, ...address };
+      // Re-geocodifica se a cidade mudou e não tem lat/lng (ou a cidade é nova)
+      const updatedCity = address.city || broadcaster.address?.city;
+      if (updatedCity && (!broadcaster.address?.latitude || !broadcaster.address?.longitude || address.city)) {
+        const coords = await geocodeAddress(broadcaster.address);
+        if (coords && broadcaster.address) {
+          broadcaster.address.latitude = coords.latitude;
+          broadcaster.address.longitude = coords.longitude;
+        }
+      }
+    }
     if (broadcasterProfile) {
 
       // Garante que broadcasterProfile existe
