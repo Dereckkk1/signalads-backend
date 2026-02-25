@@ -112,6 +112,11 @@ export interface IUser extends Document {
     createdAt: Date;
   }>;
 
+  // Email confirmation
+  emailConfirmed?: boolean;
+  emailConfirmToken?: string;
+  emailConfirmTokenExpires?: Date;
+
   // === MODELO CATÁLOGO (Emissoras gerenciadas pelo Admin) ===
   isCatalogOnly?: boolean; // true = emissora sem conta própria, cadastrada pelo admin
   managedByAdmin?: boolean; // true = admin gerencia produtos, aprovações e OPEC
@@ -292,6 +297,18 @@ const userSchema = new Schema<IUser>(
         default: Date.now
       }
     }],
+
+    // Email confirmation
+    emailConfirmed: {
+      type: Boolean,
+      default: false
+    },
+    emailConfirmToken: {
+      type: String
+    },
+    emailConfirmTokenExpires: {
+      type: Date
+    },
 
     // === MODELO CATÁLOGO (Emissoras gerenciadas pelo Admin) ===
     isCatalogOnly: {

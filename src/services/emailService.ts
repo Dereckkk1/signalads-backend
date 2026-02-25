@@ -1642,6 +1642,48 @@ export const sendPaymentConfirmed = async (data: {
 };
 
 // ===========================================
+// CONFIRMAÇÃO DE EMAIL (REGISTRO)
+// ===========================================
+
+/**
+ * Email para confirmar criação de conta
+ */
+export const sendEmailConfirmation = async (
+  email: string,
+  name: string,
+  token: string
+) => {
+  const confirmUrl = `${process.env.FRONTEND_URL}/confirm-email/${token}`;
+
+  const content = `
+    ${greeting(name)}
+
+    ${paragraph('Obrigado por se cadastrar na <strong>E-rádios</strong>! Para completar seu cadastro e ativar sua conta, confirme seu endereço de email clicando no botão abaixo.')}
+
+    ${divider()}
+
+    ${alertCard('Este link expira em <strong>24 horas</strong>. Após este período, será necessário realizar um novo cadastro.', 'warning')}
+
+    ${paragraph('Se você não realizou este cadastro, ignore este email.', { center: true })}
+  `;
+
+  await sendEmail({
+    to: email,
+    subject: '📧 Confirme seu Email - E-rádios',
+    html: createEmailTemplate({
+      title: 'Bem-vindo à E-rádios!',
+      subtitle: 'Confirme seu email para ativar sua conta',
+      content,
+      buttonText: '✅ Confirmar Email',
+      buttonUrl: confirmUrl,
+      buttonColor: colors.tertiary,
+      preheader: 'Confirme seu email para ativar sua conta na E-rádios',
+      showLogo: false
+    })
+  });
+};
+
+// ===========================================
 // AUTENTICAÇÃO EM DUAS ETAPAS (2FA)
 // ===========================================
 
@@ -1795,9 +1837,9 @@ export const sendTwoFactorCodeEmail = async (
     html: createEmailTemplate({
       title: 'Código de Verificação',
       subtitle: 'Confirme sua identidade',
-      icon: '🔐',
       content,
-      preheader: 'Seu código de verificação - Autenticação em duas etapas'
+      preheader: 'Seu código de verificação - Autenticação em duas etapas',
+      showLogo: false
     })
   });
 
@@ -2106,6 +2148,8 @@ export default {
   sendBroadcasterInvoiceRequest,
   sendBillingOrderToBroadcaster,
   sendPaymentConfirmed,
+  // Email confirmation export
+  sendEmailConfirmation,
   // 2FA exports
   sendTwoFactorEnableEmail,
   sendTwoFactorLoginEmail,

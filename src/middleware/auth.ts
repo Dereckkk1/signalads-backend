@@ -15,10 +15,11 @@ export interface AuthRequest extends Request {
 
 export const authenticateToken = async (
   req: AuthRequest,
-  res: Response,
-  next: NextFunction
+  res: tion
 ): Promise<void> => {
   try {
+    Response,
+    next: NextFunc
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!token) {

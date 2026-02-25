@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { User } from '../models/User';
-import { sendTwoFactorEnableEmail, sendTwoFactorLoginEmail, sendTwoFactorCodeEmail } from '../services/emailService';
+import { sendTwoFactorEnableEmail, sendTwoFactorLoginEmail, sendTwoFactorCodeEmail, sendEmailConfirmation } from '../services/emailService';
 import { AuthRequest } from '../middleware/auth';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -18,44 +18,96 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verificar se usuário já existe
+    // Verificar se usuário já existe (incluindo não confirmados)
     const existingUser = await User.findOne({ $or: [{ email }, { cpfOrCnpj }] });
     if (existingUser) {
-      res.status(400).json({ error: 'Email ou CPF/CNPJ já cadastrado' });
+      // Se existe mas não confirmou email, permite reenviar
+      if (!existingUser.emailConfirmed && existingUser.emailConfirmToken) {
+        const confirmToken = crypto.randomBytes(32).toString('hex');
+        const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
+        existingUser.emailConfirmToken = confirmToken;
+        existingUser.emailConfirmTokenExpires = tokenExpires;
+        await existingUser.save();
+
+        await sendEmailConfirmation(existingUser.email, existingUser.companyName || existingUser.fantasyName || 'Usuário', confirmToken);
+
+        res.status(200).json({
+          message: 'Email de confirmação reenviado. Verifique sua caixa de entrada.',
+          requiresEmailConfirmation: true
+        });
+        return;
+      }
+
+      res.status(400).json({ error: 'Email ou CNPJ já cadastrado' });
       return;
     }
 
     // Hash da senha
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Criar usuário (apenas advertiser ou agency)
+    // Gera token de confirmação de email
+    const confirmToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
+    // Criar usuário (apenas advertiser ou agency) - não confirmado ainda
     const user = new User({
       email,
       password: hashedPassword,
       userType,
-      status: 'approved', // Advertiser e Agency aprovados automaticamente
+      status: 'approved',
       cpfOrCnpj,
       companyName,
       fantasyName,
       phone,
       cnpj,
-      address
+      address,
+      emailConfirmed: false,
+      emailConfirmToken: confirmToken,
+      emailConfirmTokenExpires: tokenExpires,
+      // 2FA ativado por padrão
+      twoFactorEnabled: true,
+      twoFactorConfirmedAt: new Date()
     });
 
     await user.save();
 
+    // Envia email de confirmação
+    await sendEmailConfirmation(email, companyName || fantasyName || 'Usuário', confirmToken);
+
     res.status(201).json({
-      message: 'Usuário cadastrado com sucesso!',
-      user: {
-        id: user._id,
-        email: user.email,
-        userType: user.userType,
-        status: user.status
-      }
+      message: 'Cadastro iniciado! Verifique seu email para confirmar sua conta.',
+      requiresEmailConfirmation: true
     });
   } catch (error) {
     console.error('Erro no registro:', error);
     res.status(500).json({ error: 'Erro ao cadastrar usuário' });
+  }
+};
+
+export const confirmEmail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.params;
+
+    const user = await User.findOne({
+      emailConfirmToken: token,
+      emailConfirmTokenExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      res.status(400).json({ error: 'Link inválido ou expirado. Faça o cadastro novamente.' });
+      return;
+    }
+
+    user.emailConfirmed = true;
+    user.emailConfirmToken = undefined;
+    user.emailConfirmTokenExpires = undefined;
+    await user.save();
+
+    res.json({ message: 'Email confirmado com sucesso! Agora você pode fazer login.' });
+  } catch (error) {
+    console.error('Erro ao confirmar email:', error);
+    res.status(500).json({ error: 'Erro ao confirmar email' });
   }
 };
 
@@ -81,6 +133,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       res.status(401).json({ error: 'Credenciais inválidas' });
+      return;
+    }
+
+    // Verificar se email foi confirmado
+    if (user.emailConfirmed === false) {
+      res.status(403).json({
+        error: 'email_not_confirmed',
+        message: 'Seu email ainda não foi confirmado. Verifique sua caixa de entrada.'
+      });
       return;
     }
 

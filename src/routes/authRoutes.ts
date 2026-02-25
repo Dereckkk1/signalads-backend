@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import {
   register,
+  confirmEmail,
   login,
   getMe,
   updateProfile,
@@ -25,6 +26,7 @@ const authLimiter = rateLimit({
 });
 
 router.post('/register', authLimiter, register);
+router.get('/confirm-email/:token', confirmEmail);
 router.post('/login', authLimiter, login);
 router.get('/me', authenticateToken, getMe);
 router.put('/update-profile', authenticateToken, updateProfile);
