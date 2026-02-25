@@ -157,8 +157,7 @@ const userSchema = new Schema<IUser>(
     },
     cpfOrCnpj: {
       type: String,
-      required: true,
-      unique: true
+      required: true
     },
     cnpj: {
       type: String,

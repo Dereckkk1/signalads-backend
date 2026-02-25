@@ -18,8 +18,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verificar se usuário já existe (incluindo não confirmados)
-    const existingUser = await User.findOne({ $or: [{ email }, { cpfOrCnpj }] });
+    // Verificar se usuário já existe apenas por email
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       // Se existe mas não confirmou email, permite reenviar
       if (!existingUser.emailConfirmed && existingUser.emailConfirmToken) {
@@ -39,7 +39,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         return;
       }
 
-      res.status(400).json({ error: 'Email ou CNPJ já cadastrado' });
+      res.status(400).json({ error: 'Email já cadastrado' });
       return;
     }
 
