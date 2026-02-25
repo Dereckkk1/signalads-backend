@@ -52,7 +52,7 @@ app.use(helmet({
 // Rate Limit Global - 60 requisições por minuto (Solicitado pelo cliente)
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minuto
-  max: 300, // AUMENTADO para evitar bloqueio em dev
+  max: 3000,
   message: 'Muitas requisições deste IP, por favor tente novamente em um minuto.',
 });
 app.use(limiter);
