@@ -20,9 +20,10 @@ const router = Router();
 
 // Rate Limit específico para Auth (Login/Register/2FA) - Previne Brute Force
 const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hora
-  max: 5, // Limite de 5 tentativas por hora
-  message: 'Muitas tentativas de login/registro deste IP, por favor tente novamente em uma hora.',
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100,                   // 100 tentativas por janela (protege brute force mas não bloqueia usuários normais)
+  skipSuccessfulRequests: true, // Logins bem-sucedidos não contam para o limite
+  message: 'Muitas tentativas de autenticação deste IP, por favor tente novamente em 15 minutos.',
 });
 
 router.post('/register', authLimiter, register);

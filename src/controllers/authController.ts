@@ -65,9 +65,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       emailConfirmed: false,
       emailConfirmToken: confirmToken,
       emailConfirmTokenExpires: tokenExpires,
-      // 2FA ativado por padrão
-      twoFactorEnabled: true,
-      twoFactorConfirmedAt: new Date()
+      // 2FA desabilitado por padrão — usuário pode ativar nas configurações
+      twoFactorEnabled: false,
     });
 
     await user.save();
