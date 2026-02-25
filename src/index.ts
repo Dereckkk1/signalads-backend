@@ -35,6 +35,9 @@ dotenv.config();
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
+// Habilita confiança no proxy (Nginx/Cloudflare) para pegar IP real do usuário (necessário para rate-limit)
+app.set('trust proxy', 1);
+
 // Configuração de Segurança
 app.use(cors({
   origin: '*', // Permite todas as origens (dev) ou especifique ex: 'http://localhost:3000'
