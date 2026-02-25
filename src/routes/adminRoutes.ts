@@ -45,6 +45,7 @@ import {
   deleteOpec,
   getCatalogOrders
 } from '../controllers/catalogBroadcasterController';
+import { getDirectoryReport, updateDirectoryReportRecord } from '../controllers/reportController';
 import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
@@ -157,5 +158,11 @@ router.get('/users/:userId', authenticateToken, isAdmin, getUserFullDetails);
 router.put('/users/:userId/status', authenticateToken, isAdmin, updateUserStatus);
 router.put('/users/:userId/role', authenticateToken, isAdmin, updateUserRole);
 router.put('/users/:userId/reset-password', authenticateToken, isAdmin, adminResetUserPassword);
+
+// ========================
+// ROTAS DE RELATÓRIO DA DIRETORIA
+// ========================
+router.get('/directory-report', authenticateToken, isAdmin, getDirectoryReport);
+router.put('/directory-report/:productId', authenticateToken, isAdmin, updateDirectoryReportRecord);
 
 export default router;

@@ -1776,7 +1776,7 @@ export const sendTwoFactorLoginEmail = async (
     
     ${alertCard('<strong>⚠️ Não foi você?</strong><br>Se você não tentou fazer login, <strong>NÃO clique no link</strong>. Alguém pode ter sua senha. Recomendamos alterar sua senha imediatamente.', 'error')}
     
-    ${paragraph('Dúvidas? Entre em contato com nosso suporte: suporte@signalads.com', { center: true })}
+    ${paragraph('Dúvidas? Entre em contato com nosso suporte: dani@hubradios.com.br', { center: true })}
   `;
 
   await sendEmail({
