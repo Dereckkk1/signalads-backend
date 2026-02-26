@@ -10,3 +10,5 @@ coverage/
 credentials/
 token.txt
 /cache
+/src/scripts_bak
+/data

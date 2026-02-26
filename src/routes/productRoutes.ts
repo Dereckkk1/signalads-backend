@@ -7,7 +7,8 @@ import {
   getAllActiveProducts,
   getMarketplaceCities,
   getMarketplaceBroadcasterDetails,
-  getMapProducts
+  getMapProducts,
+  searchBroadcastersForCompare
 } from '../controllers/productController';
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
 
@@ -21,6 +22,7 @@ router.delete('/:productId', authenticateToken, deleteProduct);
 
 // Rota pública para marketplace (mas precisa estar autenticado)
 router.get('/map', optionalAuthenticateToken, getMapProducts); // Rota dedicada ao mapa
+router.get('/compare/search', optionalAuthenticateToken, searchBroadcastersForCompare); // Busca para o Comparador
 router.get('/marketplace/cities', optionalAuthenticateToken, getMarketplaceCities);
 router.get('/marketplace/broadcaster/:broadcasterId', optionalAuthenticateToken, getMarketplaceBroadcasterDetails);
 router.get('/marketplace', optionalAuthenticateToken, getAllActiveProducts);

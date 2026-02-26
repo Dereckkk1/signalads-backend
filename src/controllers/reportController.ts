@@ -10,7 +10,7 @@ import mongoose from 'mongoose';
  */
 export const getDirectoryReport = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { search, page = 1, limit = 50 } = req.query;
+        const { search, page = 1, limit = 50, city } = req.query;
 
         const pageNum = Math.max(1, Number(page));
         const limitNum = Math.max(1, Number(limit));
@@ -20,6 +20,9 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
         const matchStage: any = {};
         if (search) {
             matchStage['broadcaster.companyName'] = { $regex: search, $options: 'i' };
+        }
+        if (city) {
+            matchStage['broadcaster.address.city'] = city;
         }
 
         const pipeline: any[] = [
@@ -100,12 +103,15 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
 
 /**
  * PUT /api/admin/directory-report/:productId
- * Atualiza um registro diretamente pelo relatório
+ * Atualiza preço plataforma (apenas produtos 30s) e PMM.
+ * Ao editar um produto 30s, recalcula automaticamente os demais tempos:
+ *   Comercial: 15s = x/2, 30s = x, 45s = x*1.5, 60s = x*2
+ *   Testemunhal: 30s = x, 60s = x*2
  */
 export const updateDirectoryReportRecord = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const { productId } = req.params;
-        const { precoPlataforma, pmm, cidade, dial, emissora } = req.body;
+        const { precoPlataforma, pmm } = req.body;
 
         const product = await Product.findById(productId);
         if (!product) {
@@ -113,41 +119,54 @@ export const updateDirectoryReportRecord = async (req: AuthRequest, res: Respons
             return;
         }
 
-        // Atualiza Produto (preço plataforma)
-        if (typeof precoPlataforma === 'number') {
-            product.pricePerInsertion = precoPlataforma;
-            await product.save();
+        // Só permite editar produtos de 30s
+        if (product.duration !== 30) {
+            res.status(400).json({ error: 'Apenas produtos de 30s podem ser editados' });
+            return;
         }
 
-        // Atualiza User (Emissora): PMM, Cidade, Dial, Nome
-        const user = await User.findById(product.broadcasterId);
-        if (user) {
-            if (typeof pmm === 'number') {
+        // Atualiza preço do produto 30s e recalcula os demais
+        if (typeof precoPlataforma === 'number' && precoPlataforma >= 0) {
+            const basePrice = precoPlataforma; // preço do 30s
+            product.pricePerInsertion = basePrice;
+            product.manuallyEdited = true;
+            await product.save();
+
+            const isComercial = product.spotType.startsWith('Comercial');
+            const isTestemunhal = product.spotType.startsWith('Testemunhal');
+
+            if (isComercial) {
+                // Atualiza 15s, 45s e 60s
+                await Product.findOneAndUpdate(
+                    { broadcasterId: product.broadcasterId, spotType: 'Comercial 15s' },
+                    { pricePerInsertion: basePrice / 2, manuallyEdited: true }
+                );
+                await Product.findOneAndUpdate(
+                    { broadcasterId: product.broadcasterId, spotType: 'Comercial 45s' },
+                    { pricePerInsertion: basePrice * 1.5, manuallyEdited: true }
+                );
+                await Product.findOneAndUpdate(
+                    { broadcasterId: product.broadcasterId, spotType: 'Comercial 60s' },
+                    { pricePerInsertion: basePrice * 2, manuallyEdited: true }
+                );
+            } else if (isTestemunhal) {
+                // Atualiza 60s
+                await Product.findOneAndUpdate(
+                    { broadcasterId: product.broadcasterId, spotType: 'Testemunhal 60s' },
+                    { pricePerInsertion: basePrice * 2, manuallyEdited: true }
+                );
+            }
+        }
+
+        // Atualiza PMM no User
+        if (typeof pmm === 'number') {
+            const user = await User.findById(product.broadcasterId);
+            if (user) {
                 if (!user.broadcasterProfile) user.broadcasterProfile = {} as any;
                 user.broadcasterProfile!.pmm = pmm;
+                user.markModified('broadcasterProfile');
+                await user.save();
             }
-            if (typeof cidade === 'string') {
-                if (!user.address) user.address = {} as any;
-                user.address!.city = cidade;
-            }
-            if (typeof dial === 'string') {
-                if (!user.broadcasterProfile) user.broadcasterProfile = {} as any;
-                if (!user.broadcasterProfile!.generalInfo) user.broadcasterProfile!.generalInfo = {} as any;
-                user.broadcasterProfile!.generalInfo!.dialFrequency = dial;
-            }
-            if (typeof emissora === 'string' && emissora.trim() !== '') {
-                user.companyName = emissora;
-                if (user.broadcasterProfile && user.broadcasterProfile.generalInfo) {
-                    user.broadcasterProfile.generalInfo.stationName = emissora;
-                }
-            }
-
-            // Precisamos garantir que todos os campos modificados sejam detectados se forem objetos
-            user.markModified('broadcasterProfile');
-            user.markModified('address');
-            user.markModified('companyName');
-
-            await user.save();
         }
 
         res.json({ message: 'Registro atualizado com sucesso' });

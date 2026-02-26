@@ -373,21 +373,30 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       console.error('Erro ao parsear filtros JSON', e);
     }
 
-    // Se tem busca textual (mesma lógica anterior)
+    // Busca textual com suporte a múltiplos termos concatenados
+    // Ex: "fm o dia 100.5 rio" → cada termo deve dar match em algum campo (AND entre termos, OR entre campos)
     if (search && search.length >= 2) {
-      // Use helper para regex insensível a acentos
-      const searchRegex = toAccentInsensitiveRegex(search);
-      const searchQuery = {
-        $or: [
-          { companyName: searchRegex },
-          { 'broadcasterProfile.generalInfo.stationName': searchRegex },
-          { 'broadcasterProfile.generalInfo.dialFrequency': searchRegex },
-          { 'address.city': searchRegex }
-        ]
-      };
+      const searchFields = [
+        'companyName',
+        'broadcasterProfile.generalInfo.stationName',
+        'broadcasterProfile.generalInfo.dialFrequency',
+        'address.city'
+      ];
 
-      broadcasterQuery.$and = broadcasterQuery.$and || [];
-      broadcasterQuery.$and.push(searchQuery);
+      // Quebra em tokens e filtra tokens muito curtos (1 char) exceto números
+      const tokens = search.trim().split(/\s+/).filter(t => t.length >= 2 || /\d/.test(t));
+
+      if (tokens.length > 0) {
+        broadcasterQuery.$and = broadcasterQuery.$and || [];
+
+        // Cada token precisa dar match em pelo menos um campo
+        for (const token of tokens) {
+          const tokenRegex = toAccentInsensitiveRegex(token);
+          broadcasterQuery.$and.push({
+            $or: searchFields.map(field => ({ [field]: tokenRegex }))
+          });
+        }
+      }
     }
 
     // Conta total de emissoras filtradas
@@ -475,9 +484,9 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     }
 
     console.log('========================================');
-    console.log('📍 Coordenadas finais para ordenação:', { 
-      userLat, 
-      userLng, 
+    console.log('📍 Coordenadas finais para ordenação:', {
+      userLat,
+      userLng,
       userCity,
       userId: req.userId || 'não logado'
     });
@@ -763,5 +772,91 @@ export const getMapProducts = async (req: AuthRequest, res: Response): Promise<v
   } catch (error) {
     console.error('Erro ao buscar dados do mapa:', error);
     res.status(500).json({ error: 'Erro ao buscar dados do mapa' });
+  }
+};
+
+// Busca de emissoras para o Comparador (server-side, leve, sob demanda)
+export const searchBroadcastersForCompare = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const q = (req.query.q as string) || '';
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+
+    // Busca broadcasters com produtos ativos
+    const broadcasterIdsWithProducts = await Product.distinct('broadcasterId', { isActive: true });
+
+    const broadcasterQuery: any = {
+      _id: { $in: broadcasterIdsWithProducts },
+      userType: 'broadcaster',
+      $or: [{ status: 'approved' }, { isCatalogOnly: true }]
+    };
+
+    if (q && q.length >= 2) {
+      const searchFields = [
+        'companyName',
+        'broadcasterProfile.generalInfo.stationName',
+        'broadcasterProfile.generalInfo.dialFrequency',
+        'address.city'
+      ];
+      const tokens = q.trim().split(/\s+/).filter(t => t.length >= 2 || /\d/.test(t));
+
+      if (tokens.length > 0) {
+        broadcasterQuery.$and = tokens.map(token => {
+          const tokenRegex = toAccentInsensitiveRegex(token);
+          return { $or: searchFields.map(field => ({ [field]: tokenRegex })) };
+        });
+      }
+    }
+
+    const broadcasters = await User.find(broadcasterQuery)
+      .select('_id companyName address.city address.state broadcasterProfile.generalInfo broadcasterProfile.logo broadcasterProfile.pmm broadcasterProfile.coverage.totalPopulation broadcasterProfile.audienceProfile broadcasterProfile.categories')
+      .sort({ 'broadcasterProfile.pmm': -1 })
+      .limit(limit)
+      .lean();
+
+    // Para cada broadcaster, busca seus produtos
+    const bIds = broadcasters.map((b: any) => b._id);
+    const products = await Product.find({
+      broadcasterId: { $in: bIds },
+      isActive: true
+    }).select('broadcasterId spotType pricePerInsertion timeSlot').lean();
+
+    // Agrupa produtos por broadcaster
+    const productsByBroadcaster = new Map<string, any[]>();
+    products.forEach((p: any) => {
+      const bid = p.broadcasterId.toString();
+      if (!productsByBroadcaster.has(bid)) productsByBroadcaster.set(bid, []);
+      productsByBroadcaster.get(bid)!.push({
+        id: p._id,
+        name: p.spotType,
+        price: p.pricePerInsertion,
+        timeSlot: p.timeSlot
+      });
+    });
+
+    const result = broadcasters.map((b: any) => ({
+      id: b._id,
+      name: b.broadcasterProfile?.generalInfo?.stationName || b.companyName,
+      dial: b.broadcasterProfile?.generalInfo?.dialFrequency,
+      band: b.broadcasterProfile?.generalInfo?.band,
+      logo: b.broadcasterProfile?.logo,
+      city: b.address?.city || 'Desconhecida',
+      state: b.address?.state,
+      population: b.broadcasterProfile?.coverage?.totalPopulation || 0,
+      pmm: b.broadcasterProfile?.pmm || 0,
+      audience: {
+        socialClass: b.broadcasterProfile?.audienceProfile?.socialClass || {},
+        ageRange: b.broadcasterProfile?.audienceProfile?.ageRange || '',
+        gender: b.broadcasterProfile?.audienceProfile?.gender || { male: 50, female: 50 }
+      },
+      categories: b.broadcasterProfile?.categories || [],
+      products: productsByBroadcaster.get(b._id.toString()) || [],
+      citiesCovered: 0,
+      profile: b.broadcasterProfile || {}
+    }));
+
+    res.json(result);
+  } catch (error) {
+    console.error('Erro na busca para comparador:', error);
+    res.status(500).json({ error: 'Erro ao buscar emissoras' });
   }
 };

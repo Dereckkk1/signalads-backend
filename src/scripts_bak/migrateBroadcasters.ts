@@ -10,7 +10,6 @@ import { Product } from '../models/Product'; // Assumes Product.ts is in models
 dotenv.config();
 
 const DATA_DIR = path.join(__dirname, '../../data');
-const RELAT_FILE = path.join(DATA_DIR, 'relat_veiculo.xlsx');
 const RADIOS_FILE = path.join(DATA_DIR, 'radios.xlsx');
 const PRODUCTS_FILE = path.join(DATA_DIR, 'Produtos.xlsx');
 const PMM_FILE = path.join(DATA_DIR, 'PMM.xlsx');
@@ -153,24 +152,12 @@ const connectDB = async () => {
 const runMigration = async () => {
     await connectDB();
 
-    // 1. Load Relat
-    console.log(`Reading Relat file: ${RELAT_FILE}`);
-    let relatData: RelatRow[] = [];
-    try {
-        const relatWb = XLSX.readFile(RELAT_FILE);
-        const sheetName = relatWb.SheetNames[0];
-        if (sheetName) {
-            const relatSheet = relatWb.Sheets[sheetName];
-            if (relatSheet) {
-                relatData = XLSX.utils.sheet_to_json(relatSheet);
-            }
-        }
-    } catch (e) {
-        console.error("Error reading Relat file", e);
-    }
-    console.log(`Loaded ${relatData.length} rows from Relat`);
+    // LIMPEZA: Deletar todos os registros gerenciados pelo admin antes de migrar
+    console.log('🧹 Limpando emissoras gerenciadas pelo admin...');
+    const deleteRes = await User.deleteMany({ managedByAdmin: true });
+    console.log(`✅ Foram removidos ${deleteRes.deletedCount} registros antigos.`);
 
-    // 2. Load Radios
+    // 1. Load Radios
     console.log(`Reading Radios file: ${RADIOS_FILE}`);
     let radiosData: RadiosRow[] = [];
     let citiesMap = new Map<string, MunicipalityRow>();
@@ -206,7 +193,7 @@ const runMigration = async () => {
     }
     console.log(`Loaded ${radiosData.length} rows from Radios`);
 
-    // 3. Load Products
+    // 2. Load Products
     console.log(`Reading Products file: ${PRODUCTS_FILE}`);
     let productMap = new Map<string, ProductRow[]>();
     try {
@@ -232,7 +219,7 @@ const runMigration = async () => {
         console.error("Error reading Products file", e);
     }
 
-    // 4. Load PMM
+    // 3. Load PMM
     console.log(`Reading PMM file: ${PMM_FILE}`);
     let pmmMap = new Map<string, { opm?: number, pmm?: number }>();
     try {
@@ -271,56 +258,57 @@ const runMigration = async () => {
 
         try {
             // Identify Broadcaster using composite key: Station Name + Dial + UF
-            let relatMatch: RelatRow | undefined;
+            // relat_veiculo matching REMOVED - using only Radios data
 
-            // Parse Relat Nome field: "StationName | Dial | City/UF"
-            // Extract station name, dial, and UF from the Nome field
-            const parseRelatNome = (nome: string) => {
-                const parts = nome.split('|').map(p => p.trim());
-                if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
-                    const stationName = parts[0];
-                    const dial = parts[1];
-                    const cityUF = parts[2]; // e.g., "Santos/SP"
-                    const ufMatch = cityUF.match(/\/([A-Z]{2})$/);
-                    const uf = ufMatch && ufMatch[1] ? ufMatch[1] : '';
-                    return { stationName, dial, uf };
+            // --- FALLBACK: Universo ---
+            let universe = radio.universo;
+            if (!universe || universe === 0) {
+                // Tenta achar outra rádio na mesma cidade e mesma classe de antena que tenha universo
+                const fallbackRadio = radiosData.find(r =>
+                    r.praca === radio.praca &&
+                    r.classeAntena === radio.classeAntena &&
+                    r.universo && r.universo > 0
+                );
+                if (fallbackRadio) {
+                    universe = fallbackRadio.universo;
                 }
-                return null;
-            };
-
-            // Create composite key for radio
-            const radioKey = `${normalizeString(radio.emissora)}|${normalizeString(radio.dial)}|${normalizeString(radio.uf)}`;
-
-            // Find matching Relat entry
-            let potentialMatches = relatData.filter(r => {
-                if (!r.Nome) return false;
-                const parsed = parseRelatNome(r.Nome);
-                if (!parsed) return false;
-
-                const relatKey = `${normalizeString(parsed.stationName)}|${normalizeString(parsed.dial)}|${normalizeString(parsed.uf)}`;
-                return relatKey === radioKey;
-            });
-
-            // Fallback: If no exact composite key match, try name-based matching
-            if (potentialMatches.length === 0) {
-                potentialMatches = relatData.filter(r => {
-                    if (!r.Nome) return false;
-                    const rNorm = normalizeString(r.Nome);
-                    const radioNorm = normalizeString(radio.emissora);
-                    return rNorm.includes(radioNorm);
-                });
             }
 
-            if (potentialMatches.length > 0) {
-                relatMatch = potentialMatches[0];
+            // --- FALLBACK: Rede (Estilo, Classes, Gênero e Idade) ---
+            const NETWORKS = ['nativa', 'pan', 'massa', 'dbn', 'band', 'boas novas', 'nova brasil', 'band news', 'mix'];
+            const radioNameNorm = normalizeString(radio.emissora);
+            const foundNetwork = NETWORKS.find(net => {
+                const netNorm = normalizeString(net);
+                if (netNorm === 'nativa' && radioNameNorm.includes('alternativa')) return false;
+                return radioNameNorm.includes(netNorm);
+            });
+
+            if (foundNetwork) {
+                if (!radio.estilo || (!radio.classeAB && !radio.classeC && !radio.classeDE) || !radio.genero || !radio.idade) {
+                    const fallbackNetworkRadio = radiosData.find(r => {
+                        const rNameNorm = normalizeString(r.emissora);
+                        const rNetMatch = rNameNorm.includes(normalizeString(foundNetwork));
+                        const rNoAlt = normalizeString(foundNetwork) === 'nativa' ? !rNameNorm.includes('alternativa') : true;
+                        return rNetMatch && rNoAlt && r.estilo && (r.classeAB !== undefined || r.classeC !== undefined || r.classeDE !== undefined) && r.genero && r.idade;
+                    });
+
+                    if (fallbackNetworkRadio) {
+                        if (!radio.estilo) radio.estilo = fallbackNetworkRadio.estilo;
+                        if (!radio.classeAB && !radio.classeC && !radio.classeDE) {
+                            radio.classeAB = fallbackNetworkRadio.classeAB;
+                            radio.classeC = fallbackNetworkRadio.classeC;
+                            radio.classeDE = fallbackNetworkRadio.classeDE;
+                        }
+                        if (!radio.genero) radio.genero = fallbackNetworkRadio.genero;
+                        if (!radio.idade) radio.idade = fallbackNetworkRadio.idade;
+                    }
+                }
             }
 
             // --- VALIDATION: Only Radio fields are required ---
-            // relat_veiculo match is OPTIONAL - we'll use placeholders if not found
-
             const requiredRadioFields: (keyof RadiosRow)[] = [
                 'Row ID', 'classeAB', 'classeC', 'classeDE',
-                'uf', 'praca', 'emissora', 'dial', 'estilo', 'genero', 'idade', 'universo'
+                'uf', 'praca', 'emissora', 'dial', 'estilo', 'genero', 'idade'
             ];
 
             let missingField = false;
@@ -331,36 +319,17 @@ const runMigration = async () => {
                     break;
                 }
             }
+            // Universo is no longer mandatory, will default to 0 if not found
             if (missingField) {
                 skippedCount++;
                 continue;
             }
             // --- END VALIDATION ---
 
-            // Generate email and phone (use relat_veiculo if available, otherwise placeholder)
-            let email: string;
-            let phone: string;
-            let cleanCnpj: string;
-
-            if (relatMatch && relatMatch['E-mail'] && normalizeString(relatMatch['E-mail'])) {
-                email = relatMatch['E-mail'].trim();
-            } else {
-                // Generate placeholder email based on station name and dial
-                email = `catalog_${normalizeString(radio.emissora)}_${normalizeString(radio.dial)}@signalads.placeholder`;
-            }
-
-            if (relatMatch && relatMatch.Telefone && normalizeString(relatMatch.Telefone)) {
-                phone = relatMatch.Telefone.replace(/\D/g, '');
-            } else {
-                // Placeholder phone
-                phone = '0000000000';
-            }
-
-            if (relatMatch && relatMatch['CPF/CNPJ']) {
-                cleanCnpj = relatMatch['CPF/CNPJ'].replace(/\D/g, '');
-            } else {
-                cleanCnpj = `CATALOG${normalizeString(radio.emissora)}`;
-            }
+            // Generate email and phone (placeholders)
+            let email = `catalog_${normalizeString(radio.emissora)}_${normalizeString(radio.dial)}_${normalizeString(String(radio.praca))}@eradios.com.br`;
+            let phone = '0000000000';
+            let cleanCnpj = `CATALOG${radio['Row ID']}`;
             // Resolve City Code and Coords
             let cityName = radio.praca;
             let cityState = radio.uf;
@@ -377,18 +346,14 @@ const runMigration = async () => {
                 }
             }
 
-            // Address Parsing
-            const rawAddress = relatMatch ? (relatMatch['Endereço'] || '') : '';
-            const parsedAddress = parseAddress(rawAddress);
-
             const addressData = {
-                cep: parsedAddress.cep,
-                street: parsedAddress.street,
-                number: parsedAddress.number,
-                complement: parsedAddress.complement,
-                neighborhood: parsedAddress.neighborhood,
-                city: cityName || (relatMatch ? relatMatch.Cidade : '') || '',
-                state: cityState || (relatMatch ? relatMatch.UF : '') || '',
+                cep: '',
+                street: '',
+                number: '',
+                complement: '',
+                neighborhood: '',
+                city: cityName || '',
+                state: cityState || '',
                 latitude: latitude,
                 longitude: longitude
             };
@@ -423,7 +388,7 @@ const runMigration = async () => {
                 status: 'approved',
                 cpfOrCnpj: cleanCnpj,
                 cnpj: cleanCnpj,
-                companyName: (relatMatch && relatMatch['Nome']) ? relatMatch['Nome'] : radio.emissora,
+                companyName: radio.emissora,
                 fantasyName: radio.emissora,
                 phone: phone,
                 address: addressData,
@@ -438,7 +403,7 @@ const runMigration = async () => {
                     },
                     logo: radio.logo || '',
                     comercialEmail: email.toLowerCase(),
-                    website: (relatMatch && relatMatch.Site) ? relatMatch.Site : '',
+                    website: '',
                     categories: categories,
                     audienceProfile: {
                         gender: genderStats || { male: 50, female: 50 },
@@ -451,7 +416,7 @@ const runMigration = async () => {
                     },
                     coverage: {
                         cities: coverageCities,
-                        totalPopulation: radio.universo || 0,
+                        totalPopulation: universe || 0,
                         states: []
                     },
                     pmm: pmmValue
@@ -477,6 +442,18 @@ const runMigration = async () => {
                 const productsRaw = productMap.get(String(radio['Row ID']).trim());
 
                 if (productsRaw && productsRaw.length > 0) {
+                    // Check for manually edited products before deleting
+                    const editedProducts = await Product.find({
+                        broadcasterId: userId,
+                        manuallyEdited: true
+                    }).lean();
+
+                    // Build a map of manually edited prices by spotType
+                    const editedPriceMap = new Map<string, number>();
+                    for (const ep of editedProducts) {
+                        editedPriceMap.set(ep.spotType, ep.pricePerInsertion);
+                    }
+
                     // Delete existing products for this user (for idempotency)
                     await Product.deleteMany({ broadcasterId: userId });
 
@@ -490,33 +467,47 @@ const runMigration = async () => {
                         const productName = p['Produto'] ? p['Produto'].trim() : '';
 
                         if (productName === 'Spot 30') {
+                            // Use manually edited 30s price if available, otherwise Excel price
+                            const edited30s = editedPriceMap.get('Comercial 30s');
+                            const price30s = edited30s !== undefined ? edited30s : basePrice;
+                            const wasEdited = edited30s !== undefined;
+
                             productsToInsert.push(
                                 {
-                                    broadcasterId: userId, spotType: 'Comercial 5s', duration: 5, timeSlot: 'Rotativo',
-                                    pricePerInsertion: basePrice / 2, isActive: true
-                                },
-                                {
                                     broadcasterId: userId, spotType: 'Comercial 15s', duration: 15, timeSlot: 'Rotativo',
-                                    pricePerInsertion: basePrice * 0.75, isActive: true
+                                    pricePerInsertion: wasEdited ? price30s / 2 : basePrice * 0.75,
+                                    isActive: true, manuallyEdited: wasEdited
                                 },
                                 {
                                     broadcasterId: userId, spotType: 'Comercial 30s', duration: 30, timeSlot: 'Rotativo',
-                                    pricePerInsertion: basePrice, isActive: true
+                                    pricePerInsertion: price30s, isActive: true, manuallyEdited: wasEdited
+                                },
+                                {
+                                    broadcasterId: userId, spotType: 'Comercial 45s', duration: 45, timeSlot: 'Rotativo',
+                                    pricePerInsertion: wasEdited ? price30s * 1.5 : basePrice * 1.5,
+                                    isActive: true, manuallyEdited: wasEdited
                                 },
                                 {
                                     broadcasterId: userId, spotType: 'Comercial 60s', duration: 60, timeSlot: 'Rotativo',
-                                    pricePerInsertion: basePrice * 2, isActive: true
+                                    pricePerInsertion: wasEdited ? price30s * 2 : basePrice * 2,
+                                    isActive: true, manuallyEdited: wasEdited
                                 }
                             );
                         } else if (productName === 'Testemunhal 60') {
+                            // Use manually edited 30s price if available
+                            const edited30s = editedPriceMap.get('Testemunhal 30s');
+                            const price30s = edited30s !== undefined ? edited30s : basePrice / 2;
+                            const wasEdited = edited30s !== undefined;
+
                             productsToInsert.push(
                                 {
-                                    broadcasterId: userId, spotType: 'Testemunhal 60s', duration: 60, timeSlot: 'Rotativo',
-                                    pricePerInsertion: basePrice, isActive: true
+                                    broadcasterId: userId, spotType: 'Testemunhal 30s', duration: 30, timeSlot: 'Rotativo',
+                                    pricePerInsertion: price30s, isActive: true, manuallyEdited: wasEdited
                                 },
                                 {
-                                    broadcasterId: userId, spotType: 'Testemunhal 30s', duration: 30, timeSlot: 'Rotativo',
-                                    pricePerInsertion: basePrice / 2, isActive: true
+                                    broadcasterId: userId, spotType: 'Testemunhal 60s', duration: 60, timeSlot: 'Rotativo',
+                                    pricePerInsertion: wasEdited ? price30s * 2 : basePrice,
+                                    isActive: true, manuallyEdited: wasEdited
                                 }
                             );
                         }
@@ -558,6 +549,16 @@ const runMigration = async () => {
                             const userId = retryRes._id;
                             const productsRaw = productMap.get(String(radio['Row ID']).trim());
                             if (productsRaw && productsRaw.length > 0) {
+                                // Check for manually edited products before deleting
+                                const editedProducts = await Product.find({
+                                    broadcasterId: userId,
+                                    manuallyEdited: true
+                                }).lean();
+                                const editedPriceMap = new Map<string, number>();
+                                for (const ep of editedProducts) {
+                                    editedPriceMap.set(ep.spotType, ep.pricePerInsertion);
+                                }
+
                                 await Product.deleteMany({ broadcasterId: userId });
                                 const productsToInsert: any[] = [];
                                 for (const p of productsRaw) {
@@ -565,16 +566,22 @@ const runMigration = async () => {
                                     if (basePrice <= 0) continue;
                                     const productName = p['Produto'] ? p['Produto'].trim() : '';
                                     if (productName === 'Spot 30') {
+                                        const edited30s = editedPriceMap.get('Comercial 30s');
+                                        const price30s = edited30s !== undefined ? edited30s : basePrice;
+                                        const wasEdited = edited30s !== undefined;
                                         productsToInsert.push(
-                                            { broadcasterId: userId, spotType: 'Comercial 5s', duration: 5, timeSlot: 'Rotativo', pricePerInsertion: basePrice / 2, isActive: true },
-                                            { broadcasterId: userId, spotType: 'Comercial 15s', duration: 15, timeSlot: 'Rotativo', pricePerInsertion: basePrice * 0.75, isActive: true },
-                                            { broadcasterId: userId, spotType: 'Comercial 30s', duration: 30, timeSlot: 'Rotativo', pricePerInsertion: basePrice, isActive: true },
-                                            { broadcasterId: userId, spotType: 'Comercial 60s', duration: 60, timeSlot: 'Rotativo', pricePerInsertion: basePrice * 2, isActive: true }
+                                            { broadcasterId: userId, spotType: 'Comercial 15s', duration: 15, timeSlot: 'Rotativo', pricePerInsertion: wasEdited ? price30s / 2 : basePrice * 0.75, isActive: true, manuallyEdited: wasEdited },
+                                            { broadcasterId: userId, spotType: 'Comercial 30s', duration: 30, timeSlot: 'Rotativo', pricePerInsertion: price30s, isActive: true, manuallyEdited: wasEdited },
+                                            { broadcasterId: userId, spotType: 'Comercial 45s', duration: 45, timeSlot: 'Rotativo', pricePerInsertion: wasEdited ? price30s * 1.5 : basePrice * 1.5, isActive: true, manuallyEdited: wasEdited },
+                                            { broadcasterId: userId, spotType: 'Comercial 60s', duration: 60, timeSlot: 'Rotativo', pricePerInsertion: wasEdited ? price30s * 2 : basePrice * 2, isActive: true, manuallyEdited: wasEdited }
                                         );
                                     } else if (productName === 'Testemunhal 60') {
+                                        const edited30s = editedPriceMap.get('Testemunhal 30s');
+                                        const price30s = edited30s !== undefined ? edited30s : basePrice / 2;
+                                        const wasEdited = edited30s !== undefined;
                                         productsToInsert.push(
-                                            { broadcasterId: userId, spotType: 'Testemunhal 60s', duration: 60, timeSlot: 'Rotativo', pricePerInsertion: basePrice, isActive: true },
-                                            { broadcasterId: userId, spotType: 'Testemunhal 30s', duration: 30, timeSlot: 'Rotativo', pricePerInsertion: basePrice / 2, isActive: true }
+                                            { broadcasterId: userId, spotType: 'Testemunhal 30s', duration: 30, timeSlot: 'Rotativo', pricePerInsertion: price30s, isActive: true, manuallyEdited: wasEdited },
+                                            { broadcasterId: userId, spotType: 'Testemunhal 60s', duration: 60, timeSlot: 'Rotativo', pricePerInsertion: wasEdited ? price30s * 2 : basePrice, isActive: true, manuallyEdited: wasEdited }
                                         );
                                     }
                                 }

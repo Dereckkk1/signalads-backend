@@ -7,6 +7,7 @@ export interface IProduct extends Document {
   timeSlot: string; // "Rotativo", "Horário Nobre", "Indeterminado", "08:00-12:00"
   pricePerInsertion: number;
   isActive: boolean;
+  manuallyEdited: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +50,10 @@ const productSchema = new Schema<IProduct>(
     isActive: {
       type: Boolean,
       default: true
+    },
+    manuallyEdited: {
+      type: Boolean,
+      default: false
     }
   },
   {
