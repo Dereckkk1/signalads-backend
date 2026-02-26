@@ -1,2 +1,0 @@
-d2d0fdc HEAD@{0}: pull --tags origin master: Fast-forward
-7256e72 HEAD@{1}: commit (initial): init backend

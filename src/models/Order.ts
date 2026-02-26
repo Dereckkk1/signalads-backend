@@ -161,6 +161,9 @@ export interface IOrder extends Document {
 
   items: IOrderItem[];
 
+  // Agência: referência ao cliente
+  clientId?: mongoose.Types.ObjectId; // Referência ao AgencyClient
+
   // Faturamento
   billingData?: IBillingData;
   billingStatus?: 'pending_validation' | 'awaiting_payment' | 'paid_client' | 'rejected' | 'invoiced_client' | 'completed_billing';
@@ -220,6 +223,8 @@ const OrderSchema = new Schema<IOrder>({
   buyerEmail: { type: String, required: true },
   buyerPhone: { type: String, required: true },
   buyerDocument: { type: String, required: true },
+
+  clientId: { type: Schema.Types.ObjectId, ref: 'AgencyClient' },
 
   items: [{
     productId: { type: String, required: true },
@@ -440,5 +445,6 @@ OrderSchema.index({ buyerId: 1, createdAt: -1 });
 OrderSchema.index({ orderNumber: 1 });
 OrderSchema.index({ 'payment.asaasPaymentId': 1 });
 OrderSchema.index({ status: 1 });
+OrderSchema.index({ clientId: 1 });
 
 export default mongoose.model<IOrder>('Order', OrderSchema);

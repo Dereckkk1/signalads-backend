@@ -91,7 +91,8 @@ async function calculateOrderFinancialsWithCatalog(
   buyerUserType: string,
   buyerId: string,
   buyerName: string,
-  isMonitoringEnabled: boolean = true
+  isMonitoringEnabled: boolean = true,
+  agencyCommissionPercent: number = 0 // Comissão definida pela agência (em %)
 ): Promise<FinancialCalculation> {
   // 0. Busca status de catálogo de todas as emissoras no carrinho
   const broadcasterIds = [...new Set(cartItems.map(item => item.broadcasterId.toString()))];
@@ -138,11 +139,11 @@ async function calculateOrderFinancialsWithCatalog(
   });
 
   // 2. Soma totais
-  const grossAmount = Array.from(broadcasterMap.values())
-    .reduce((sum, b) => sum + b.grossAmount, 0);
+  const grossAmount = Math.round(Array.from(broadcasterMap.values())
+    .reduce((sum, b) => sum + b.grossAmount, 0) * 100) / 100;
 
-  const broadcasterAmount = Array.from(broadcasterMap.values())
-    .reduce((sum, b) => sum + b.broadcasterAmount, 0);
+  const broadcasterAmount = Math.round(Array.from(broadcasterMap.values())
+    .reduce((sum, b) => sum + b.broadcasterAmount, 0) * 100) / 100;
 
   // --- CÁLCULO DE CUSTOS DE PRODUÇÃO (NOVO) ---
   // R$ 50,00 por material único do tipo 'recording'
@@ -172,18 +173,20 @@ async function calculateOrderFinancialsWithCatalog(
     }
   });
 
-  const platformSplit = platformFromRegular + platformFromCatalog;
+  const platformSplit = Math.round((platformFromRegular + platformFromCatalog) * 100) / 100;
 
-  const techFee = (grossAmount + productionCost) * 0.05;
+  const techFee = Math.round(((grossAmount + productionCost) * 0.05) * 100) / 100;
 
-  const agencyCommission = (buyerUserType === 'agency') ? (grossAmount + productionCost) * 0.12 : 0;
+  const agencyCommission = (buyerUserType === 'agency' && agencyCommissionPercent > 0)
+    ? Math.round(((grossAmount + productionCost) * (agencyCommissionPercent / 100)) * 100) / 100
+    : 0;
 
   // --- CÁLCULO DE MONITORAMENTO DE MÍDIA ---
   const itemsCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const monitoringCost = isMonitoringEnabled ? itemsCount * 2 : 0;
 
   // 3. Total que o cliente paga
-  const totalAmount = grossAmount + productionCost + techFee + agencyCommission + monitoringCost;
+  const totalAmount = Math.round((grossAmount + productionCost + techFee + agencyCommission + monitoringCost) * 100) / 100;
 
   // 4. Monta splits
   const splits: any[] = [];
@@ -260,15 +263,15 @@ async function calculateOrderFinancialsWithCatalog(
     description: 'Taxa técnica'
   });
 
-  // Comissão de agência (12%)
+  // Comissão de agência (% definida pela agência)
   if (agencyCommission > 0) {
     splits.push({
       recipientId: buyerId,
       recipientName: buyerName,
       recipientType: 'agency',
       amount: agencyCommission,
-      percentage: 12,
-      description: 'Comissão de agência'
+      percentage: agencyCommissionPercent,
+      description: `Comissão de agência (${agencyCommissionPercent}%)`
     });
   }
 
@@ -432,7 +435,9 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
       creditCardData, // Dados do cartão (se método = credit_card)
       installments, // Número de parcelas (1-12)
       skipPayment, // Flag para pular pagamento (pending_contact)
-      isMonitoringEnabled // Flag para monitoramento
+      isMonitoringEnabled, // Flag para monitoramento
+      clientId, // (Agência) ID do cliente anunciante
+      agencyCommission: reqAgencyCommission // (Agência) % de comissão definida
     } = req.body;
 
 
@@ -520,12 +525,14 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
     }
 
     // Usa função que considera emissoras catálogo
+    const agencyCommPercent = buyer.userType === 'agency' && reqAgencyCommission ? Number(reqAgencyCommission) : 0;
     const financials = await calculateOrderFinancialsWithCatalog(
       cart.items,
       buyer.userType,
       userId.toString(),
       buyer.fantasyName || buyer.companyName || buyer.email,
-      isMonitoringEnabled !== undefined ? isMonitoringEnabled : true
+      isMonitoringEnabled !== undefined ? isMonitoringEnabled : true,
+      agencyCommPercent
     );
 
     const {
@@ -591,7 +598,8 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
         isMonitoringEnabled: isMonitoringEnabled !== undefined ? isMonitoringEnabled : true,
         totalAmount,
         subtotal: grossAmount,
-        platformFee: techFee
+        platformFee: techFee,
+        ...(buyer.userType === 'agency' && clientId ? { clientId } : {})
       });
 
       // Limpa carrinho

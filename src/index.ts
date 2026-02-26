@@ -22,6 +22,7 @@ import broadcasterWalletRoutes from './routes/broadcasterWalletRoutes';
 import quoteRequestRoutes from './routes/quoteRequestRoutes';
 import imageRoutes from './routes/imageRoutes';
 import recommendationRoutes from './routes/recommendationRoutes';
+import agencyRoutes from './routes/agencyRoutes';
 
 // Middlewares de Segurança
 import helmet from 'helmet';
@@ -91,6 +92,7 @@ app.use('/api/broadcaster', broadcasterWalletRoutes); // Rotas de wallet da emis
 app.use('/api/quotes', quoteRequestRoutes); // Rotas de solicitações de contato (NEW)
 app.use('/api/images', imageRoutes); // Rotas de proxy de imagens
 app.use('/api/recommendations', recommendationRoutes); // Rotas de recomendação IA (NEW)
+app.use('/api/agency', agencyRoutes); // Rotas de clientes de agência
 
 // Rota de teste
 app.get('/', (req: Request, res: Response) => {
