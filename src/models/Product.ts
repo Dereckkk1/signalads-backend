@@ -26,6 +26,7 @@ const productSchema = new Schema<IProduct>(
         'Comercial 10s',
         'Comercial 15s',
         'Comercial 30s',
+        'Comercial 45s',
         'Comercial 60s',
         'Testemunhal 30s',
         'Testemunhal 60s'
@@ -34,7 +35,7 @@ const productSchema = new Schema<IProduct>(
     duration: {
       type: Number,
       required: true,
-      enum: [5, 10, 15, 30, 60]
+      enum: [5, 10, 15, 30, 45, 60]
     },
     timeSlot: {
       type: String,
@@ -59,7 +60,7 @@ const productSchema = new Schema<IProduct>(
 productSchema.index({ broadcasterId: 1, isActive: 1 });
 
 // Middleware para extrair duração do spotType antes de salvar
-productSchema.pre('save', function() {
+productSchema.pre('save', function () {
   if (this.isModified('spotType')) {
     // Extrai número da string (ex: "Comercial 30s" -> 30)
     const match = this.spotType.match(/(\d+)s/);
