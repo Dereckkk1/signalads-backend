@@ -172,6 +172,10 @@ export const getMyCampaigns = async (req: AuthRequest, res: Response) => {
       filter.status = status;
     }
 
+    if (req.query.isMonitoringEnabled === 'true') {
+      filter.isMonitoringEnabled = true;
+    }
+
     const skip = (Number(page) - 1) * Number(limit);
 
     const campaigns = await Order.find(filter)

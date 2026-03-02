@@ -322,7 +322,6 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
           // Mapeamento de faixas etárias para regex
           // Se o usuário seleciona "18+", queremos encontrar qualquer emissora que tenha público 18+, 20+, 25+, etc.
           const ageMap: Record<string, string[]> = {
-            '12+': ['12+', '14+', '18+', '20+', '25+', '30+', '35+', '40+', '45+', '50+', '55+', '60+', '65+'],
             '18+': ['18+', '20+', '25+', '30+', '35+', '40+', '45+', '50+', '55+', '60+', '65+'],
             '25+': ['25+', '30+', '35+', '40+', '45+', '50+', '55+', '60+', '65+'],
             '30+': ['30+', '35+', '40+', '45+', '50+', '55+', '60+', '65+'],
