@@ -2,6 +2,9 @@ import { Storage } from '@google-cloud/storage';
 import path from 'path';
 import fs from 'fs';
 
+// URL base para arquivos locais (desenvolvimento)
+const API_URL = process.env.API_URL || 'http://localhost:5000';
+
 // Verifica se as credenciais do Google Cloud estão configuradas
 const isGoogleCloudConfigured = () => {
   // Verifica se todas as variáveis existem
@@ -10,7 +13,7 @@ const isGoogleCloudConfigured = () => {
     process.env.GOOGLE_CLOUD_PROJECT_ID &&
     process.env.GOOGLE_CLOUD_BUCKET_NAME
   );
-  
+
   // Verifica se o arquivo de credenciais existe
   if (hasVars && process.env.GOOGLE_CLOUD_KEY_FILE) {
     const keyFilePath = process.env.GOOGLE_CLOUD_KEY_FILE;
@@ -19,7 +22,7 @@ const isGoogleCloudConfigured = () => {
       return false;
     }
   }
-  
+
   return hasVars;
 };
 
@@ -55,7 +58,7 @@ if (USE_GOOGLE_CLOUD) {
     keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE,
     projectId: process.env.GOOGLE_CLOUD_PROJECT_ID
   });
-  
+
   bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'E-rádios-materials';
   bucket = storage.bucket(bucketName);
 }
@@ -76,37 +79,37 @@ export const uploadFile = async (
 ): Promise<string> => {
   const timestamp = Date.now();
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-  
+
   // Função auxiliar para salvar localmente
   const saveLocally = (): string => {
     const uploadsDir = path.join(__dirname, '../../uploads');
     const folderPath = path.join(uploadsDir, folder);
-    
+
     // Garante que o diretório existe
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
     }
-    
+
     const destination = path.join(folderPath, `${timestamp}-${sanitizedFileName}`);
     fs.writeFileSync(destination, file);
-    
-    const localUrl = `http://localhost:5000/uploads/${folder}/${timestamp}-${sanitizedFileName}`;
+
+    const localUrl = `${API_URL}/uploads/${folder}/${timestamp}-${sanitizedFileName}`;
     console.log('✅ Arquivo salvo localmente:', localUrl);
-    
+
     return localUrl;
   };
-  
+
   // MODO LOCAL (sem Google Cloud ou forçado)
   if (!USE_GOOGLE_CLOUD) {
     return saveLocally();
   }
-  
+
   // MODO GOOGLE CLOUD (com fallback para local em caso de erro)
   try {
     if (!bucket) {
       throw new Error('Google Cloud Storage não inicializado');
     }
-    
+
     const gcsBucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'E-rádios-materials';
     const destination = `${folder}/${timestamp}-${sanitizedFileName}`;
     const fileUpload = bucket.file(destination);
@@ -121,17 +124,17 @@ export const uploadFile = async (
     await fileUpload.makePublic();
 
     const publicUrl = `https://storage.googleapis.com/${gcsBucketName}/${destination}`;
-    
+
     console.log('✅ Arquivo enviado para Cloud Storage:', publicUrl);
-    
+
     return publicUrl;
   } catch (error: any) {
     console.error('❌ Erro no Google Cloud Storage:', error.message);
     console.warn('⚠️  Usando fallback para armazenamento local...');
-    
+
     // Desabilita GCS para próximas chamadas nesta sessão
     USE_GOOGLE_CLOUD = false;
-    
+
     return saveLocally();
   }
 };
@@ -144,7 +147,7 @@ export const deleteFile = async (fileUrl: string): Promise<void> => {
   try {
     if (!USE_GOOGLE_CLOUD) {
       // Modo local: deleta arquivo do sistema de arquivos
-      const localPath = fileUrl.replace('http://localhost:5000', path.join(__dirname, '../..'));
+      const localPath = fileUrl.replace(API_URL, path.join(__dirname, '../..'));
       if (fs.existsSync(localPath)) {
         fs.unlinkSync(localPath);
         console.log('🗑️ Arquivo deletado localmente:', localPath);
@@ -158,13 +161,13 @@ export const deleteFile = async (fileUrl: string): Promise<void> => {
 
     // Extrai o nome do arquivo da URL
     const fileName = fileUrl.split(`${bucketName}/`)[1];
-    
+
     if (!fileName) {
       throw new Error('URL inválida');
     }
 
     await bucket.file(fileName).delete();
-    
+
     console.log('🗑️ Arquivo deletado do Cloud Storage:', fileName);
   } catch (error) {
     console.error('❌ Erro ao deletar arquivo:', error);

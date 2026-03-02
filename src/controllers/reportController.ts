@@ -3,6 +3,21 @@ import { AuthRequest } from '../middleware/auth';
 import { User } from '../models/User';
 import { Product } from '../models/Product';
 import mongoose from 'mongoose';
+import { toAccentInsensitiveRegex } from '../utils/stringUtils';
+
+/**
+ * GET /api/admin/directory-report/spot-types
+ * Retorna os tipos de spots (produtos) disponíveis para filtro
+ */
+export const getDirectoryReportSpotTypes = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const types = await Product.distinct('spotType');
+        res.json(types.sort());
+    } catch (error) {
+        console.error('Erro ao buscar tipos de spot:', error);
+        res.status(500).json({ error: 'Erro ao buscar tipos de spot' });
+    }
+};
 
 /**
  * GET /api/admin/directory-report
@@ -10,7 +25,7 @@ import mongoose from 'mongoose';
  */
 export const getDirectoryReport = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { search, page = 1, limit = 50, city } = req.query;
+        const { search, page = 1, limit = 50, city, materials } = req.query;
 
         const pageNum = Math.max(1, Number(page));
         const limitNum = Math.max(1, Number(limit));
@@ -19,13 +34,29 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
         // Pipeline para buscar produtos e popular com dados da emissora (User)
         const matchStage: any = {};
         if (search) {
-            matchStage['broadcaster.companyName'] = { $regex: search, $options: 'i' };
+            matchStage['broadcaster.companyName'] = toAccentInsensitiveRegex(search as string);
         }
         if (city) {
             matchStage['broadcaster.address.city'] = city;
         }
 
+        const productMatch: any = {
+            isActive: true
+        };
+
+        if (materials) {
+            const materialsArray = Array.isArray(materials)
+                ? materials
+                : (materials as string).split(',').filter(Boolean);
+
+            if (materialsArray.length > 0) {
+                productMatch.spotType = { $in: materialsArray };
+            }
+        }
+
         const pipeline: any[] = [
+            // Filter products first for efficiency if we have material filter
+            { $match: productMatch },
             // Lookup broadcaster
             {
                 $lookup: {
@@ -36,7 +67,7 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
                 }
             },
             { $unwind: '$broadcaster' },
-            // Only broadcasters
+            // Only broadcasters and apply search/city filters
             {
                 $match: {
                     'broadcaster.userType': 'broadcaster',
@@ -71,7 +102,6 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
 
             const precoPlataforma = item.pricePerInsertion || 0;
             // Cálculo v1 fornecido: (preço_plataforma - 39.39%) - 20% -> equivalente a (precoPlataforma / 1.65) * 0.8
-            // Para aproximar os 39.39%: 1 - 0.39393939 = 0.606060... = 1/1.65
             const precoV1 = (precoPlataforma / 1.65) * 0.8;
 
             return {

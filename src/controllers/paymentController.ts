@@ -241,7 +241,7 @@ async function calculateOrderFinancialsWithCatalog(
     });
   }
 
-  // Split de Monitoramento (Auditoria) - Vai para a plataforma
+  // Split de Radio Analytics - Vai para a plataforma
   if (monitoringCost > 0) {
     splits.push({
       recipientId: 'platform',
@@ -904,6 +904,8 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
       platformSplit,
       techFee,
       agencyCommission,
+      monitoringCost,
+      isMonitoringEnabled: isMonitoringEnabled !== undefined ? isMonitoringEnabled : true,
       totalAmount,
       // Manter campos deprecated
       subtotal: grossAmount,
