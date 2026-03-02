@@ -1,6 +1,11 @@
 export const toAccentInsensitiveRegex = (text: string): RegExp => {
+    // Primeiro normalizamos o texto de entrada para remover quaisquer acentos fornecidos pelo usuário.
+    // Isso é crucial para que, se o usuário pesquisar "São Paulo", possamos gerar um regex 
+    // que combine tanto com "São Paulo" quanto com "Sao Paulo".
+    const normalizedText = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
     // Escape special regex characters except we will handle them
-    const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedText = normalizedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
     const accentMap: { [key: string]: string } = {
         a: '[aáàâãä]',

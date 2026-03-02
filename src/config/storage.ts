@@ -26,25 +26,10 @@ const isGoogleCloudConfigured = () => {
   return hasVars;
 };
 
-// Flag para forçar modo local (útil para desenvolvimento)
-const FORCE_LOCAL_STORAGE = process.env.FORCE_LOCAL_STORAGE === 'true';
-
-let USE_GOOGLE_CLOUD = isGoogleCloudConfigured() && !FORCE_LOCAL_STORAGE;
-
-// Sempre cria diretórios locais (fallback)
-const uploadsDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-['audio', 'scripts', 'billing-documents'].forEach(folder => {
-  const folderPath = path.join(uploadsDir, folder);
-  if (!fs.existsSync(folderPath)) {
-    fs.mkdirSync(folderPath, { recursive: true });
-  }
-});
+const USE_GOOGLE_CLOUD = isGoogleCloudConfigured();
 
 if (!USE_GOOGLE_CLOUD) {
-  console.warn('⚠️  Google Cloud Storage NÃO configurado. Usando armazenamento local para desenvolvimento.');
+  console.warn('⚠️  Google Cloud Storage NÃO configurado. O sistema apresentará erros ao tentar fazer uploads.');
   console.warn('⚠️  Configure as variáveis: GOOGLE_CLOUD_KEY_FILE, GOOGLE_CLOUD_PROJECT_ID, GOOGLE_CLOUD_BUCKET_NAME');
 }
 
@@ -80,37 +65,16 @@ export const uploadFile = async (
   const timestamp = Date.now();
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
 
-  // Função auxiliar para salvar localmente
-  const saveLocally = (): string => {
-    const uploadsDir = path.join(__dirname, '../../uploads');
-    const folderPath = path.join(uploadsDir, folder);
-
-    // Garante que o diretório existe
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
-    }
-
-    const destination = path.join(folderPath, `${timestamp}-${sanitizedFileName}`);
-    fs.writeFileSync(destination, file);
-
-    const localUrl = `${API_URL}/uploads/${folder}/${timestamp}-${sanitizedFileName}`;
-    console.log('✅ Arquivo salvo localmente:', localUrl);
-
-    return localUrl;
-  };
-
-  // MODO LOCAL (sem Google Cloud ou forçado)
   if (!USE_GOOGLE_CLOUD) {
-    return saveLocally();
+    throw new Error('Google Cloud Storage não configurado. Uploads locais foram desativados.');
   }
 
-  // MODO GOOGLE CLOUD (com fallback para local em caso de erro)
   try {
     if (!bucket) {
       throw new Error('Google Cloud Storage não inicializado');
     }
 
-    const gcsBucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'E-rádios-materials';
+    const gcsBucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'signalads-materials';
     const destination = `${folder}/${timestamp}-${sanitizedFileName}`;
     const fileUpload = bucket.file(destination);
 
@@ -130,12 +94,7 @@ export const uploadFile = async (
     return publicUrl;
   } catch (error: any) {
     console.error('❌ Erro no Google Cloud Storage:', error.message);
-    console.warn('⚠️  Usando fallback para armazenamento local...');
-
-    // Desabilita GCS para próximas chamadas nesta sessão
-    USE_GOOGLE_CLOUD = false;
-
-    return saveLocally();
+    throw new Error(`Erro ao fazer upload no bucket: ${error.message}`);
   }
 };
 
@@ -146,13 +105,7 @@ export const uploadFile = async (
 export const deleteFile = async (fileUrl: string): Promise<void> => {
   try {
     if (!USE_GOOGLE_CLOUD) {
-      // Modo local: deleta arquivo do sistema de arquivos
-      const localPath = fileUrl.replace(API_URL, path.join(__dirname, '../..'));
-      if (fs.existsSync(localPath)) {
-        fs.unlinkSync(localPath);
-        console.log('🗑️ Arquivo deletado localmente:', localPath);
-      }
-      return;
+      throw new Error('Google Cloud Storage não configurado. Deleções locais foram desativadas.');
     }
 
     if (!bucket || !bucketName) {

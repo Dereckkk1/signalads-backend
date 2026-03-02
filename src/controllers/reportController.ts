@@ -111,6 +111,7 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
                 emissora: generalInfo.stationName || broadcaster.companyName || '',
                 dial: generalInfo.dialFrequency || '',
                 cidade: address.city || '',
+                cnpj: broadcaster.cnpj || broadcaster.cpfOrCnpj || '',
                 produto: item.spotType,
                 precoPlataforma: precoPlataforma,
                 precoV1: precoV1,
@@ -133,7 +134,7 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
 
 /**
  * PUT /api/admin/directory-report/:productId
- * Atualiza preço plataforma (apenas produtos 30s) e PMM.
+ * Atualiza preço plataforma (apenas produtos 30s), PMM e CNPJ.
  * Ao editar um produto 30s, recalcula automaticamente os demais tempos:
  *   Comercial: 15s = x/2, 30s = x, 45s = x*1.5, 60s = x*2
  *   Testemunhal: 30s = x, 60s = x*2
@@ -141,7 +142,7 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
 export const updateDirectoryReportRecord = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const { productId } = req.params;
-        const { precoPlataforma, pmm } = req.body;
+        const { precoPlataforma, pmm, cnpj } = req.body;
 
         const product = await Product.findById(productId);
         if (!product) {
@@ -188,13 +189,21 @@ export const updateDirectoryReportRecord = async (req: AuthRequest, res: Respons
             }
         }
 
-        // Atualiza PMM no User
-        if (typeof pmm === 'number') {
+        // Atualiza PMM e CNPJ no User
+        if (typeof pmm === 'number' || cnpj !== undefined) {
             const user = await User.findById(product.broadcasterId);
             if (user) {
-                if (!user.broadcasterProfile) user.broadcasterProfile = {} as any;
-                user.broadcasterProfile!.pmm = pmm;
-                user.markModified('broadcasterProfile');
+                if (typeof pmm === 'number') {
+                    if (!user.broadcasterProfile) user.broadcasterProfile = {} as any;
+                    user.broadcasterProfile!.pmm = pmm;
+                    user.markModified('broadcasterProfile');
+                }
+
+                if (cnpj !== undefined) {
+                    user.cnpj = cnpj;
+                    user.cpfOrCnpj = cnpj; // Mantém sincronizado
+                }
+
                 await user.save();
             }
         }

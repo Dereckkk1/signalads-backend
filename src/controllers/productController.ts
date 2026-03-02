@@ -309,9 +309,9 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       ]
     };
 
-    // Filtro de Cidade (Exato)
+    // Filtro de Cidade (Insensível a acentos)
     if (req.query.city) {
-      broadcasterQuery['address.city'] = req.query.city;
+      broadcasterQuery['address.city'] = toAccentInsensitiveRegex(req.query.city as string);
     }
 
     // Filtros de Audiência (JSON parse necessário)
@@ -808,7 +808,7 @@ export const searchBroadcastersForCompare = async (req: AuthRequest, res: Respon
     }
 
     const broadcasters = await User.find(broadcasterQuery)
-      .select('_id companyName address.city address.state broadcasterProfile.generalInfo broadcasterProfile.logo broadcasterProfile.pmm broadcasterProfile.coverage.totalPopulation broadcasterProfile.audienceProfile broadcasterProfile.categories')
+      .select('_id companyName address.city address.state broadcasterProfile.generalInfo broadcasterProfile.logo broadcasterProfile.pmm broadcasterProfile.coverage.totalPopulation broadcasterProfile.coverage.cities broadcasterProfile.audienceProfile broadcasterProfile.categories')
       .sort({ 'broadcasterProfile.pmm': -1 })
       .limit(limit)
       .lean();
@@ -850,7 +850,8 @@ export const searchBroadcastersForCompare = async (req: AuthRequest, res: Respon
       },
       categories: b.broadcasterProfile?.categories || [],
       products: productsByBroadcaster.get(b._id.toString()) || [],
-      citiesCovered: 0,
+      citiesCovered: b.broadcasterProfile?.coverage?.cities?.length || 0,
+      allCities: b.broadcasterProfile?.coverage?.cities || [],
       profile: b.broadcasterProfile || {}
     }));
 
