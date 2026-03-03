@@ -544,7 +544,7 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
           dial: b.broadcasterProfile?.generalInfo?.dialFrequency,
           band: b.broadcasterProfile?.generalInfo?.band,
           city: b.address?.city,
-          logo: b.broadcasterProfile?.generalInfo?.logoUrl
+          logo: b.broadcasterProfile?.logo
         };
       });
 
@@ -577,7 +577,10 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
         schedule: order.schedule,
         splits: order.splits,
         opecs: order.opecs,
-        hasCatalogBroadcasters
+        hasCatalogBroadcasters,
+        isMonitoringEnabled: order.isMonitoringEnabled,
+        monitoringCost: order.monitoringCost,
+        agencyCommission: order.agencyCommission,
       };
     }));
 
