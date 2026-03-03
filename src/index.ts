@@ -41,10 +41,29 @@ const PORT = process.env.PORT || 5000; // v2
 app.set('trust proxy', 1);
 
 // Configuração de Segurança
+const allowedOrigins = [
+  'https://eradios.com.br',
+  'https://www.eradios.com.br',
+  'https://api.eradios.com.br',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5000'
+];
+
 app.use(cors({
-  origin: '*', // Permite todas as origens (dev) ou especifique ex: 'http://localhost:3000'
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Origin',
+    'X-Requested-With',
+    'Accept',
+    'x-access-token',
+    'Range'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -111,6 +130,31 @@ app.get('/health', (req: Request, res: Response) => {
     status: 'OK',
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
+  });
+});
+
+// 404 Handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ error: 'Rota não encontrada' });
+});
+
+// Error Handler Global
+app.use((err: any, req: Request, res: Response, next: any) => {
+  console.error('❌ Erro global capturado:', err);
+
+  // Tratamento específico para erros do Multer (ex: arquivo muito grande)
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({
+      error: 'Arquivo muito grande. O limite é de 50MB.'
+    });
+  }
+
+  const status = err.status || 500;
+  const message = err.message || 'Erro interno do servidor';
+
+  res.status(status).json({
+    error: message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
 

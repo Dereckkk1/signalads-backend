@@ -106,9 +106,9 @@ export class AIService {
             if (!content) return { cities: [], states: [] };
 
             const result = JSON.parse(content);
-            // Limit to top 3 cities as requested (closest/most relevant)
+            // Limit to top 10 cities to ensure coverage of multiple regions/states
             return {
-                cities: (result.cities || []).slice(0, 3),
+                cities: (result.cities || []).slice(0, 10),
                 states: result.states || []
             };
         } catch (error) {
@@ -127,8 +127,8 @@ export class AIService {
             return { items: [], totalCost: 0, totalSpots: 0, totalBroadcasters: 0, analysis: "No broadcasters found in the target location." };
         }
 
-        // Limit candidates to reduce token usage and noise
-        const topCandidates = candidates.slice(0, 30);
+        // Limit candidates but keep enough to cover multiple cities (increased to 50)
+        const topCandidates = candidates.slice(0, 50);
 
         const prompt = `
       You are an expert Media Planner for Radio Advertising in Brazil.
@@ -147,20 +147,28 @@ export class AIService {
       
       STRATEGY INSTRUCTIONS (The "Leader + Niche" Method):
 
-      **>>> RULE ZERO: BUDGET MAXIMIZATION (HIGHEST PRIORITY) <<<**
-      - You MUST spend as close to R$ ${criteria.budget} as possible WITHOUT exceeding it.
-      - Target: **95% to 100%** of the budget. The closer to 100%, the better.
-      - **NEVER** stop at 60% or 70% thinking "it's enough". USE THE FULL BUDGET.
-      - If the only way to get closer to the budget is to increase spots (44, 66, 88, 110, 132...), DO IT, BUT SPREAD THE SPOTS ACROSS VARIOUS STATIONS, DONT PUT ALL OF IT IN THE SAME ONE, Remember the Leader + Complementary strategy.
-      - If adding another station helps fill the budget, ADD IT.
-      - The budget was set by the client. Leaving money on the table is UNACCEPTABLE.
-      - If you MUST exceed the budget (e.g., the minimum viable plan costs more), you MAY exceed by up to 10%, but you MUST explain why in the analysis field.
+      **>>> RULE 1: GEOGRAPHIC COVERAGE & FAIRNESS (ABSOLUTE TOP PRIORITY) <<<** 
+      - If the user specifies multiple regions, cities or states (e.g., "SC, RS, SP, MA, MG, PR"), your **PRIMARY MISSION** is to ensure that EVERY requested location is covered by at least one broadcaster.
+      - **BALANCED VERTICAL SCALING**: Do not increase one station to 66 or 88 spots if another requested region only has 22 spots. Everyone MUST reach 44 spots (Standard Frequency) before any single station is allowed to go higher.
+      - **STRATEGIC HUB RULE**: Within each requested state or region, **prioritize major cities/hubs** (e.g., Londrina instead of a tiny interior village).
+      - **NO TINY CITIES**: Do not waste budget on tiny, low-impact cities if a candidate from a larger city (Hub) in that same region is available.
+      - **DISTRIBUTION logic**: 
+          1. First, select ONE Leader for EACH location (min 22 spots).
+          2. Scale ALL Leaders to 44 spots (if budget allows).
+          3. Only AFTER all locations have a Leader with 44 spots, you may increase frequency further OR add complementary stations.
+      - **REALLOCATION LOGIC**: In case of tight budget, shift investment from already covered cities to the uncovered ones.
+      - If even after cuts it is mathematically impossible to cover all regions (due to very low budget), you must clearly explain this in the 'analysis' field.
 
-      0. **GEOGRAPHIC PROXIMITY (CRITICAL)**: If you select a station NOT physically located in '${criteria.location}', ensure it is from a **Neighboring City (Max 20km)**.
+      **>>> RULE 2: BUDGET MAXIMIZATION (SECONDARY PRIORITY) <<<**
+      - You MUST spend as close to R$ ${criteria.budget} as possible (Target: 95% to 100%).
+      - Follow Rule 1 first, then fill the budget.
+      - The budget was set by the client. Leaving money on the table is UNACCEPTABLE.
+
+      1. **GEOGRAPHIC PROXIMITY**: If you select a station NOT physically located in '${criteria.location}', ensure it is from a **Neighboring City (Max 20km)**.
          - STRICTLY EXCLUDE stations from far away cities (>20km) unless they are famous state-wide giants.
          - Priority is always for local stations.
 
-      1. **LEADER & BUDGET STRATEGY (CRITICAL)**:
+      2. **LEADER & BUDGET STRATEGY (CRITICAL)**:
          - Identify the "Market Leader" ("marketContext.isLeader": true).
          - Calculate 'LeaderBaseCost = UnitPrice * 22'.
          
@@ -178,21 +186,23 @@ export class AIService {
              - **Alternative Plan**: Select 3-4 best "Complementary" stations that fit the budget together.
              - **MAXIMIZE SPOTS** on all selected stations to fill the budget.
        
-      2. **ADD COMPLEMENTARY STATIONS (FREQUENCY > FRAGMENTATION)**:
+      3. **ADD COMPLEMENTARY STATIONS (FREQUENCY > FRAGMENTATION)**:
          - **CONSOLIDATION RULE**: It is better to have **1 strong complementary station with 44 spots** than 2 weak ones with 22 spots each.
+         - **Exception**: Rule 0 (Geographic Coverage) takes precedence. Only consolidate if all regions are already covered.
          - **Execution**:
              - If you have budget for 2 complementary stations (22 spots each), check if it's better to give 44 spots to the *Best* one instead.
              - Only split the budget into multiple complementary stations if you can afford decent frequency (at least 22-44 spots) on ALL of them.
          - **Growth**: If budget is large, THEN expand to 3 or 4 stations, but ensure they all have good impact.
        
-      3. **BUDGET FILLING ALGORITHM (FREQUENCY > REACH)**:
+      4. **BUDGET FILLING ALGORITHM (STAY WITHIN GEOGRAPHIC MANDATE)**:
          - **Target**: Reach as close to R$ ${criteria.budget} as possible (Min 95%, IDEALLY 98-100%). DO NOT EXCEED.
-         - **Golden Rule**: **Consolidate Budget**. It is better to have 2 stations with 44 spots than 3 stations with 22 spots.
+         - **Golden Rule**: **Consolidate Budget** ONLY AFTER all requested regions have at least one station.
          
          - **Filling Logic (Step-by-Step)**:
-             1. **Start**: Leader @ 44 spots.
-             2. **Add 1st Complementary**: @ 44 spots. (If budget allows).
-             3. **Budget Check**:
+             1. **Start**: Ensure 22 spots in each requested region.
+             2. **Step up**: Increase Leader to 44 spots.
+             3. **Add 1st Complementary**: @ 44 spots. (If budget allows).
+             4. **Budget Check**:
                  - **IF UNDERBUDGET**: Increase **LEADER** to 66, 88, 110, or even higher.
                  - **IF STILL UNDERBUDGET**: Increase **1st COMPLEMENTARY** to 66, 88 spots.
                  - **ONLY THEN**: Add a **2nd Complementary** station (starting at 44 spots).
@@ -202,19 +212,26 @@ export class AIService {
                      - If still over, remove that station.
          
          - **Constraint**: **NEVER** add a 2nd Complementary station if the 1st one has only 22 spots. Consolidate them!
-         - **FINAL CHECK**: After building the plan, verify total cost is ≥ 95% of budget. If not, INCREASE SPOTS.
+         - **FINAL CHECK (The Mental Checklist)**: 
+             - Were all requested regions occupied? 
+             - If no, was it budget-related or allocation-related? 
+             - If it was allocation, shift budget from high-frequency stations in other cities to ensure the missing region is covered.
+             - If budget is truly insufficient, explain clearly in the analysis.
 
-      4. **ANALYSIS (IMPORTANT)**:
+      5. **ANALYSIS (IMPORTANT)**:
          - Write the specific \`analysis\` field as if you are a Senior Media Planner presenting to a client.
          - **DO NOT** mention internal variables like "relativePower", "pmm", "Scenario 1", "Scenario 2", or "mathematically impossible".
          - **DO NOT** mention "budget filling algorithm" or "consolidation rule".
          - **DO NOT** explicitly state "The leader is too expensive so we chose..." in a negative way.
          - **INSTEAD, USE STRATEGIC LANGUAGE**:
              - "Optamos por focar na emissora X para garantir autoridade máxima..."
+             - "Priorizamos a cobertura geográfica para abranger todas as praças solicitadas (X, Y e Z), garantindo que sua marca esteja presente em cada mercado-chave."
              - "A estratégia de concentração permite dominar a audiência..."
              - "Selecionamos emissoras complementares para ampliar o alcance em nichos específicos..."
          - Explain **WHY** these specific stations help the client achieve their objective (${criteria.objective}).
-         - **IF the total cost exceeds the budget**: Include a brief, professional justification explaining WHY the budget was exceeded (e.g., "O investimento ultrapassa levemente a verba definida para garantir a frequência mínima necessária na emissora líder.").
+         - **IF the total cost exceeds the budget**: Include a brief, professional justification.
+         - **IF a requested region was left out due to budget**: Explicitly justify why and which region was skipped.
+
 
       OUTPUT FORMAT (JSON):
       {
@@ -304,22 +321,22 @@ export class AIService {
             let remainingBudget = criteria.budget - totalCost;
 
             if (remainingBudget > 0 && items.length > 0) {
-                // Sort items by cheapest unitPrice first to maximize spots per dollar
-                const sortedByPrice = [...items].sort((a: any, b: any) => a.unitPrice - b.unitPrice);
+                // Sort items by PMM DESC (Impact First) to ensure we increase spots on the most important stations
+                const sortedByImpact = [...items].sort((a: any, b: any) => (b.broadcasterProfile?.pmm || 0) - (a.broadcasterProfile?.pmm || 0));
 
                 let fillingDone = false;
                 while (!fillingDone) {
                     fillingDone = true; // Assume done unless we add spots
-                    for (const cheapItem of sortedByPrice) {
-                        const costFor22 = cheapItem.unitPrice * 22;
+                    for (const highImpactItem of sortedByImpact) {
+                        const costFor22 = highImpactItem.unitPrice * 22;
                         if (costFor22 <= remainingBudget) {
                             // Find the item in the original array and increase spots
-                            const originalItem = items.find((i: any) => i.broadcasterId === cheapItem.broadcasterId);
+                            const originalItem = items.find((i: any) => i.broadcasterId === highImpactItem.broadcasterId);
                             if (originalItem) {
                                 originalItem.spots += 22;
                                 originalItem.totalCost = originalItem.spots * originalItem.unitPrice;
                                 remainingBudget -= costFor22;
-                                fillingDone = false; // We added spots, try again
+                                fillingDone = false; // We added spots, keep going to be fair
                             }
                         }
                     }

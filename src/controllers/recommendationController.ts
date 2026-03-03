@@ -26,9 +26,10 @@ export const generatePlan = async (req: Request, res: Response) => {
         // If "Região" is explicitly requested OR multiple cities resolved, likely a regional search.
         // We search in Address OR Coverage.
 
-        const isRegionalSearch = criteria.location.toLowerCase().includes('regi') || cities.length > 1;
+        const isRegionalSearch = criteria.location.toLowerCase().includes('regi') || cities.length > 1 || states.length > 0;
 
         const regexCities = cities.map(c => new RegExp(c, 'i'));
+        const regexStates = states.map(s => new RegExp(`^${s}$`, 'i'));
 
         // Logic to limit coverage matching to the FIRST 5 CITIES only
         // This prevents distant broadcasters from appearing just because they list a city
@@ -41,14 +42,15 @@ export const generatePlan = async (req: Request, res: Response) => {
             userType: 'broadcaster',
             status: 'approved',
             $or: [
-                // Always match address city (Primary Location)
+                // Primary Locations (City OR State)
                 { 'address.city': { $in: regexCities } },
+                { 'address.state': { $in: regexStates } },
                 // Match only top 5 cities in coverage (Secondary Locations)
                 ...coverageQueries
             ]
         };
 
-        const broadcasters = await User.find(query).select('name address broadcasterProfile _id').lean();
+        const broadcasters = await User.find(query).select('name address companyName broadcasterProfile _id').lean();
 
         if (broadcasters.length === 0) {
             return res.json({

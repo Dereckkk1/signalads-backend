@@ -65,6 +65,12 @@ export const upload = multer({
 
 // Upload de áudio
 export const uploadAudio = async (req: AuthRequest, res: Response): Promise<void> => {
+  console.log('📬 Recebendo requisição de upload de áudio:', {
+    fileName: req.file?.originalname,
+    fileSize: req.file?.size,
+    productId: req.body.productId,
+    userId: req.userId
+  });
   try {
     if (!req.userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
