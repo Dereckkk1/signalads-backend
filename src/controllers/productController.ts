@@ -67,6 +67,25 @@ export const getMyProducts = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
+// Retorna produtos companheiros a serem criados automaticamente com base no spotType/preço
+function getCompanionProducts(spotType: string, basePrice: number, timeSlot: string) {
+  const companions: Array<{ spotType: string; duration: number; timeSlot: string; price: number }> = [];
+
+  if (spotType === 'Comercial 30s') {
+    companions.push(
+      { spotType: 'Comercial 15s', duration: 15, timeSlot, price: Math.round(basePrice * 0.5 * 100) / 100 },
+      { spotType: 'Comercial 45s', duration: 45, timeSlot, price: Math.round(basePrice * 1.5 * 100) / 100 },
+      { spotType: 'Comercial 60s', duration: 60, timeSlot, price: Math.round(basePrice * 2.0 * 100) / 100 }
+    );
+  } else if (spotType === 'Testemunhal 30s') {
+    companions.push(
+      { spotType: 'Testemunhal 60s', duration: 60, timeSlot, price: Math.round(basePrice * 2.0 * 100) / 100 }
+    );
+  }
+
+  return companions;
+}
+
 // Criar novo produto (Broadcaster ou Admin)
 export const createProduct = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -126,11 +145,33 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
 
     await product.save();
 
-
+    // Cria produtos companheiros automaticamente (ex: Comercial 30s → 15s, 45s, 60s)
+    const companions = getCompanionProducts(spotType, parseFloat(pricePerInsertion), timeSlot);
+    const createdCompanions = [];
+    for (const comp of companions) {
+      const existing = await Product.findOne({
+        broadcasterId: targetBroadcasterId,
+        spotType: comp.spotType,
+        timeSlot: comp.timeSlot,
+        isActive: true
+      });
+      if (!existing) {
+        const compProduct = new Product({
+          broadcasterId: targetBroadcasterId,
+          spotType: comp.spotType,
+          duration: comp.duration,
+          timeSlot: comp.timeSlot,
+          pricePerInsertion: comp.price
+        });
+        await compProduct.save();
+        createdCompanions.push(compProduct);
+      }
+    }
 
     res.status(201).json({
       message: 'Produto cadastrado com sucesso!',
-      product
+      product,
+      companionsCreated: createdCompanions
     });
   } catch (error) {
     console.error('Erro ao criar produto:', error);
@@ -279,7 +320,8 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     });
 
     // PASSO 1: Filtro de Preço (nos Produtos)
-    let validBroadcasterIdsViaProduct: any[] = [];
+    // null = sem filtro de preço (mostra todas as emissoras, inclusive sem produtos)
+    let priceFilteredBroadcasterIds: any[] | null = null;
     const priceMin = req.query.priceMin ? parseFloat(req.query.priceMin as string) : null;
     const priceMax = req.query.priceMax ? parseFloat(req.query.priceMax as string) : null;
 
@@ -288,26 +330,28 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       if (priceMin !== null) priceQuery.pricePerInsertion = { ...priceQuery.pricePerInsertion, $gte: priceMin };
       if (priceMax !== null) priceQuery.pricePerInsertion = { ...priceQuery.pricePerInsertion, $lte: priceMax };
 
-      validBroadcasterIdsViaProduct = await Product.distinct('broadcasterId', priceQuery);
+      priceFilteredBroadcasterIds = await Product.distinct('broadcasterId', priceQuery);
       // Se não achou ninguém com esse preço, retorna vazio
-      if (validBroadcasterIdsViaProduct.length === 0) {
+      if (priceFilteredBroadcasterIds.length === 0) {
         res.json({ products: [], pagination: { currentPage: page, totalPages: 0, totalItems: 0, itemsPerPage: limit, hasNextPage: false, hasPrevPage: false } });
         return;
       }
-    } else {
-      // Se não tem filtro de preço, pega todos que tem produtos ativos
-      validBroadcasterIdsViaProduct = await Product.distinct('broadcasterId', { isActive: true });
     }
+    // Se não há filtro de preço, priceFilteredBroadcasterIds = null → mostra TODAS as emissoras aprovadas
 
     // PASSO 2: Query de Broadcasters (Filtros de Perfil)
     let broadcasterQuery: any = {
-      _id: { $in: validBroadcasterIdsViaProduct },
       userType: 'broadcaster',
       $or: [
         { status: 'approved' },
         { isCatalogOnly: true }
       ]
     };
+
+    // Se há filtro de preço, restringe a emissoras que têm produtos nesse range
+    if (priceFilteredBroadcasterIds !== null) {
+      broadcasterQuery._id = { $in: priceFilteredBroadcasterIds };
+    }
 
     // Filtro de Cidade (Insensível a acentos)
     if (req.query.city) {
@@ -633,6 +677,21 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     });
 
 
+    // Emissoras da página que não têm nenhum produto — precisam aparecer com products: []
+    const broadcastersWithProductIdsSet = new Set(
+      products.map((p: any) => p.broadcasterId?._id?.toString()).filter(Boolean)
+    );
+    const idsWithoutProducts = paginatedBroadcasterIds
+      .map((id: any) => id.toString())
+      .filter((id: string) => !broadcastersWithProductIdsSet.has(id));
+
+    let broadcastersWithoutProducts: any[] = [];
+    if (idsWithoutProducts.length > 0) {
+      broadcastersWithoutProducts = await User.find({ _id: { $in: idsWithoutProducts } })
+        .select('-password')
+        .lean();
+    }
+
     // Aggregation de PMM por Cidade (Server-Side Context)
     // Para cada cidade presente na página atual, buscamos o MAIOR PMM existente no banco todo
     const citiesOnPage = [...new Set(paginatedBroadcasters.map(b => b.address?.city).filter(Boolean))];
@@ -669,6 +728,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
 
     res.json({
       products,
+      broadcastersWithoutProducts,
       cityMaxPmm,
       isSortedByProximity: proximitySortApplied,
       pagination: {

@@ -85,6 +85,11 @@ export const generatePlan = async (req: Request, res: Response) => {
                 // REMOVED STRICT BUDGET FILTER to allow "Strategic Over-Budget" choices
                 // The AI will decide if it's worth it.
 
+                const pmm = b.broadcasterProfile?.pmm || 0;
+                const price = product.pricePerInsertion;
+                // CPM = cost to reach 1000 listeners. Lower = more efficient.
+                const cpm = pmm > 0 ? Math.round((price / pmm) * 1000) : null;
+
                 candidates.push({
                     id: (b._id as any).toString(),
                     productId: (product._id as any).toString(),
@@ -92,13 +97,14 @@ export const generatePlan = async (req: Request, res: Response) => {
                     city: b.address?.city || '',
                     state: b.address?.state || '',
                     audience: b.broadcasterProfile?.audienceProfile || {},
-                    price: product.pricePerInsertion,
+                    price,
                     coverage: b.broadcasterProfile?.coverage || {},
                     segments: b.broadcasterProfile?.categories || [],
                     // Rich data for frontend display & Cart
                     logo: b.broadcasterProfile?.logo || '',
                     dial: b.broadcasterProfile?.generalInfo?.dialFrequency || '',
-                    pmm: b.broadcasterProfile?.pmm || 0,
+                    pmm,
+                    cpm,
                     ageRange: b.broadcasterProfile?.audienceProfile?.ageRange || '',
                     // Geo data for campaign map
                     latitude: b.address?.latitude || undefined,
@@ -148,19 +154,34 @@ export const generatePlan = async (req: Request, res: Response) => {
             if (aud.gender?.male > 60 || aud.gender?.female > 60) score += 10;
 
             return { ...c, _relevanceScore: score };
-        }).sort((a, b) => (b as any)._relevanceScore - (a as any)._relevanceScore); // DESC
+        }).sort((a, b) => {
+            const aScore = (a as any)._relevanceScore;
+            const bScore = (b as any)._relevanceScore;
+            if (bScore !== aScore) return bScore - aScore;
+            // Within same relevance tier: sort by CPM ASC (lower = better efficiency).
+            // Null CPM (no audience data) goes last.
+            const aCpm = (a as any).cpm;
+            const bCpm = (b as any).cpm;
+            if (aCpm === null && bCpm === null) return 0;
+            if (aCpm === null) return 1;
+            if (bCpm === null) return -1;
+            return aCpm - bCpm;
+        });
 
-        // Calculate Max PMM for Relative Power Context
+        // Calculate Max PMM for context — used to flag tiny stations for the AI
         const maxPmm = Math.max(...candidates.map(c => c.pmm || 0), 1); // Avoid div by zero
+        // Threshold: stations below 10% of max PMM are flagged as "tiny" (low reach)
+        const tinyPmmThreshold = maxPmm * 0.10;
 
         // Add Market Context to candidates
         const enrichedCandidates = candidates.map(c => ({
             ...c,
             marketContext: {
-                isLeader: (c.pmm || 0) === maxPmm,
                 relativePower: Math.round(((c.pmm || 0) / maxPmm) * 100), // 0-100 score
                 maxPmmInRegion: maxPmm,
-                relevanceScore: (c as any)._relevanceScore // Pass score to AI to help it decide
+                relevanceScore: (c as any)._relevanceScore,
+                cpm: (c as any).cpm, // Lower = more efficient (more impacts per R$)
+                isTinyStation: (c.pmm || 0) < tinyPmmThreshold // True = very small audience, avoid unless only option
             }
         }));
 

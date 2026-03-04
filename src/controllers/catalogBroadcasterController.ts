@@ -184,7 +184,7 @@ export const createCatalogBroadcaster = async (req: AuthRequest, res: Response) 
  */
 export const getCatalogBroadcasters = async (req: AuthRequest, res: Response) => {
   try {
-    const { status, search, page = 1, limit = 50, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+    const { status, search, page = 1, limit = 50, sortBy = 'createdAt', sortOrder = 'desc', onlyWithoutProducts } = req.query;
 
     const pageNum = Math.max(1, Number(page));
     const limitNum = Math.max(1, Number(limit));
@@ -240,6 +240,11 @@ export const getCatalogBroadcasters = async (req: AuthRequest, res: Response) =>
         }
       }
     ];
+
+    // Filtro para emissoras sem produtos
+    if (onlyWithoutProducts === 'true') {
+      pipeline.push({ $match: { productCount: 0 } });
+    }
 
     // Remove campo temporário productInfo
     pipeline.push({ $project: { productInfo: 0, password: 0 } });
@@ -602,11 +607,47 @@ export const createCatalogProduct = async (req: AuthRequest, res: Response) => {
 
     await product.save();
 
+    // Cria produtos companheiros automaticamente
+    const companionRules: Record<string, Array<{ spotType: string; duration: number; multiplier: number }>> = {
+      'Comercial 30s': [
+        { spotType: 'Comercial 15s', duration: 15, multiplier: 0.5 },
+        { spotType: 'Comercial 45s', duration: 45, multiplier: 1.5 },
+        { spotType: 'Comercial 60s', duration: 60, multiplier: 2.0 }
+      ],
+      'Testemunhal 30s': [
+        { spotType: 'Testemunhal 60s', duration: 60, multiplier: 2.0 }
+      ]
+    };
 
+    const companions = companionRules[spotType] || [];
+    const createdCompanions = [];
+    const basePrice = parseFloat(pricePerInsertion);
+
+    for (const comp of companions) {
+      const existing = await Product.findOne({
+        broadcasterId,
+        spotType: comp.spotType,
+        timeSlot,
+        isActive: true
+      });
+      if (!existing) {
+        const compProduct = new Product({
+          broadcasterId,
+          spotType: comp.spotType,
+          duration: comp.duration,
+          timeSlot,
+          pricePerInsertion: Math.round(basePrice * comp.multiplier * 100) / 100,
+          isActive: true
+        });
+        await compProduct.save();
+        createdCompanions.push(compProduct);
+      }
+    }
 
     res.status(201).json({
       message: 'Produto criado com sucesso!',
-      product
+      product,
+      companionsCreated: createdCompanions
     });
   } catch (error: any) {
     console.error('❌ Erro ao criar produto catálogo:', error);
