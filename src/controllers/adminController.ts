@@ -8,6 +8,7 @@ import { AuthRequest } from '../middleware/auth';
 import asaasService from '../services/asaasService';
 import { Cart } from '../models/Cart';
 import bcrypt from 'bcryptjs';
+import QuoteRequest from '../models/QuoteRequest';
 
 // Listar emissoras pendentes de aprovação
 export const getPendingBroadcasters = async (req: Request, res: Response): Promise<void> => {
@@ -1631,5 +1632,86 @@ export const adminResetUserPassword = async (req: AuthRequest, res: Response) =>
   } catch (error) {
     console.error('❌ Erro ao resetar senha do usuário:', error);
     res.status(500).json({ message: 'Erro ao resetar senha' });
+  }
+};
+
+/**
+ * DELETE /api/admin/users/:userId
+ * Exclusão DEFINITIVA de conta e todos os dados do usuário.
+ * Usado para atender pedidos formais de exclusão (LGPD / Política de Privacidade).
+ */
+export const deleteUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'userId é obrigatório' });
+    }
+
+    // Proteção: admin não pode excluir a si mesmo
+    if (req.user && req.user._id.toString() === userId) {
+      return res.status(403).json({ message: 'Você não pode excluir sua própria conta' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+
+    // Proteção extra: não excluir outros admins sem confirmação
+    if (user.userType === 'admin') {
+      return res.status(403).json({ message: 'Não é possível excluir contas de administrador por esta rota' });
+    }
+
+    const deletionSummary: Record<string, number> = {};
+
+    // 1. Carrinhos do usuário
+    const cartResult = await Cart.deleteMany({ userId });
+    deletionSummary.carts = cartResult.deletedCount;
+
+    // 2. Pedidos como comprador (mantemos registro para auditoria financeira,
+    //    mas removemos referência ao usuário — anonimização)
+    const orderUpdateResult = await OrderModel.updateMany(
+      { buyerId: userId },
+      { $set: { buyerId: null, buyerAnonymized: true } }
+    );
+    deletionSummary.ordersAnonymized = orderUpdateResult.modifiedCount;
+
+    // 3. Conversas do usuário (como anunciante/advertiser)
+    const convResult = await Conversation.deleteMany({ advertiserId: userId.toString() });
+    deletionSummary.conversations = convResult.deletedCount;
+
+    // 4. Wallet do usuário
+    const walletResult = await WalletModel.deleteMany({ userId });
+    deletionSummary.wallets = walletResult.deletedCount;
+
+    // 5. Quote Requests (solicitações de orçamento)
+    const quoteResult = await QuoteRequest.deleteMany({ buyer: userId });
+    deletionSummary.quoteRequests = quoteResult.deletedCount;
+
+    // 6. Remove usuário de favoritos de outros usuários
+    await User.updateMany(
+      { favorites: userId },
+      { $pull: { favorites: userId } }
+    );
+
+    // 7. Finalmente, excluir o usuário
+    await User.findByIdAndDelete(userId);
+
+    console.log(`🗑️ Usuário ${userId} (${user.email}) excluído definitivamente pelo admin ${req.user?._id}. Sumário:`, deletionSummary);
+
+    res.json({
+      message: 'Conta e dados do usuário excluídos definitivamente.',
+      deletedUser: {
+        id: userId,
+        email: user.email,
+        userType: user.userType
+      },
+      summary: deletionSummary
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao excluir usuário definitivamente:', error);
+    res.status(500).json({ message: 'Erro ao excluir conta do usuário' });
   }
 };

@@ -25,7 +25,8 @@ import {
   getUserFullDetails,
   updateUserStatus,
   updateUserRole,
-  adminResetUserPassword
+  adminResetUserPassword,
+  deleteUser
 } from '../controllers/adminController';
 import {
   createCatalogBroadcaster,
@@ -158,6 +159,7 @@ router.get('/users/:userId', authenticateToken, isAdmin, getUserFullDetails);
 router.put('/users/:userId/status', authenticateToken, isAdmin, updateUserStatus);
 router.put('/users/:userId/role', authenticateToken, isAdmin, updateUserRole);
 router.put('/users/:userId/reset-password', authenticateToken, isAdmin, adminResetUserPassword);
+router.delete('/users/:userId', authenticateToken, isAdmin, deleteUser);
 
 // ========================
 // ROTAS DE RELATÓRIO DA DIRETORIA

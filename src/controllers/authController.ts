@@ -144,11 +144,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verificar status apenas para rejeição (pending pode logar mas vai ver tela de aprovaçãotart
-    if (user.userType === 'broadcaster' && user.status === 'rejected') {
+    // Verificar ban: qualquer usuário com status 'rejected' está banido e não pode logar
+    if (user.status === 'rejected') {
       res.status(403).json({
         error: 'account_rejected',
-        message: user.rejectionReason || 'Sua conta foi reprovada. Entre em contato com o suporte para mais informações.'
+        message: user.rejectionReason || 'Sua conta foi suspensa. Você pode entrar em contato com o suporte se achar que isso foi um erro.'
       });
       return;
     }
