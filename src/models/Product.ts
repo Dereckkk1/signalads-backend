@@ -8,6 +8,8 @@ export interface IProduct extends Document {
   pricePerInsertion: number;
   isActive: boolean;
   manuallyEdited: boolean;
+  broadcasterSharePercent: number; // % do preço que vai para a emissora (ex: 80)
+  platformSharePercent: number;    // % do preço que vai para a plataforma (ex: 20)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,6 +56,18 @@ const productSchema = new Schema<IProduct>(
     manuallyEdited: {
       type: Boolean,
       default: false
+    },
+    broadcasterSharePercent: {
+      type: Number,
+      default: 80,
+      min: 0,
+      max: 100
+    },
+    platformSharePercent: {
+      type: Number,
+      default: 20,
+      min: 0,
+      max: 100
     }
   },
   {

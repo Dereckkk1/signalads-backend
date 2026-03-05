@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import Order from '../models/Order';
+import { Product } from '../models/Product';
 import Wallet from '../models/Wallet';
 import { User } from '../models/User';
 import { sendOrderApprovedToClient, sendOrderRejectedToClient, sendNewOrderToBroadcaster } from '../services/emailService';
@@ -279,7 +280,6 @@ export const getPendingApprovalOrders = async (req: AuthRequest, res: Response) 
       return res.status(401).json({ message: 'Usuário não autenticado' });
     }
 
-    // Busca pedidos que contêm itens desta emissora
     const orders = await Order.find({
       'items.broadcasterId': userId,
       status: { $in: ['paid', 'pending_approval'] }
@@ -287,22 +287,37 @@ export const getPendingApprovalOrders = async (req: AuthRequest, res: Response) 
       .sort({ createdAt: -1 })
       .lean();
 
+    // Busca shares dos produtos desta emissora
+    const productIds = [...new Set(
+      orders.flatMap(o => o.items
+        .filter((item: any) => item.broadcasterId === userId)
+        .map((item: any) => item.productId)
+      )
+    )];
+    const products = await Product.find({ _id: { $in: productIds } })
+      .select('_id broadcasterSharePercent')
+      .lean();
+    const shareMap = new Map<string, number>();
+    products.forEach((p: any) => shareMap.set(p._id.toString(), p.broadcasterSharePercent ?? 80));
+
     // Filtra apenas os itens da emissora logada
     const ordersFiltered = orders.map(order => {
       const myItems = order.items.filter((item: any) => item.broadcasterId === userId);
 
-      // Calcula valor real que a emissora receberá (80% do valor bruto)
-      // Busca no array de splits o valor destinado a esta emissora
-      const mySplits = (order as any).splits?.filter((split: any) =>
-        split.recipientType === 'broadcaster' && split.recipientId === userId
-      ) || [];
-
-      const myTotalValue = mySplits.reduce((sum: number, split: any) => sum + (split.amount || 0), 0);
+      const myTotalValue = Math.round(
+        myItems.reduce((sum: number, item: any) => {
+          const share = shareMap.get(item.productId?.toString()) ?? 80;
+          return sum + (item.totalPrice || 0) * (share / 100);
+        }, 0) * 100
+      ) / 100;
 
       return {
         ...order,
-        items: myItems,
-        myTotalValue, // Valor real (80% do bruto)
+        items: myItems.map((item: any) => ({
+          ...item,
+          pricePerInsertion: item.unitPrice,
+        })),
+        myTotalValue,
         myTotalItems: myItems.reduce((sum: number, item: any) => sum + item.quantity, 0)
       };
     });
@@ -353,31 +368,45 @@ export const getBroadcasterOrders = async (req: AuthRequest, res: Response) => {
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    const orders = await Order.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit))
+    const [orders, total] = await Promise.all([
+      Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
+      Order.countDocuments(filter),
+    ]);
+
+    // Coleta todos os productIds dos itens desta emissora para buscar o share de cada um
+    const productIds = [...new Set(
+      orders.flatMap(o => o.items
+        .filter((item: any) => item.broadcasterId === userId)
+        .map((item: any) => item.productId)
+      )
+    )];
+
+    const products = await Product.find({ _id: { $in: productIds } })
+      .select('_id broadcasterSharePercent')
       .lean();
 
-    const total = await Order.countDocuments(filter);
-
+    const shareMap = new Map<string, number>();
+    products.forEach((p: any) => shareMap.set(p._id.toString(), p.broadcasterSharePercent ?? 80));
 
     // Filtra apenas os itens da emissora logada
     const ordersFiltered = orders.map(order => {
       const myItems = order.items.filter((item: any) => item.broadcasterId === userId);
 
-      // Calcula valor real que a emissora receberá (80% do valor bruto)
-      // Busca no array de splits o valor destinado a esta emissora
-      const mySplits = (order as any).splits?.filter((split: any) =>
-        split.recipientType === 'broadcaster' && split.recipientId === userId
-      ) || [];
-
-      const myTotalValue = mySplits.reduce((sum: number, split: any) => sum + (split.amount || 0), 0);
+      // Calcula "minha parte" usando o broadcasterSharePercent de cada produto
+      const myTotalValue = Math.round(
+        myItems.reduce((sum: number, item: any) => {
+          const share = shareMap.get(item.productId?.toString()) ?? 80;
+          return sum + (item.totalPrice || 0) * (share / 100);
+        }, 0) * 100
+      ) / 100;
 
       return {
         ...order,
-        items: myItems,
-        myTotalValue, // Valor real (80% do bruto)
+        items: myItems.map((item: any) => ({
+          ...item,
+          pricePerInsertion: item.unitPrice,
+        })),
+        myTotalValue,
         myTotalItems: myItems.reduce((sum: number, item: any) => sum + item.quantity, 0)
       };
     });

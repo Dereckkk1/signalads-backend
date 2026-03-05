@@ -25,7 +25,8 @@ import recommendationRoutes from './routes/recommendationRoutes';
 import agencyRoutes from './routes/agencyRoutes';
 import contactMessageRoutes from './routes/contactMessageRoutes';
 import blockedDomainRoutes from './routes/blockedDomainRoutes';
-
+import productRequestRoutes from './routes/productRequestRoutes';
+import profileRequestRoutes from './routes/profileRequestRoutes';
 // Middlewares de Segurança
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -116,6 +117,8 @@ app.use('/api/recommendations', recommendationRoutes); // Rotas de recomendaçã
 app.use('/api/agency', agencyRoutes); // Rotas de clientes de agência
 app.use('/api/contact-messages', contactMessageRoutes); // Rotas para mensagens do footer
 app.use('/api/blocked-domains', blockedDomainRoutes); // Rotas de domínios bloqueados (email corporativo)
+app.use('/api/product-requests', productRequestRoutes); // Rotas de solicitações de produtos (emissoras)
+app.use('/api/profile-requests', profileRequestRoutes); // Rotas de solicitações de perfil (emissoras)
 
 // Rota de teste
 app.get('/', (req: Request, res: Response) => {

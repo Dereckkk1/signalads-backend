@@ -466,6 +466,7 @@ export const updateCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       if (cleanProfile.audienceProfile) broadcaster.broadcasterProfile.audienceProfile = cleanProfile.audienceProfile;
       if (cleanProfile.coverage) broadcaster.broadcasterProfile.coverage = cleanProfile.coverage;
       if (cleanProfile.businessRules) broadcaster.broadcasterProfile.businessRules = cleanProfile.businessRules;
+      if (cleanProfile.pmm !== undefined) broadcaster.broadcasterProfile.pmm = cleanProfile.pmm;
     }
     if (status) broadcaster.status = status;
 
