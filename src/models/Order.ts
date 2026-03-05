@@ -199,6 +199,7 @@ export interface IOrder extends Document {
   approvedAt?: Date;
   completedAt?: Date;
   cancelledAt?: Date;
+  cancellationReason?: string;
 
   // Comunicação
   notifications: {
@@ -407,6 +408,7 @@ const OrderSchema = new Schema<IOrder>({
   approvedAt: Date,
   completedAt: Date,
   cancelledAt: Date,
+  cancellationReason: String,
 
   notifications: [{
     type: { type: String, enum: ['email', 'whatsapp', 'sms'] },

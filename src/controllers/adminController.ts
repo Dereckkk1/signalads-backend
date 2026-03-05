@@ -1348,7 +1348,7 @@ export const rejectWithdrawRequest = async (req: AuthRequest, res: Response) => 
 export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
   try {
     const { orderId } = req.params;
-    const { status } = req.body;
+    const { status, cancellationReason } = req.body;
 
     // Validate status
     const validStatuses = ['pending_contact', 'pending_payment', 'paid', 'cancelled'];
@@ -1368,6 +1368,14 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     if (status === 'paid' && oldStatus !== 'paid') {
       order.payment.status = 'received';
       order.paidAt = new Date();
+    }
+
+    // Se cancelou, salva motivo e data
+    if (status === 'cancelled') {
+      order.cancelledAt = new Date();
+      if (cancellationReason) {
+        order.cancellationReason = cancellationReason;
+      }
     }
 
     await order.save();

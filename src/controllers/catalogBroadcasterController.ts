@@ -5,6 +5,7 @@ import { Product } from '../models/Product';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { uploadFile } from '../config/storage';
+import { sendEmailConfirmation } from '../services/emailService';
 import NodeGeocoder from 'node-geocoder';
 
 const geocoderOptions: NodeGeocoder.Options = { provider: 'openstreetmap' };
@@ -150,12 +151,24 @@ export const createCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       broadcasterProfile: cleanBroadcasterProfile
     });
 
+    // Gera token de confirmação de email e envia
+    const confirmToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+    catalogBroadcaster.emailConfirmed = false;
+    catalogBroadcaster.emailConfirmToken = confirmToken;
+    catalogBroadcaster.emailConfirmTokenExpires = tokenExpires;
+
     await catalogBroadcaster.save();
 
-
+    // Envia email de confirmação para a emissora
+    await sendEmailConfirmation(
+      catalogBroadcaster.email,
+      companyName || fantasyName || 'Emissora',
+      confirmToken
+    );
 
     res.status(201).json({
-      message: 'Emissora catálogo criada com sucesso!',
+      message: 'Emissora catálogo criada com sucesso! Email de confirmação enviado.',
       broadcaster: {
         id: catalogBroadcaster._id,
         companyName: catalogBroadcaster.companyName,
@@ -385,6 +398,19 @@ export const updateCatalogBroadcaster = async (req: AuthRequest, res: Response) 
         return res.status(400).json({ message: 'Este email já está cadastrado' });
       }
       broadcaster.email = email.toLowerCase();
+
+      // Gera token e envia email de confirmação para o novo email
+      const confirmToken = crypto.randomBytes(32).toString('hex');
+      const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+      broadcaster.emailConfirmed = false;
+      broadcaster.emailConfirmToken = confirmToken;
+      broadcaster.emailConfirmTokenExpires = tokenExpires;
+
+      await sendEmailConfirmation(
+        broadcaster.email,
+        broadcaster.companyName || broadcaster.fantasyName || 'Emissora',
+        confirmToken
+      );
     }
     if (address) {
       broadcaster.address = { ...broadcaster.address, ...address };

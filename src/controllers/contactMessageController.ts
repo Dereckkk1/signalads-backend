@@ -4,7 +4,7 @@ import { AuthRequest } from '../middleware/auth';
 
 export const createMessage = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { emitterName, email, phone, message } = req.body;
+        const { emitterName, email, phone, message, category, broadcasterInfo } = req.body;
 
         if (!emitterName || !email || !phone || !message) {
             res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
@@ -15,7 +15,9 @@ export const createMessage = async (req: Request, res: Response): Promise<void> 
             emitterName,
             email,
             phone,
-            message
+            message,
+            ...(category && { category }),
+            ...(broadcasterInfo && { broadcasterInfo })
         });
 
         await newMessage.save();

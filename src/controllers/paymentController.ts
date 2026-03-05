@@ -182,8 +182,10 @@ async function calculateOrderFinancialsWithCatalog(
     : 0;
 
   // --- CÁLCULO DE MONITORAMENTO DE MÍDIA ---
-  const itemsCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const monitoringCost = isMonitoringEnabled ? itemsCount * 2 : 0;
+  const monitorableItemsCount = cartItems
+    .filter(item => !item.productName?.toLowerCase().startsWith('testemunhal'))
+    .reduce((sum, item) => sum + item.quantity, 0);
+  const monitoringCost = isMonitoringEnabled ? monitorableItemsCount * 2 : 0;
 
   // 3. Total que o cliente paga
   const totalAmount = Math.round((grossAmount + productionCost + techFee + agencyCommission + monitoringCost) * 100) / 100;

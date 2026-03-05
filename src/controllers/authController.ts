@@ -3,8 +3,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { User } from '../models/User';
+import BlockedDomain from '../models/BlockedDomain';
 import { sendTwoFactorEnableEmail, sendTwoFactorLoginEmail, sendTwoFactorCodeEmail, sendEmailConfirmation } from '../services/emailService';
 import { AuthRequest } from '../middleware/auth';
+import { isFreeEmailDomain, getEmailDomain } from '../utils/freeEmailDomains';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -16,6 +18,27 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         error: 'Emissoras não podem se auto-cadastrar. Entre em contato com o administrador.'
       });
       return;
+    }
+
+    // Validar email corporativo para anunciantes e agências
+    if (userType === 'advertiser' || userType === 'agency') {
+      // Verificar contra lista hardcoded de domínios gratuitos
+      if (isFreeEmailDomain(email)) {
+        res.status(400).json({
+          error: 'Para cadastro empresarial, utilize seu email corporativo (ex: nome@suaempresa.com.br). Emails gratuitos como Gmail, Hotmail, Yahoo não são aceitos.'
+        });
+        return;
+      }
+
+      // Verificar contra domínios bloqueados pelo admin
+      const domain = getEmailDomain(email);
+      const blockedDomain = await BlockedDomain.findOne({ domain });
+      if (blockedDomain) {
+        res.status(400).json({
+          error: 'Para cadastro empresarial, utilize seu email corporativo (ex: nome@suaempresa.com.br). Emails gratuitos como Gmail, Hotmail, Yahoo não são aceitos.'
+        });
+        return;
+      }
     }
 
     // Verificar se usuário já existe apenas por email

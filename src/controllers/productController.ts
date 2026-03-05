@@ -342,10 +342,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     // PASSO 2: Query de Broadcasters (Filtros de Perfil)
     let broadcasterQuery: any = {
       userType: 'broadcaster',
-      $or: [
-        { status: 'approved' },
-        { isCatalogOnly: true }
-      ]
+      status: 'approved' // Apenas emissoras aprovadas aparecem no marketplace
     };
 
     // Se há filtro de preço, restringe a emissoras que têm produtos nesse range
@@ -703,7 +700,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
           $match: {
             'address.city': { $in: citiesOnPage },
             userType: 'broadcaster',
-            $or: [{ status: 'approved' }, { isCatalogOnly: true }]
+            status: 'approved' // Apenas emissoras aprovadas
           }
         },
         {
@@ -756,10 +753,7 @@ export const getMarketplaceCities = async (req: AuthRequest, res: Response): Pro
     const broadcasters = await User.find({
       _id: { $in: broadcastersWithProducts },
       userType: 'broadcaster',
-      $or: [
-        { status: 'approved' },
-        { isCatalogOnly: true }
-      ]
+      status: 'approved' // Apenas emissoras aprovadas aparecem no marketplace
     }).select('address.city');
 
     // 3. Extrai e ordena as cidades
@@ -824,7 +818,7 @@ export const getMapProducts = async (req: AuthRequest, res: Response): Promise<v
     // Filtra produtos onde o broadcaster existe e é válido
     const validProducts = products.filter(p => {
       const b = p.broadcasterId as any;
-      return b && (b.status === 'approved' || b.isCatalogOnly);
+      return b && b.status === 'approved'; // Apenas emissoras aprovadas
     });
 
     res.json(validProducts);
@@ -846,7 +840,7 @@ export const searchBroadcastersForCompare = async (req: AuthRequest, res: Respon
     const broadcasterQuery: any = {
       _id: { $in: broadcasterIdsWithProducts },
       userType: 'broadcaster',
-      $or: [{ status: 'approved' }, { isCatalogOnly: true }]
+      status: 'approved' // Apenas emissoras aprovadas aparecem no marketplace
     };
 
     if (q && q.length >= 2) {

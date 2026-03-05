@@ -24,6 +24,7 @@ import imageRoutes from './routes/imageRoutes';
 import recommendationRoutes from './routes/recommendationRoutes';
 import agencyRoutes from './routes/agencyRoutes';
 import contactMessageRoutes from './routes/contactMessageRoutes';
+import blockedDomainRoutes from './routes/blockedDomainRoutes';
 
 // Middlewares de Segurança
 import helmet from 'helmet';
@@ -114,6 +115,7 @@ app.use('/api/image', imageRoutes); // Rotas de proxy de imagens
 app.use('/api/recommendations', recommendationRoutes); // Rotas de recomendação IA (NEW)
 app.use('/api/agency', agencyRoutes); // Rotas de clientes de agência
 app.use('/api/contact-messages', contactMessageRoutes); // Rotas para mensagens do footer
+app.use('/api/blocked-domains', blockedDomainRoutes); // Rotas de domínios bloqueados (email corporativo)
 
 // Rota de teste
 app.get('/', (req: Request, res: Response) => {

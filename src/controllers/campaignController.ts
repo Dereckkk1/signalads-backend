@@ -698,6 +698,7 @@ export const rejectBroadcasterItems = async (req: AuthRequest, res: Response) =>
     // Atualiza o status do pedido
     order.status = 'cancelled';
     order.cancelledAt = new Date();
+    order.cancellationReason = `Recusado pela emissora: ${reason}`;
 
     // Adiciona log de notificação
     order.notifications.push({
