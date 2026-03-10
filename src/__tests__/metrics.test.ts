@@ -48,8 +48,11 @@ describe('metricsMiddleware', () => {
 
         triggerFinish(res);
         expect(metricsStore.length).toBe(1);
-        expect(metricsStore[0].statusCode).toBe(200);
-        expect(metricsStore[0].duration).toBeGreaterThanOrEqual(0);
+
+        // Acesso seguro — garantido pelo expect(length).toBe(1) acima
+        const first = metricsStore[0]!;
+        expect(first.statusCode).toBe(200);
+        expect(first.duration).toBeGreaterThanOrEqual(0);
     });
 
     it('deve registrar método e rota corretamente', () => {
@@ -60,7 +63,8 @@ describe('metricsMiddleware', () => {
         metricsMiddleware(req as Request, res as Response, next);
         triggerFinish(res);
 
-        expect(metricsStore[0].method).toBe('POST');
+        const first = metricsStore[0]!;
+        expect(first.method).toBe('POST');
     });
 
     it('deve manter circular buffer — não ultrapassar MAX_STORE', () => {
@@ -105,7 +109,8 @@ describe('getMetricsSummary', () => {
         const summary = getMetricsSummary(3_600_000);
         expect(summary.length).toBe(1);
 
-        const route = summary[0];
+        // Non-null assertion seguro — verificamos length === 1 acima
+        const route = summary[0]!;
         expect(route.count).toBe(10);
         expect(route.p50).toBeGreaterThan(0);
         expect(route.p95).toBeGreaterThanOrEqual(route.p50);
@@ -136,7 +141,7 @@ describe('getMetricsSummary', () => {
         });
 
         const summary = getMetricsSummary(3_600_000);
-        const route = summary[0];
+        const route = summary[0]!;
         expect(route.errorCount).toBe(1);
         expect(route.errorRate).toBe('10.00%');
     });
