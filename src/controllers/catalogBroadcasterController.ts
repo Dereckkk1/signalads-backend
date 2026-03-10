@@ -81,7 +81,9 @@ export const createCatalogBroadcaster = async (req: AuthRequest, res: Response) 
     // Verifica se email já existe
     const existingEmail = await User.findOne({ email: email.toLowerCase() });
     if (existingEmail) {
-      return res.status(400).json({ message: 'Este email já está cadastrado' });
+      return res.status(400).json({
+        message: `Este email já está cadastrado como ${existingEmail.userType} (status: ${existingEmail.status})`
+      });
     }
 
     // Gera identificador único para cpfOrCnpj (evita conflito de unique)

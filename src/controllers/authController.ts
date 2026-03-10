@@ -111,20 +111,23 @@ export const confirmEmail = async (req: Request, res: Response): Promise<void> =
   try {
     const { token } = req.params;
 
-    const user = await User.findOne({
-      emailConfirmToken: token,
-      emailConfirmTokenExpires: { $gt: new Date() }
-    });
+    // Atomic operation to prevent race conditions (e.g. React StrictMode double-mount)
+    const user = await User.findOneAndUpdate(
+      {
+        emailConfirmToken: token,
+        emailConfirmTokenExpires: { $gt: new Date() }
+      },
+      {
+        $set: { emailConfirmed: true },
+        $unset: { emailConfirmToken: '', emailConfirmTokenExpires: '' }
+      },
+      { new: true }
+    );
 
     if (!user) {
       res.status(400).json({ error: 'Link inválido ou expirado. Faça o cadastro novamente.' });
       return;
     }
-
-    user.emailConfirmed = true;
-    user.emailConfirmToken = undefined;
-    user.emailConfirmTokenExpires = undefined;
-    await user.save();
 
     res.json({ message: 'Email confirmado com sucesso! Agora você pode fazer login.' });
   } catch (error) {
