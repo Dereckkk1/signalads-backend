@@ -67,39 +67,36 @@ router.get('/metrics', (_req: Request, res: Response) => {
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/vitals — Recebe Web Vitals do frontend
+// Sempre responde 204 — nunca deve retornar 500 ao cliente.
+// Erros são logados internamente sem quebrar o ciclo de resposta.
 // ─────────────────────────────────────────────────────────────
 router.post('/vitals', (req: Request, res: Response) => {
+    // Responde IMEDIATAMENTE com 204 para não bloquear o sendBeacon
+    res.status(204).send();
+
+    // Processa o log de forma assíncrona após responder
     try {
-        const { name, value, rating, id, page, navigationType } = req.body;
+        // Aceita body undefined, null, ou qualquer formato
+        const body = req.body ?? {};
+        const name = body.name as string | undefined;
+        const value = body.value as number | undefined;
+        const rating = (body.rating as string) || 'unknown';
+        const page = (body.page as string) || 'unknown';
 
-        if (!name || value === undefined) {
-            res.status(400).json({ error: 'Campos obrigatórios: name, value' });
-            return;
-        }
+        // Sem name/value válidos → ignora silenciosamente
+        if (!name || value === undefined || typeof value !== 'number') return;
 
-        const vital = {
-            name,
-            value: Math.round(value),
-            rating: rating || 'unknown',
-            id: id || 'N/A',
-            page: page || 'unknown',
-            navigationType: navigationType || 'navigate',
-            receivedAt: new Date().toISOString(),
-        };
+        const rounded = Math.round(value);
 
-        // Log estruturado — base para evolução futura (MongoDB/Datadog)
         if (rating === 'poor') {
-            console.warn(`⚠️  [VITAL_POOR]  ${name}=${vital.value}ms | página: ${page}`);
+            console.warn(`⚠️  [VITAL_POOR]  ${name}=${rounded}ms | página: ${page}`);
         } else if (rating === 'needs-improvement') {
-            console.log(`🟡 [VITAL_WARN]  ${name}=${vital.value}ms | página: ${page}`);
+            console.log(`🟡 [VITAL_WARN]  ${name}=${rounded}ms | página: ${page}`);
         } else {
-            console.log(`✅ [VITAL_GOOD]  ${name}=${vital.value}ms | página: ${page}`);
+            console.log(`✅ [VITAL_GOOD]  ${name}=${rounded}ms | página: ${page}`);
         }
-
-        res.status(204).send();
-    } catch (err) {
-        console.error('Erro ao registrar vital:', err);
-        res.status(500).json({ error: 'Erro ao registrar vital' });
+    } catch {
+        // Falha silenciosa — log de vitals nunca deve afetar a aplicação
     }
 });
 
