@@ -442,11 +442,31 @@ OrderSchema.pre('save', async function () {
   }
 });
 
-// Índices para performance
+// ─── Índices de Performance ───────────────────────────────────────────────
+
+// Consultas do comprador — "Meus pedidos" (mais usada)
 OrderSchema.index({ buyerId: 1, createdAt: -1 });
-OrderSchema.index({ orderNumber: 1 });
+OrderSchema.index({ buyerId: 1, status: 1 });
+
+// Admin — listagem com filtro de status paginada
+OrderSchema.index({ status: 1, createdAt: -1 });
+
+// Webhook Asaas — lookup por paymentId (crítico para pagamentos)
 OrderSchema.index({ 'payment.asaasPaymentId': 1 });
-OrderSchema.index({ status: 1 });
-OrderSchema.index({ clientId: 1 });
+
+// Número do pedido — busca direta
+OrderSchema.index({ orderNumber: 1 });  // já unique, mas explicita o índice
+
+// Pedidos de uma emissora específica (via items.broadcasterId)
+OrderSchema.index({ 'items.broadcasterId': 1, status: 1 });
+
+// Agência — pedidos de um cliente específico
+OrderSchema.index({ clientId: 1, createdAt: -1 });
+
+// Análise financeira — pedidos pagos em período
+OrderSchema.index({ 'payment.status': 1, paidAt: -1 });
+
+// Faturamento — pedidos com billingStatus pendente
+OrderSchema.index({ billingStatus: 1, createdAt: -1 });
 
 export default mongoose.model<IOrder>('Order', OrderSchema);

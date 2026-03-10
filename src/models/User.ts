@@ -328,10 +328,29 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-// Índice para busca rápida de tokens 2FA
-userSchema.index({ twoFactorPendingToken: 1 });
-userSchema.index({ twoFactorSecret: 1 });
-// Índice para emissoras catálogo
+// ─── Índices de Performance ───────────────────────────────────────────────
+
+// Login: busca por email (único, já indexado via unique: true) e cpfOrCnpj
+userSchema.index({ cpfOrCnpj: 1 });  // login via CNPJ
+
+// Marketplace público: busca emissoras aprovadas com onboarding completo
+// Query: { userType: 'broadcaster', status: 'approved', onboardingCompleted: true }
+userSchema.index({ userType: 1, status: 1, onboardingCompleted: 1 });
+
+// Admin — listagem de usuários paginada e filtrada por tipo e status
+// Query: { status: 'pending' } | { userType: 'advertiser', status: 'approved' }
+userSchema.index({ status: 1, createdAt: -1 });
+userSchema.index({ userType: 1, status: 1, createdAt: -1 });
+
+// Emissoras catálogo criadas pelo admin
 userSchema.index({ isCatalogOnly: 1, userType: 1 });
+
+// Busca rápida por tokens 2FA
+userSchema.index({ twoFactorPendingToken: 1 });
+userSchema.index({ emailConfirmToken: 1 });
+
+// Busca emissoras por cidade/estado (busca geográfica no marketplace)
+userSchema.index({ 'broadcasterProfile.coverage.states': 1 });
+userSchema.index({ 'broadcasterProfile.categories': 1 });
 
 export const User = model<IUser>('User', userSchema);

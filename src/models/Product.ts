@@ -75,8 +75,13 @@ const productSchema = new Schema<IProduct>(
   }
 );
 
-// Index para buscar produtos por emissora
+// ─── Índices de Performance ───────────────────────────────────────────────
+
+// Produtos ativos de uma emissora (query principal do marketplace ao abrir emissora)
 productSchema.index({ broadcasterId: 1, isActive: 1 });
+
+// Busca por tipo de spot ativo (filtros no marketplace)
+productSchema.index({ broadcasterId: 1, spotType: 1, isActive: 1 });
 
 // Middleware para extrair duração do spotType antes de salvar
 productSchema.pre('save', function () {
