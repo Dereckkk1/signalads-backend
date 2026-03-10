@@ -33,6 +33,8 @@ import rateLimit from 'express-rate-limit';
 // import mongoSanitize from 'express-mongo-sanitize'; // Incompatible with Express 5
 import hpp from 'hpp';
 import { mongoSanitize } from './middleware/security';
+import { metricsMiddleware } from './middleware/metrics';
+import healthRoutes from './routes/healthRoutes';
 
 dotenv.config();
 
@@ -93,6 +95,12 @@ app.use(hpp()); // Previne poluição de parâmetros HTTP
 // Servir arquivos estáticos (uploads locais para desenvolvimento)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Coleta de métricas de performance (antes das rotas para capturar tudo)
+app.use(metricsMiddleware);
+
+// Rotas de infra (health, metrics, vitals) — sem auth
+app.use('/api', healthRoutes);
+
 // Rotas
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -129,7 +137,7 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
-// Rota de health check
+// Rota de health check legada (mantida para compatibilidade)
 app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'OK',
@@ -178,6 +186,10 @@ const startServer = async () => {
   }
 };
 
-startServer();
+// Em modo de teste (Jest), não inicia o servidor nem conecta ao Atlas
+// O banco é gerenciado pelo mongodb-memory-server via setup.ts
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;
