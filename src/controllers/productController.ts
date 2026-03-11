@@ -854,20 +854,23 @@ export const getMarketplaceBroadcasterDetails = async (req: AuthRequest, res: Re
 // Obter TODOS os produtos para o mapa (sem paginação, leve)
 export const getMapProducts = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    // Busca todos os produtos ativos
-    const products = await Product.find({ isActive: true })
-      .populate({
-        path: 'broadcasterId',
-        select: 'companyName address broadcasterProfile userType status isCatalogOnly' // Seleciona apenas campos necessários
-      });
-
-    // Filtra produtos onde o broadcaster existe e é válido
-    const validProducts = products.filter(p => {
-      const b = p.broadcasterId as any;
-      return b && b.status === 'approved'; // Apenas emissoras aprovadas
+    // Busca IDs de emissoras aprovadas e produtos ativos em paralelo
+    const approvedBroadcasterIds = await User.distinct('_id', {
+      userType: 'broadcaster',
+      status: 'approved'
     });
 
-    res.json(validProducts);
+    const products = await Product.find({
+      isActive: true,
+      broadcasterId: { $in: approvedBroadcasterIds }
+    })
+      .populate({
+        path: 'broadcasterId',
+        select: 'companyName address broadcasterProfile userType status isCatalogOnly'
+      })
+      .lean();
+
+    res.json(products);
   } catch (error) {
     console.error('Erro ao buscar dados do mapa:', error);
     res.status(500).json({ error: 'Erro ao buscar dados do mapa' });
