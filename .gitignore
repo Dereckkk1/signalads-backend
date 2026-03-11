@@ -10,7 +10,6 @@ coverage/
 credentials/
 token.txt
 /cache
-/src/scripts_bak
 /data
 /backups
 *.md
