@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { Product } from '../models/Product';
+import { Product, PLATFORM_COMMISSION_RATE } from '../models/Product';
 import { User } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 import { toAccentInsensitiveRegex } from '../utils/stringUtils';
@@ -89,7 +89,7 @@ function getCompanionProducts(spotType: string, basePrice: number, timeSlot: str
 // Criar novo produto (Broadcaster ou Admin)
 export const createProduct = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { spotType, timeSlot, pricePerInsertion, broadcasterId } = req.body;
+    const { spotType, timeSlot, pricePerInsertion, netPrice, broadcasterId } = req.body;
 
     const user = await User.findById(req.userId);
 
@@ -125,11 +125,20 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    // Valida dados obrigatórios
-    if (!spotType || !timeSlot || !pricePerInsertion) {
-      res.status(400).json({ error: 'spotType, timeSlot e pricePerInsertion são obrigatórios' });
+    // Aceita netPrice (preço líquido) ou pricePerInsertion (legado/admin)
+    const inputNetPrice = netPrice ? parseFloat(netPrice) : null;
+    const inputPrice = pricePerInsertion ? parseFloat(pricePerInsertion) : null;
+
+    if (!spotType || !timeSlot || (!inputNetPrice && !inputPrice)) {
+      res.status(400).json({ error: 'spotType, timeSlot e netPrice (ou pricePerInsertion) são obrigatórios' });
       return;
     }
+
+    // Se veio netPrice, calcula pricePerInsertion. Se veio apenas pricePerInsertion (admin/legado), calcula netPrice.
+    const finalNetPrice = inputNetPrice || Math.round((inputPrice! / (1 + PLATFORM_COMMISSION_RATE)) * 100) / 100;
+    const finalPrice = inputNetPrice
+      ? Math.round(inputNetPrice * (1 + PLATFORM_COMMISSION_RATE) * 100) / 100
+      : inputPrice!;
 
     // Extrai a duração do spotType (ex: "Comercial 30s" -> 30)
     const durationMatch = spotType.match(/(\d+)s/);
@@ -140,13 +149,14 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
       spotType,
       duration,
       timeSlot,
-      pricePerInsertion: parseFloat(pricePerInsertion)
+      netPrice: finalNetPrice,
+      pricePerInsertion: finalPrice
     });
 
     await product.save();
 
     // Cria produtos companheiros automaticamente (ex: Comercial 30s → 15s, 45s, 60s)
-    const companions = getCompanionProducts(spotType, parseFloat(pricePerInsertion), timeSlot);
+    const companions = getCompanionProducts(spotType, finalNetPrice, timeSlot);
     const createdCompanions = [];
     for (const comp of companions) {
       const existing = await Product.findOne({
@@ -161,7 +171,8 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
           spotType: comp.spotType,
           duration: comp.duration,
           timeSlot: comp.timeSlot,
-          pricePerInsertion: comp.price
+          netPrice: comp.price,
+          pricePerInsertion: Math.round(comp.price * (1 + PLATFORM_COMMISSION_RATE) * 100) / 100
         });
         await compProduct.save();
         createdCompanions.push(compProduct);
@@ -209,7 +220,7 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
       query.broadcasterId = req.userId;
     }
 
-    const { spotType, timeSlot, pricePerInsertion, isActive } = req.body;
+    const { spotType, timeSlot, pricePerInsertion, netPrice, isActive } = req.body;
 
     const product = await Product.findOne(query);
 
@@ -229,7 +240,16 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
       }
     }
     if (timeSlot) product.timeSlot = timeSlot;
-    if (pricePerInsertion !== undefined) product.pricePerInsertion = parseFloat(pricePerInsertion);
+
+    // Prioridade: netPrice (emissora) → pricePerInsertion (admin/legado)
+    if (netPrice !== undefined) {
+      product.netPrice = parseFloat(netPrice);
+      product.pricePerInsertion = Math.round(parseFloat(netPrice) * (1 + PLATFORM_COMMISSION_RATE) * 100) / 100;
+    } else if (pricePerInsertion !== undefined) {
+      product.pricePerInsertion = parseFloat(pricePerInsertion);
+      product.netPrice = Math.round(parseFloat(pricePerInsertion) / (1 + PLATFORM_COMMISSION_RATE) * 100) / 100;
+    }
+
     if (isActive !== undefined) product.isActive = isActive;
 
     await product.save();

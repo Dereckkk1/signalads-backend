@@ -27,6 +27,7 @@ import contactMessageRoutes from './routes/contactMessageRoutes';
 import blockedDomainRoutes from './routes/blockedDomainRoutes';
 import productRequestRoutes from './routes/productRequestRoutes';
 import profileRequestRoutes from './routes/profileRequestRoutes';
+import { startBackupCron } from './cron/backupCron';
 // Middlewares de Segurança
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -180,6 +181,9 @@ const startServer = async () => {
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
       console.log(`📍 http://localhost:${PORT}`);
     });
+
+    // Inicia cron de backup automatico (meia-noite)
+    startBackupCron();
   } catch (error) {
     console.error('Erro ao iniciar servidor:', error);
     process.exit(1);

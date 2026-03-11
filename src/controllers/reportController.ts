@@ -101,6 +101,10 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
             const address = broadcaster.address || {};
 
             const precoPlataforma = item.pricePerInsertion || 0;
+            // netPrice é o valor líquido que a emissora recebe
+            const netPrice = item.netPrice > 0 ? item.netPrice : Math.round(precoPlataforma / 1.25 * 100) / 100;
+            // Comissão da plataforma (25% do netPrice)
+            const comissaoPlataforma = Math.round((precoPlataforma - netPrice) * 100) / 100;
             // Cálculo v1 fornecido: (preço_plataforma - 39.39%) - 20% -> equivalente a (precoPlataforma / 1.65) * 0.8
             const precoV1 = (precoPlataforma / 1.65) * 0.8;
 
@@ -114,6 +118,8 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
                 cnpj: broadcaster.cnpj || broadcaster.cpfOrCnpj || '',
                 produto: item.spotType,
                 precoPlataforma: precoPlataforma,
+                precoLiquido: netPrice,
+                comissaoPlataforma: comissaoPlataforma,
                 precoV1: precoV1,
                 pmm: profile.pmm || 0,
             };

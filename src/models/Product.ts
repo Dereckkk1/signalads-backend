@@ -5,11 +5,12 @@ export interface IProduct extends Document {
   spotType: string; // "Comercial 5s", "Comercial 10s", etc
   duration: number; // Duração em segundos (5, 10, 15, 30, 60)
   timeSlot: string; // "Rotativo", "Horário Nobre", "Indeterminado", "08:00-12:00"
-  pricePerInsertion: number;
+  netPrice: number; // Preço líquido que a emissora recebe
+  pricePerInsertion: number; // Preço bruto (netPrice * 1.25) exibido no marketplace
   isActive: boolean;
   manuallyEdited: boolean;
-  broadcasterSharePercent: number; // % do preço que vai para a emissora (ex: 80)
-  platformSharePercent: number;    // % do preço que vai para a plataforma (ex: 20)
+  broadcasterSharePercent: number; // Legado - mantido para compatibilidade
+  platformSharePercent: number;    // Legado - mantido para compatibilidade
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +44,11 @@ const productSchema = new Schema<IProduct>(
     timeSlot: {
       type: String,
       required: true
+    },
+    netPrice: {
+      type: Number,
+      min: 0,
+      default: 0
     },
     pricePerInsertion: {
       type: Number,
@@ -83,14 +89,21 @@ productSchema.index({ broadcasterId: 1, isActive: 1 });
 // Busca por tipo de spot ativo (filtros no marketplace)
 productSchema.index({ broadcasterId: 1, spotType: 1, isActive: 1 });
 
-// Middleware para extrair duração do spotType antes de salvar
+// Taxa de comissão da plataforma (25% sobre o preço líquido da emissora)
+export const PLATFORM_COMMISSION_RATE = 0.25;
+
+// Middleware para extrair duração e calcular preço bruto antes de salvar
 productSchema.pre('save', function () {
   if (this.isModified('spotType')) {
-    // Extrai número da string (ex: "Comercial 30s" -> 30)
     const match = this.spotType.match(/(\d+)s/);
     if (match && match[1]) {
       this.duration = parseInt(match[1], 10);
     }
+  }
+
+  // Se netPrice foi definido, calcula pricePerInsertion automaticamente
+  if (this.isModified('netPrice') && this.netPrice > 0) {
+    this.pricePerInsertion = Math.round(this.netPrice * (1 + PLATFORM_COMMISSION_RATE) * 100) / 100;
   }
 });
 

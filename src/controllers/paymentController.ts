@@ -42,27 +42,27 @@ export async function ensurePlatformWallet(): Promise<IWallet> {
 
 /**
  * Calcula valores financeiros do pedido
- * 
- * Sistema de divisão:
- * - Valor do produto (bruto): 100%
- * 
+ *
+ * MODELO DE PRECIFICAÇÃO (markup 25%):
+ * - Emissora cadastra preço líquido (netPrice)
+ * - Plataforma adiciona 25% → preço bruto (pricePerInsertion)
+ * - Cliente paga: preço bruto + Tech Fee (5%)
+ *
  * PARA EMISSORAS COM CONTA (isCatalogOnly: false):
- * - Emissora recebe: 80%
- * - Plataforma recebe: 20%
+ * - Emissora recebe: netPrice (preço líquido = bruto / 1.25)
+ * - Plataforma recebe: bruto - netPrice (comissão de 25%)
  * - Tech Fee (adicional): 5%
- * - Cliente paga: Valor bruto + Tech Fee (105%)
- * 
+ *
  * PARA EMISSORAS CATÁLOGO (isCatalogOnly: true):
  * - Plataforma recebe: 100% (emissora é paga por fora)
  * - Tech Fee (adicional): 5%
- * - Cliente paga: Valor bruto + Tech Fee (105%)
  */
 interface FinancialCalculation {
-  grossAmount: number; // Valor bruto total dos produtos
-  broadcasterAmount: number; // 80% para emissoras (apenas com conta)
-  platformSplit: number; // 20% para plataforma (ou 100% se catálogo)
+  grossAmount: number; // Valor bruto total dos produtos (com markup)
+  broadcasterAmount: number; // Valor líquido para emissoras (netPrice)
+  platformSplit: number; // Comissão da plataforma (25% markup + 100% catálogo)
   techFee: number; // 5% taxa técnica
-  agencyCommission: number; // 12% se for agência
+  agencyCommission: number; // Comissão de agência se aplicável
   monitoringCost: number; // Custo de monitoramento de mídia
   totalAmount: number; // O que o cliente paga
   splits: Array<{
@@ -115,6 +115,16 @@ async function calculateOrderFinancialsWithCatalog(
     isCatalogOnly: boolean;
   }>();
 
+  // Busca netPrice dos produtos para calcular valor líquido da emissora
+  const productIds = [...new Set(cartItems.map(item => item.productId.toString()))];
+  const { Product } = await import('../models/Product');
+  const products = await Product.find({ _id: { $in: productIds } }).select('_id netPrice pricePerInsertion').lean();
+  const productNetPriceMap = new Map<string, number>();
+  products.forEach((p: any) => {
+    // Se o produto tem netPrice, usa. Senão, calcula a partir do pricePerInsertion (legado: bruto / 1.25)
+    productNetPriceMap.set(p._id.toString(), p.netPrice > 0 ? p.netPrice : Math.round(p.pricePerInsertion / 1.25 * 100) / 100);
+  });
+
   cartItems.forEach(item => {
     const itemGross = item.price * item.quantity;
     const broadcasterId = item.broadcasterId.toString();
@@ -133,9 +143,13 @@ async function calculateOrderFinancialsWithCatalog(
     const current = broadcasterMap.get(broadcasterId)!;
     current.grossAmount += itemGross;
 
-    // SE CATÁLOGO: emissora não recebe nada (0%)
-    // SE COM CONTA: emissora recebe 80%
-    current.broadcasterAmount += isCatalog ? 0 : (itemGross * 0.80);
+    // Calcula valor líquido da emissora usando netPrice do produto
+    const productNetPrice = productNetPriceMap.get(item.productId.toString()) || (item.price / 1.25);
+    const itemNet = productNetPrice * item.quantity;
+
+    // Emissora recebe sempre o valor líquido (netPrice)
+    // Catálogo: repasse manual pela plataforma; Com conta: split automático
+    current.broadcasterAmount += itemNet;
   });
 
   // 2. Soma totais
@@ -161,19 +175,15 @@ async function calculateOrderFinancialsWithCatalog(
   const productionCost = uniqueCount * 50;
 
 
-  // Plataforma recebe: 20% das emissoras com conta + 100% das catálogo
-  let platformFromRegular = 0;
-  let platformFromCatalog = 0;
+  // Plataforma recebe: markup 25% em todos os casos (bruto - líquido)
+  // Catálogo e não-catálogo: a plataforma sempre fica só com a diferença (25%)
+  let platformFromAll = 0;
 
   broadcasterMap.forEach(b => {
-    if (b.isCatalogOnly) {
-      platformFromCatalog += b.grossAmount; // 100% do catálogo
-    } else {
-      platformFromRegular += b.grossAmount * 0.20; // 20% das regulares
-    }
+    platformFromAll += b.grossAmount - b.broadcasterAmount; // Markup 25% em todos os casos
   });
 
-  const platformSplit = Math.round((platformFromRegular + platformFromCatalog) * 100) / 100;
+  const platformSplit = Math.round(platformFromAll * 100) / 100;
 
   const techFee = Math.round(((grossAmount + productionCost) * 0.05) * 100) / 100;
 
@@ -193,41 +203,31 @@ async function calculateOrderFinancialsWithCatalog(
   // 4. Monta splits
   const splits: any[] = [];
 
-  // Splits por emissora (apenas para emissoras COM CONTA)
+  // Splits por emissora — todas recebem o valor líquido
   broadcasterMap.forEach(broadcaster => {
-    if (!broadcaster.isCatalogOnly && broadcaster.broadcasterAmount > 0) {
+    if (broadcaster.broadcasterAmount > 0) {
       splits.push({
         recipientId: broadcaster.broadcasterId,
         recipientName: broadcaster.broadcasterName,
         recipientType: 'broadcaster',
         amount: broadcaster.broadcasterAmount,
-        percentage: 80,
-        description: 'Crédito de campanha aprovada'
+        percentage: 80, // representa ~80% (líquido sobre bruto com markup 25%)
+        description: broadcaster.isCatalogOnly
+          ? 'Repasse manual — emissora catálogo'
+          : 'Crédito de campanha aprovada'
       });
     }
   });
 
-  // Split da plataforma (20% das regulares + 100% das catálogo)
-  if (platformFromRegular > 0) {
+  // Split da plataforma (markup 25% de todas as emissoras)
+  if (platformFromAll > 0) {
     splits.push({
       recipientId: 'platform',
       recipientName: 'E-rádios Platform',
       recipientType: 'platform',
-      amount: platformFromRegular,
-      percentage: 20,
-      description: 'Taxa de intermediação'
-    });
-  }
-
-  // Split da plataforma para emissoras catálogo (100%)
-  if (platformFromCatalog > 0) {
-    splits.push({
-      recipientId: 'platform',
-      recipientName: 'E-rádios Platform (Catálogo)',
-      recipientType: 'platform',
-      amount: platformFromCatalog,
-      percentage: 100,
-      description: 'Venda via catálogo (emissora externa)'
+      amount: platformFromAll,
+      percentage: 20, // representa ~20% (markup 25% = ~20% do bruto)
+      description: 'Comissão de intermediação (markup 25%)'
     });
   }
 
@@ -752,6 +752,26 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
         console.error(`❌ Erro ao enviar email de confirmação:`, emailErr);
       }
 
+      // 📧 Notifica admins sobre novo pedido
+      try {
+        const admins = await User.find({ userType: 'admin' }).select('email');
+        const adminEmails = admins.map((a: any) => a.email);
+        if (adminEmails.length > 0) {
+          await sendNewOrderToAdmin({
+            orderNumber: order.orderNumber,
+            buyerName: order.buyerName,
+            buyerEmail: order.buyerEmail,
+            buyerPhone: order.buyerPhone,
+            totalValue: order.totalAmount,
+            itemsCount: order.items.length,
+            adminEmails,
+            isMonitoringEnabled: order.isMonitoringEnabled
+          });
+        }
+      } catch (emailErr) {
+        console.error(`❌ Erro ao notificar admins (wallet):`, emailErr);
+      }
+
       return res.status(200).json({
         success: true,
         order: order,
@@ -1025,7 +1045,27 @@ export const processCheckout = async (req: AuthRequest, res: Response) => {
       } catch (clientEmailErr) {
         console.error(`❌ Erro ao enviar email de confirmação para cliente:`, clientEmailErr);
       }
-    }
+
+      // 📧 Notifica admins sobre novo pedido (PIX/cartão)
+      try {
+        const admins = await User.find({ userType: 'admin' }).select('email');
+        const adminEmails = admins.map((a: any) => a.email);
+        if (adminEmails.length > 0) {
+          await sendNewOrderToAdmin({
+            orderNumber: order.orderNumber,
+            buyerName: billingInfo.name,
+            buyerEmail: billingInfo.email,
+            buyerPhone: billingInfo.phone,
+            totalValue: order.totalAmount,
+            itemsCount: order.items.length,
+            adminEmails,
+            isMonitoringEnabled: order.isMonitoringEnabled
+          });
+        }
+      } catch (emailErr) {
+        console.error(`❌ Erro ao notificar admins (PIX/cartão):`, emailErr);
+      }
+    } // fim if (orderStatus === 'pending_approval')
 
     // 13. Se método é billing, envia e-mails de validação
     if (paymentMethod === 'billing') {

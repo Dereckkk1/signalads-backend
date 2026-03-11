@@ -26,7 +26,8 @@ import {
   updateUserStatus,
   updateUserRole,
   adminResetUserPassword,
-  deleteUser
+  deleteUser,
+  adminUploadRecordingAudio
 } from '../controllers/adminController';
 import {
   createCatalogBroadcaster,
@@ -60,6 +61,20 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Apenas imagens são permitidas'));
+    }
+  }
+});
+
+// Configuração do Multer para upload de áudio gravado (pelo admin)
+const uploadAudio = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas arquivos .mp3 e .wav são permitidos'));
     }
   }
 });
@@ -105,6 +120,7 @@ router.put('/broadcasters/:broadcasterId/reject', authenticateToken, isAdmin, re
 router.get('/orders/full', authenticateToken, isAdmin, getFullOrdersForAdmin);
 router.post('/orders/:orderId/approve', authenticateToken, isAdmin, adminApproveOrder);
 router.put('/orders/:orderId/status', authenticateToken, isAdmin, updateOrderStatus);
+router.post('/orders/:orderId/items/:itemIndex/upload-recording-audio', authenticateToken, isAdmin, uploadAudio.single('audio'), adminUploadRecordingAudio);
 
 // ========================
 // ROTAS DA WALLET DA PLATAFORMA

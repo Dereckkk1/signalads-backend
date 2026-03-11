@@ -9,6 +9,14 @@ import asaasService from '../services/asaasService';
 import { Cart } from '../models/Cart';
 import bcrypt from 'bcryptjs';
 import QuoteRequest from '../models/QuoteRequest';
+import {
+  sendOrderPendingPaymentToClient,
+  sendOrderPaidConfirmedToClient,
+  sendOrderInProductionToClient,
+  sendOrderCancelledByAdminToClient,
+  sendNewOrderToAdmin,
+  sendOrderReceivedToClient
+} from '../services/emailService';
 
 // Listar emissoras pendentes de aprovação
 export const getPendingBroadcasters = async (req: Request, res: Response): Promise<void> => {
@@ -566,6 +574,16 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
       // Verifica se tem emissoras catálogo
       const hasCatalogBroadcasters = itemsWithBroadcasterNames?.some((item: any) => item.isCatalogBroadcaster);
 
+      // Recalcula valores financeiros a partir dos itens (corrige pedidos com valores legados no DB)
+      // grossAmount = soma dos totalPrice dos itens (preço bruto = netPrice * 1.25)
+      const grossFromItems = Math.round(
+        (itemsWithBroadcasterNames || []).reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0) * 100
+      ) / 100;
+      // broadcasterAmount = valor líquido a pagar para todas as emissoras (gross / 1.25)
+      const broadcasterAmountCalc = Math.round((grossFromItems / 1.25) * 100) / 100;
+      // platformSplit = markup 25% (gross - net = ~20% do gross)
+      const platformSplitCalc = Math.round((grossFromItems - broadcasterAmountCalc) * 100) / 100;
+
       return {
         _id: order._id,
         orderNumber: order.orderNumber,
@@ -582,6 +600,11 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
         isMonitoringEnabled: order.isMonitoringEnabled,
         monitoringCost: order.monitoringCost,
         agencyCommission: order.agencyCommission,
+        grossAmount: grossFromItems,
+        broadcasterAmount: broadcasterAmountCalc,
+        platformSplit: platformSplitCalc,
+        techFee: order.techFee,
+        totalAmount: order.totalAmount,
       };
     }));
 
@@ -733,6 +756,26 @@ export const adminApproveOrder = async (req: AuthRequest, res: Response) => {
     order.approvedAt = new Date();
     await order.save();
 
+    // 📧 Email para o cliente: campanha em produção
+    setImmediate(async () => {
+      try {
+        // Conta emissoras únicas nos splits
+        const broadcasterCount = new Set(
+          order.splits.filter(s => s.recipientType === 'broadcaster').map(s => s.recipientId)
+        ).size;
+
+        await sendOrderInProductionToClient({
+          orderNumber: order.orderNumber,
+          buyerName: order.buyerName,
+          buyerEmail: order.buyerEmail,
+          totalValue: order.totalAmount,
+          broadcasterCount: broadcasterCount || 1
+        });
+        console.log(`📧 Email 'campanha em produção' enviado para ${order.buyerEmail}`);
+      } catch (emailErr) {
+        console.error('❌ Erro ao enviar email de aprovação admin:', emailErr);
+      }
+    });
 
     return res.json({
       message: 'Pedido aprovado com sucesso! Valores creditados nas wallets.',
@@ -1380,6 +1423,43 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 
     await order.save();
 
+    // 📧 Dispara email de notificação ao cliente conforme a transição de status
+    setImmediate(async () => {
+      try {
+        if (status === 'pending_payment' && oldStatus !== 'pending_payment') {
+          await sendOrderPendingPaymentToClient({
+            orderNumber: order.orderNumber,
+            buyerName: order.buyerName,
+            buyerEmail: order.buyerEmail,
+            totalValue: order.totalAmount
+          });
+          console.log(`📧 Email 'aguardando pagamento' enviado para ${order.buyerEmail}`);
+        }
+
+        if (status === 'paid' && oldStatus !== 'paid') {
+          await sendOrderPaidConfirmedToClient({
+            orderNumber: order.orderNumber,
+            buyerName: order.buyerName,
+            buyerEmail: order.buyerEmail,
+            totalValue: order.totalAmount
+          });
+          console.log(`📧 Email 'pagamento confirmado' enviado para ${order.buyerEmail}`);
+        }
+
+        if (status === 'cancelled' && oldStatus !== 'cancelled') {
+          await sendOrderCancelledByAdminToClient({
+            orderNumber: order.orderNumber,
+            buyerName: order.buyerName,
+            buyerEmail: order.buyerEmail,
+            totalValue: order.totalAmount,
+            reason: cancellationReason
+          });
+          console.log(`📧 Email 'cancelado pelo admin' enviado para ${order.buyerEmail}`);
+        }
+      } catch (emailErr) {
+        console.error('❌ Erro ao enviar email de transição de status:', emailErr);
+      }
+    });
 
     res.json({
       message: 'Status atualizado com sucesso',
@@ -1721,5 +1801,98 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('❌ Erro ao excluir usuário definitivamente:', error);
     res.status(500).json({ message: 'Erro ao excluir conta do usuário' });
+  }
+};
+
+/**
+ * POST /api/admin/orders/:orderId/items/:itemIndex/upload-recording-audio
+ * Admin faz upload do áudio gravado para um item com tipo 'recording'.
+ * Converte o material do item de 'recording' para 'audio' com a URL do arquivo no bucket.
+ */
+export const adminUploadRecordingAudio = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { orderId, itemIndex } = req.params;
+    const { audioDuration } = req.body;
+
+    if (!req.file) {
+      res.status(400).json({ error: 'Arquivo de áudio não enviado' });
+      return;
+    }
+
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      res.status(404).json({ error: 'Pedido não encontrado' });
+      return;
+    }
+
+    const idx = parseInt(itemIndex as string, 10);
+    const item = order.items[idx];
+
+    if (!item) {
+      res.status(404).json({ error: 'Item não encontrado no pedido' });
+      return;
+    }
+
+    if (item.material?.type !== 'recording') {
+      res.status(400).json({ error: 'Este item não possui solicitação de gravação pendente' });
+      return;
+    }
+
+    const { uploadFile } = await import('../config/storage');
+
+    // Upload do áudio para o bucket
+    const audioUrl = await uploadFile(
+      req.file.buffer,
+      req.file.originalname,
+      'audio',
+      req.file.mimetype
+    );
+
+    const parsedDuration = audioDuration ? parseFloat(audioDuration) : undefined;
+
+    // Preserva campos de roteiro para histórico
+    const previousScript = item.material.script;
+    const previousVoiceGender = item.material.voiceGender;
+    const previousMusicStyle = item.material.musicStyle;
+    const previousPhonetic = item.material.phonetic;
+    const existingChat = item.material.chat || [];
+
+    // Atualiza o material para tipo 'audio' com a URL do arquivo gravado
+    item.material = {
+      type: 'audio',
+      audioUrl,
+      audioFileName: req.file.originalname,
+      audioDuration: parsedDuration,
+      script: previousScript,
+      phonetic: previousPhonetic,
+      voiceGender: previousVoiceGender,
+      musicStyle: previousMusicStyle,
+      status: 'final_approved',
+      chat: [
+        ...existingChat,
+        {
+          sender: 'broadcaster' as const,
+          message: 'Áudio gravado enviado pelo administrador da plataforma.',
+          fileUrl: audioUrl,
+          fileName: req.file.originalname,
+          action: 'uploaded' as const,
+          timestamp: new Date(),
+        },
+      ],
+    } as any;
+
+    await order.save();
+
+    console.log(`✅ Admin fez upload de áudio gravado para pedido ${order.orderNumber}, item ${itemIndex}`);
+
+    res.json({
+      success: true,
+      audioUrl,
+      audioFileName: req.file.originalname,
+      audioDuration: parsedDuration,
+    });
+  } catch (error: any) {
+    console.error('❌ Erro ao fazer upload do áudio gravado (admin):', error);
+    res.status(500).json({ error: error.message || 'Erro ao fazer upload do áudio' });
   }
 };

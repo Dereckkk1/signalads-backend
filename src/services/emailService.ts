@@ -2129,6 +2129,176 @@ export const sendQuoteRequestToAdmin = async (
 };
 
 // ===========================================
+// EMAILS DE TRANSIÇÃO DE STATUS (ADMIN → CLIENTE)
+// ===========================================
+
+/**
+ * Email para cliente quando pedido vai para "Aguardando Pagamento" (pending_payment)
+ * Disparado quando admin muda status de pending_contact → pending_payment
+ */
+export const sendOrderPendingPaymentToClient = async (data: {
+  orderNumber: string;
+  buyerName: string;
+  buyerEmail: string;
+  totalValue: number;
+}) => {
+  const content = `
+    ${greeting(data.buyerName)}
+
+    ${paragraph('Nossa equipe comercial entrou em contato e seu pedido está aguardando pagamento para prosseguir.')}
+
+    ${infoCard('Detalhes do Pedido', [
+    { label: 'Pedido', value: `#${data.orderNumber}` },
+    { label: 'Valor Total', value: formatCurrency(data.totalValue) },
+    { label: 'Status', value: '⏳ Aguardando Pagamento' }
+  ], colors.warning)}
+
+    ${paragraph('Qualquer dúvida, entre em contato com nossa equipe pelo chat da plataforma.', { center: true })}
+  `;
+
+  await sendEmail({
+    to: data.buyerEmail,
+    subject: `⏳ Pedido #${data.orderNumber} — Aguardando Pagamento`,
+    html: createEmailTemplate({
+      title: 'Aguardando Pagamento',
+      subtitle: `Pedido #${data.orderNumber}`,
+      content,
+      buttonText: 'Acessar Meu Pedido',
+      buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/my-campaigns`,
+      buttonColor: colors.warning,
+      preheader: `Seu pedido #${data.orderNumber} está aguardando pagamento`
+    })
+  });
+};
+
+/**
+ * Email para cliente quando pagamento é confirmado pelo admin (paid)
+ * Disparado quando admin muda status → paid (pagamento recebido manualmente)
+ */
+export const sendOrderPaidConfirmedToClient = async (data: {
+  orderNumber: string;
+  buyerName: string;
+  buyerEmail: string;
+  totalValue: number;
+}) => {
+  const content = `
+    ${greeting(data.buyerName)}
+
+    ${paragraph('Ótima notícia! 🎉 Recebemos a confirmação do seu pagamento e seu pedido foi marcado como pago.')}
+
+    ${infoCard('Detalhes do Pedido', [
+    { label: 'Pedido', value: `#${data.orderNumber}` },
+    { label: 'Valor Pago', value: formatCurrency(data.totalValue) },
+    { label: 'Status', value: '✅ Pagamento Confirmado' }
+  ], colors.success)}
+
+    ${alertCard('Nosso time está analisando os detalhes da campanha. Em breve sua veiculação será aprovada!', 'success')}
+
+    ${paragraph('Acompanhe o status da sua campanha em tempo real pela plataforma.', { center: true })}
+  `;
+
+  await sendEmail({
+    to: data.buyerEmail,
+    subject: `✅ Pagamento Confirmado — Pedido #${data.orderNumber}`,
+    html: createEmailTemplate({
+      title: 'Pagamento Confirmado!',
+      subtitle: `Pedido #${data.orderNumber}`,
+      content,
+      buttonText: 'Acompanhar Campanha',
+      buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/my-campaigns`,
+      buttonColor: colors.success,
+      preheader: `Pagamento do pedido #${data.orderNumber} confirmado com sucesso!`
+    })
+  });
+};
+
+/**
+ * Email para cliente quando campanha entra em produção / veiculação aprovada (approved)
+ * Disparado quando admin aprova o pedido (adminApproveOrder)
+ */
+export const sendOrderInProductionToClient = async (data: {
+  orderNumber: string;
+  buyerName: string;
+  buyerEmail: string;
+  totalValue: number;
+  broadcasterCount: number;
+}) => {
+  const content = `
+    ${greeting(data.buyerName)}
+
+    ${paragraph('Sua campanha foi aprovada e está <strong>em produção</strong>! 🚀 As emissoras já receberam o sinal verde para veicular seus anúncios.')}
+
+    ${infoCard('Resumo da Campanha', [
+    { label: 'Pedido', value: `#${data.orderNumber}` },
+    { label: 'Emissoras', value: `${data.broadcasterCount}` },
+    { label: 'Investimento', value: formatCurrency(data.totalValue) },
+    { label: 'Status', value: '🚀 Em Produção' }
+  ], colors.primary)}
+
+    ${alertCard('Sua campanha será veiculada conforme o agendamento combinado. Você receberá os comprovantes de veiculação ao final da campanha.', 'success')}
+
+    ${paragraph('Acompanhe sua campanha ao vivo pela plataforma!', { center: true })}
+  `;
+
+  await sendEmail({
+    to: data.buyerEmail,
+    subject: `🚀 Campanha #${data.orderNumber} em Produção — E-rádios`,
+    html: createEmailTemplate({
+      title: 'Campanha Aprovada!',
+      subtitle: `Sua campanha está em produção 🎙️`,
+      content,
+      buttonText: 'Ver Minha Campanha',
+      buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/my-campaigns`,
+      buttonColor: colors.primary,
+      preheader: `Sua campanha #${data.orderNumber} foi aprovada e está em produção!`
+    })
+  });
+};
+
+/**
+ * Email para cliente quando campanha é cancelada pelo admin
+ * Disparado quando admin muda status → cancelled
+ */
+export const sendOrderCancelledByAdminToClient = async (data: {
+  orderNumber: string;
+  buyerName: string;
+  buyerEmail: string;
+  totalValue: number;
+  reason?: string;
+}) => {
+  const content = `
+    ${greeting(data.buyerName)}
+
+    ${paragraph('Informamos que seu pedido foi cancelado pela nossa equipe de suporte.')}
+
+    ${infoCard('Detalhes do Cancelamento', [
+    { label: 'Pedido', value: `#${data.orderNumber}` },
+    { label: 'Valor', value: formatCurrency(data.totalValue) },
+    { label: 'Motivo', value: data.reason || 'Cancelado pela administração' },
+    { label: 'Status', value: '❌ Cancelado' }
+  ], colors.error)}
+
+    ${alertCard('Se você realizou algum pagamento, o valor será estornado para sua carteira na plataforma em até 24 horas.', 'info')}
+
+    ${paragraph('Em caso de dúvidas, entre em contato com nosso suporte pelo chat da plataforma.', { center: true })}
+  `;
+
+  await sendEmail({
+    to: data.buyerEmail,
+    subject: `❌ Pedido #${data.orderNumber} Cancelado — E-rádios`,
+    html: createEmailTemplate({
+      title: 'Pedido Cancelado',
+      subtitle: `Pedido #${data.orderNumber}`,
+      content,
+      buttonText: 'Acessar Plataforma',
+      buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/my-campaigns`,
+      buttonColor: colors.tertiary,
+      preheader: `Seu pedido #${data.orderNumber} foi cancelado`
+    })
+  });
+};
+
+// ===========================================
 // EXPORT DEFAULT
 // ===========================================
 
@@ -2156,6 +2326,13 @@ export default {
   // Quote Request exports (NEW)
   sendQuoteConfirmationToClient,
   sendQuoteRequestToAdmin,
+  // Status transition emails (NEW)
+  sendOrderPendingPaymentToClient,
+  sendOrderPaidConfirmedToClient,
+  sendOrderInProductionToClient,
+  sendOrderCancelledByAdminToClient,
+  sendNewOrderToAdmin,
+  sendOrderReceivedToClient,
   // Utilitários de template (exportar para uso externo)
   createEmailTemplate,
   greeting,
