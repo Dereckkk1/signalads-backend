@@ -9,6 +9,28 @@ const options: NodeGeocoder.Options = {
 };
 const geocoder = NodeGeocoder(options);
 
+// Cache em memória para geocoding (TTL: 24h — evita roundtrips externos a cada requisição)
+const GEOCODE_CACHE_TTL = 24 * 60 * 60 * 1000;
+const geocodeCache = new Map<string, { result: any; expires: number }>();
+const reverseGeocodeCache = new Map<string, { result: any; expires: number }>();
+
+async function getCachedGeocode(query: string) {
+  const cached = geocodeCache.get(query);
+  if (cached && cached.expires > Date.now()) return cached.result;
+  const result = await geocoder.geocode(query);
+  geocodeCache.set(query, { result, expires: Date.now() + GEOCODE_CACHE_TTL });
+  return result;
+}
+
+async function getCachedReverseGeocode(lat: number, lng: number) {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  const cached = reverseGeocodeCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.result;
+  const result = await geocoder.reverse({ lat, lon: lng });
+  reverseGeocodeCache.set(key, { result, expires: Date.now() + GEOCODE_CACHE_TTL });
+  return result;
+}
+
 // Função para calcular distância entre duas coordenadas usando fórmula de Haversine
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371; // Raio da Terra em km
@@ -459,9 +481,8 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       }
     }
 
-    // Conta total de emissoras filtradas
-    const totalBroadcasters = await User.countDocuments(broadcasterQuery);
-    const totalPages = Math.ceil(totalBroadcasters / limit);
+    // Inicia countDocuments em paralelo com geocoding (ambos são independentes)
+    const countPromise = User.countDocuments(broadcasterQuery);
 
     // Definição de Ordenação Dinâmica
     let sortOptions: any = {};
@@ -511,7 +532,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
             userLng = loggedUser.address.longitude;
           } else if (loggedUser.address.city && loggedUser.address.state) {
             // Se o usuário não tem lat/lng, mas tem cidade, tentamos geocodificar a cidade dele!
-            const resData = await geocoder.geocode(`${loggedUser.address.city}, ${loggedUser.address.state}, Brasil`);
+            const resData = await getCachedGeocode(`${loggedUser.address.city}, ${loggedUser.address.state}, Brasil`);
             if (resData && resData.length > 0 && resData[0]) {
               userLat = resData[0].latitude || null;
               userLng = resData[0].longitude || null;
@@ -531,7 +552,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     if ((userLat !== null && userLng !== null && !Number.isNaN(userLat) && !Number.isNaN(userLng)) && !userCity) {
       try {
         console.log('🔍 Buscando cidade via geocoding reverso (antes da ordenação)...');
-        const reverseResult = await geocoder.reverse({ lat: userLat, lon: userLng });
+        const reverseResult = await getCachedReverseGeocode(userLat, userLng);
         if (reverseResult && reverseResult.length > 0 && reverseResult[0]) {
           userCity = reverseResult[0].city || (reverseResult[0].administrativeLevels && reverseResult[0].administrativeLevels.level2long) || null;
           console.log('✅ Cidade obtida via geocoding reverso (antes da ordenação):', userCity);
@@ -551,6 +572,10 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       userId: req.userId || 'não logado'
     });
 
+    // Aguarda countDocuments (já estava rodando em paralelo com geocoding)
+    const totalBroadcasters = await countPromise;
+    const totalPages = Math.ceil(totalBroadcasters / limit);
+
     let paginatedBroadcasters;
     let proximitySortApplied = false;
 
@@ -560,9 +585,10 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       try {
         console.log('📊 Iniciando ordenação por proximidade...');
 
-        // Busca todas as emissoras que batem com os filtros para ordenar em memória
+        // Busca emissoras que batem com os filtros para ordenar em memória (cap de 200)
         const allMatching = await User.find(broadcasterQuery)
           .select('_id address.city address.latitude address.longitude broadcasterProfile.pmm companyName')
+          .limit(200)
           .lean();
 
         console.log(`📊 Total de emissoras para ordenar: ${allMatching.length}`);

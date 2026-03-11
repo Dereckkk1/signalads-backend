@@ -353,4 +353,13 @@ userSchema.index({ emailConfirmToken: 1 });
 userSchema.index({ 'broadcasterProfile.coverage.states': 1 });
 userSchema.index({ 'broadcasterProfile.categories': 1 });
 
+// Performance: filtro de cidade no marketplace
+userSchema.index({ 'address.city': 1 });
+// Performance: query principal do marketplace (userType + status + cidade)
+userSchema.index({ userType: 1, status: 1, 'address.city': 1 });
+// Performance: filtro de audiência por faixa etária
+userSchema.index({ 'broadcasterProfile.audienceProfile.ageRange': 1 });
+// Performance: ordenação por PMM
+userSchema.index({ 'broadcasterProfile.pmm': -1 });
+
 export const User = model<IUser>('User', userSchema);
