@@ -31,17 +31,16 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
         const limitNum = Math.max(1, Number(limit));
         const skip = (pageNum - 1) * limitNum;
 
-        // Pipeline para buscar produtos e popular com dados da emissora (User)
-        const matchStage: any = {};
+        const matchStage: any = { userType: 'broadcaster' };
         if (search) {
-            matchStage['broadcaster.companyName'] = toAccentInsensitiveRegex(search as string);
+            matchStage['companyName'] = toAccentInsensitiveRegex(search as string); // assuming toAccentInsensitiveRegex is available
         }
         if (city) {
-            matchStage['broadcaster.address.city'] = city;
+            matchStage['address.city'] = city;
         }
 
         const productMatch: any = {
-            isActive: true
+            'product.isActive': true
         };
 
         if (materials) {
@@ -50,32 +49,46 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
                 : (materials as string).split(',').filter(Boolean);
 
             if (materialsArray.length > 0) {
-                productMatch.spotType = { $in: materialsArray };
+                productMatch['product.spotType'] = { $in: materialsArray };
             }
         }
 
         const pipeline: any[] = [
-            // Filter products first for efficiency if we have material filter
-            { $match: productMatch },
-            // Lookup broadcaster
+            // Filter broadcasters first (much faster as there are fewer broadcasters than products, and indexes apply)
+            { $match: matchStage },
+            // Lookup products
             {
                 $lookup: {
-                    from: 'users',
-                    localField: 'broadcasterId',
-                    foreignField: '_id',
-                    as: 'broadcaster'
+                    from: 'products',
+                    localField: '_id',
+                    foreignField: 'broadcasterId',
+                    as: 'product'
                 }
             },
-            { $unwind: '$broadcaster' },
-            // Only broadcasters and apply search/city filters
-            {
-                $match: {
-                    'broadcaster.userType': 'broadcaster',
-                    ...matchStage
-                }
-            },
+            { $unwind: '$product' },
+            // Apply product filters
+            { $match: productMatch },
             // Sort by broadcaster name, then product name
-            { $sort: { 'broadcaster.companyName': 1, spotType: 1 } },
+            { $sort: { 'companyName': 1, 'product.spotType': 1 } },
+            // We need to shape the data so the rest of the code works: make 'product' the root-ish structure
+            {
+                $project: {
+                    _id: '$product._id',
+                    isActive: '$product.isActive',
+                    spotType: '$product.spotType',
+                    pricePerInsertion: '$product.pricePerInsertion',
+                    netPrice: '$product.netPrice',
+                    broadcasterId: '$product.broadcasterId',
+                    broadcaster: {
+                        _id: '$_id',
+                        companyName: '$companyName',
+                        cpfOrCnpj: '$cpfOrCnpj',
+                        cnpj: '$cnpj',
+                        address: '$address',
+                        broadcasterProfile: '$broadcasterProfile'
+                    }
+                }
+            },
             // Pagination
             {
                 $facet: {
@@ -88,7 +101,7 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
             }
         ];
 
-        const result = await Product.aggregate(pipeline);
+        const result = await User.aggregate(pipeline);
         const metadata = result[0].metadata;
         const data = result[0].data;
         const total = metadata.length > 0 ? metadata[0].total : 0;

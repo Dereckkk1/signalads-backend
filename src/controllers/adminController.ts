@@ -1525,32 +1525,56 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
       .limit(limitNum)
       .lean();
 
-    // Para cada usuário, buscar estatísticas básicas
-    const usersWithStats = await Promise.all(users.map(async (user: any) => {
-      // Pedidos do usuário (como comprador)
-      const ordersCount = await OrderModel.countDocuments({ buyerId: user._id });
+    const userIds = users.map(u => u._id);
 
-      // Total Gasto (pedidos pagos)
-      const paidOrders = await OrderModel.find({
-        buyerId: user._id,
-        status: { $in: ['paid', 'approved', 'completed'] }
-      }).select('payment.totalAmount');
+    // 1. Buscar carrinhos de uma vez só
+    const carts = await Cart.find({ userId: { $in: userIds } }).select('userId items').lean();
+    const cartMap = new Map();
+    carts.forEach((c: any) => cartMap.set(c.userId.toString(), c.items?.length || 0));
 
-      const totalSpent = paidOrders.reduce((sum, order) => sum + (order.payment?.totalAmount || 0), 0);
+    // 2. Buscar status de pedidos (contagem e valor gasto) agrupado por comprador
+    const orderStats = await OrderModel.aggregate([
+      { $match: { buyerId: { $in: userIds } } },
+      {
+        $group: {
+          _id: '$buyerId',
+          ordersCount: { $sum: 1 },
+          totalSpent: {
+            $sum: {
+              $cond: [
+                { $in: ['$status', ['paid', 'approved', 'completed']] },
+                { $ifNull: ['$payment.totalAmount', 0] },
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]);
 
-      // Carrinho
-      const cart = await Cart.findOne({ userId: user._id }).select('items');
-      const cartItemCount = cart?.items?.length || 0;
+    const statsMap = new Map();
+    orderStats.forEach(stat => {
+      statsMap.set(stat._id.toString(), {
+        ordersCount: stat.ordersCount,
+        totalSpent: stat.totalSpent
+      });
+    });
+
+    // Para cada usuário, associar os dados já carregados
+    const usersWithStats = users.map((user: any) => {
+      const uId = user._id.toString();
+      const stats = statsMap.get(uId) || { ordersCount: 0, totalSpent: 0 };
+      const cartItemCount = cartMap.get(uId) || 0;
 
       return {
         ...user,
         stats: {
-          ordersCount,
-          totalSpent,
+          ordersCount: stats.ordersCount,
+          totalSpent: stats.totalSpent,
           cartItemCount
         }
       };
-    }));
+    });
 
     res.json({
       users: usersWithStats,

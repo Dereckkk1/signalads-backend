@@ -920,11 +920,7 @@ export const searchBroadcastersForCompare = async (req: AuthRequest, res: Respon
     const q = (req.query.q as string) || '';
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
 
-    // Busca broadcasters com produtos ativos
-    const broadcasterIdsWithProducts = await Product.distinct('broadcasterId', { isActive: true });
-
     const broadcasterQuery: any = {
-      _id: { $in: broadcasterIdsWithProducts },
       userType: 'broadcaster',
       status: 'approved' // Apenas emissoras aprovadas aparecem no marketplace
     };
@@ -946,20 +942,52 @@ export const searchBroadcastersForCompare = async (req: AuthRequest, res: Respon
       }
     }
 
-    const broadcasters = await User.find(broadcasterQuery)
-      .select('_id companyName address.city address.state broadcasterProfile.generalInfo broadcasterProfile.logo broadcasterProfile.pmm broadcasterProfile.coverage.totalPopulation broadcasterProfile.coverage.cities broadcasterProfile.audienceProfile broadcasterProfile.categories')
-      .sort({ 'broadcasterProfile.pmm': -1 })
-      .limit(limit)
-      .lean();
+    const aggregatePipeline: any[] = [
+      { $match: broadcasterQuery },
+      // Check for at least 1 active product
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: 'broadcasterId',
+          pipeline: [
+            { $match: { isActive: true } },
+            { $limit: 1 },
+            { $project: { _id: 1 } }
+          ],
+          as: 'activeProductCheck'
+        }
+      },
+      { $match: { 'activeProductCheck.0': { $exists: true } } },
+      { $sort: { 'broadcasterProfile.pmm': -1 } },
+      { $limit: limit },
+      {
+        $project: {
+          _id: 1,
+          companyName: 1,
+          address: { city: 1, state: 1 },
+          broadcasterProfile: {
+            generalInfo: 1,
+            logo: 1,
+            pmm: 1,
+            coverage: { totalPopulation: 1, cities: 1 },
+            audienceProfile: 1,
+            categories: 1
+          }
+        }
+      }
+    ];
 
-    // Para cada broadcaster, busca seus produtos
+    const broadcasters = await User.aggregate(aggregatePipeline);
+
+    // Fetch actual products for the matching broadcasters
     const bIds = broadcasters.map((b: any) => b._id);
     const products = await Product.find({
       broadcasterId: { $in: bIds },
       isActive: true
     }).select('broadcasterId spotType pricePerInsertion timeSlot').lean();
 
-    // Agrupa produtos por broadcaster
+    // Group products
     const productsByBroadcaster = new Map<string, any[]>();
     products.forEach((p: any) => {
       const bid = p.broadcasterId.toString();

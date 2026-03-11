@@ -224,74 +224,82 @@ export const getCatalogBroadcasters = async (req: AuthRequest, res: Response) =>
       ];
     }
 
-    // Pipeline de agregação
-    const pipeline: any[] = [
-      { $match: matchStage },
-      // Lookup para contar produtos
-      {
-        $lookup: {
-          from: 'products',
-          let: { broadcasterId: '$_id' },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$broadcasterId', '$$broadcasterId'] },
-                    { $eq: ['$isActive', true] }
-                  ]
-                }
-              }
-            },
-            { $count: 'count' }
-          ],
-          as: 'productInfo'
-        }
-      },
-      // Adiciona campo productCount (extrai do array retornado pelo lookup)
-      {
-        $addFields: {
-          productCount: { $ifNull: [{ $arrayElemAt: ['$productInfo.count', 0] }, 0] }
-        }
-      }
-    ];
+    // Pipeline de agregação inicial
+    const pipeline: any[] = [{ $match: matchStage }];
 
-    // Filtro para emissoras sem produtos
-    if (onlyWithoutProducts === 'true') {
-      pipeline.push({ $match: { productCount: 0 } });
-    }
-
-    // Remove campo temporário productInfo
-    pipeline.push({ $project: { productInfo: 0, password: 0 } });
+    const sortByProducts = sortBy === 'products';
+    const filterWithoutProducts = onlyWithoutProducts === 'true';
 
     // Ordenação
     let sort: any = {};
     const order = sortOrder === 'asc' ? 1 : -1;
-
     if (sortBy === 'name') {
       sort = { companyName: order };
     } else if (sortBy === 'date' || sortBy === 'createdAt') {
       sort = { createdAt: order };
-    } else if (sortBy === 'products') {
+    } else if (sortByProducts) {
       sort = { productCount: order };
     } else {
       sort = { createdAt: -1 };
     }
 
-    pipeline.push({ $sort: sort });
-
-    // Paginação com facet
-    const facetPipeline = [
-      ...pipeline,
+    // Estágios de lookup para contar produtos (mais leves)
+    const lookupStages = [
       {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: 'broadcasterId',
+          pipeline: [
+            { $match: { isActive: true } },
+            { $project: { _id: 1 } }
+          ],
+          as: 'productDocs'
+        }
+      },
+      {
+        $addFields: {
+          productCount: { $size: '$productDocs' }
+        }
+      },
+      { $project: { productDocs: 0, password: 0 } }
+    ];
+
+    let queryTotal = 0;
+
+    // Se a ordenação/filtro depende dos produtos carregamos de tudo primeiro:
+    if (sortByProducts || filterWithoutProducts) {
+      pipeline.push(...lookupStages);
+
+      if (filterWithoutProducts) {
+        pipeline.push({ $match: { productCount: 0 } });
+      }
+
+      pipeline.push({ $sort: sort });
+
+      pipeline.push({
         $facet: {
           metadata: [{ $count: 'total' }],
           data: [{ $skip: skip }, { $limit: limitNum }]
         }
-      }
-    ];
+      });
+    } else {
+      // Caso contrário, otimizamos: Pula/Limita antes de fazer o JOIN/COUNT dos produtos
+      pipeline.push({ $sort: sort });
 
-    const result = await User.aggregate(facetPipeline);
+      pipeline.push({
+        $facet: {
+          metadata: [{ $count: 'total' }],
+          data: [
+            { $skip: skip },
+            { $limit: limitNum },
+            ...lookupStages
+          ]
+        }
+      });
+    }
+
+    const result = await User.aggregate(pipeline);
 
     // Extrai resultados
     const metadata = result[0].metadata;
