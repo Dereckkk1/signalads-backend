@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { getMetricsSummary, getGlobalStats } from '../middleware/metrics';
+import WebVital from '../models/WebVital';
 
 const router = Router();
 
@@ -87,6 +88,15 @@ router.post('/vitals', (req: Request, res: Response) => {
         if (!name || value === undefined || typeof value !== 'number') return;
 
         const rounded = Math.round(value);
+
+        // Persiste no MongoDB (assíncrono, fire-and-forget)
+        WebVital.create({
+            name,
+            value: rounded,
+            rating,
+            page,
+            timestamp: new Date(),
+        }).catch(() => {});
 
         if (rating === 'poor') {
             console.warn(`⚠️  [VITAL_POOR]  ${name}=${rounded}ms | página: ${page}`);

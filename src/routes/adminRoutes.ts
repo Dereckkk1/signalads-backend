@@ -48,6 +48,14 @@ import {
   getCatalogOrders
 } from '../controllers/catalogBroadcasterController';
 import { getDirectoryReport, updateDirectoryReportRecord, getDirectoryReportSpotTypes } from '../controllers/reportController';
+import {
+  getOverview,
+  getRouteMetrics,
+  getErrors,
+  getVitals,
+  getSlowRequests,
+  getTimeline
+} from '../controllers/monitoringController';
 import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
@@ -183,5 +191,16 @@ router.delete('/users/:userId', authenticateToken, isAdmin, deleteUser);
 router.get('/directory-report', authenticateToken, isAdmin, getDirectoryReport);
 router.get('/directory-report/spot-types', authenticateToken, isAdmin, getDirectoryReportSpotTypes);
 router.put('/directory-report/:productId', authenticateToken, isAdmin, updateDirectoryReportRecord);
+
+// ========================
+// ROTAS DE MONITORAMENTO
+// Query param: ?range=1h|24h|7d|30d (default: 24h)
+// ========================
+router.get('/monitoring/overview', authenticateToken, isAdmin, getOverview);
+router.get('/monitoring/routes', authenticateToken, isAdmin, getRouteMetrics);
+router.get('/monitoring/errors', authenticateToken, isAdmin, getErrors);
+router.get('/monitoring/vitals', authenticateToken, isAdmin, getVitals);
+router.get('/monitoring/slow', authenticateToken, isAdmin, getSlowRequests);
+router.get('/monitoring/timeline', authenticateToken, isAdmin, getTimeline);
 
 export default router;

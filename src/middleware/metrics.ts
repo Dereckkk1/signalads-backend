@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import SystemMetric from '../models/SystemMetric';
 
 // ─────────────────────────────────────────────────────────────
 // Tipos
@@ -34,6 +35,38 @@ let totalErrors = 0;
 const serverStartTime = Date.now();
 
 // ─────────────────────────────────────────────────────────────
+// Batch write assíncrono para MongoDB
+// Acumula métricas e persiste a cada 50 registros ou 5 segundos
+// ─────────────────────────────────────────────────────────────
+const BATCH_SIZE = 50;
+const BATCH_INTERVAL_MS = 5_000;
+let metricsBatch: Array<{
+    route: string;
+    method: string;
+    statusCode: number;
+    duration: number;
+    isError: boolean;
+    isSlow: boolean;
+    timestamp: Date;
+}> = [];
+
+async function flushMetricsBatch(): Promise<void> {
+    if (metricsBatch.length === 0) return;
+    const toInsert = metricsBatch.splice(0);
+    try {
+        await SystemMetric.insertMany(toInsert, { ordered: false });
+    } catch (err) {
+        // Falha silenciosa — monitoramento nunca deve quebrar a aplicação
+        console.error(`❌ [METRICS_PERSIST] Falha ao salvar ${toInsert.length} métricas:`, (err as Error).message);
+    }
+}
+
+// Timer que garante flush mesmo com pouco tráfego
+setInterval(() => {
+    flushMetricsBatch();
+}, BATCH_INTERVAL_MS);
+
+// ─────────────────────────────────────────────────────────────
 // Middleware principal
 // ─────────────────────────────────────────────────────────────
 export const metricsMiddleware = (req: Request, res: Response, next: NextFunction): void => {
@@ -43,6 +76,8 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
         const duration = Date.now() - start;
         const routePath = (req.route?.path as string) || req.path;
         const routeKey = `${req.method} ${routePath}`;
+        const isError = res.statusCode >= 500;
+        const isSlow = duration > 2000;
 
         const metric: RouteMetric = {
             route: routeKey,
@@ -53,22 +88,36 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
             path: req.path,
         };
 
-        // Circular buffer
+        // Circular buffer (mantido para /api/metrics em tempo real)
         if (metricsStore.length >= MAX_STORE) {
             metricsStore.shift();
         }
         metricsStore.push(metric);
 
         totalRequests++;
-        if (res.statusCode >= 500) totalErrors++;
+        if (isError) totalErrors++;
+
+        // Batch write assíncrono para MongoDB
+        metricsBatch.push({
+            route: routeKey,
+            method: req.method,
+            statusCode: res.statusCode,
+            duration,
+            isError,
+            isSlow,
+            timestamp: metric.timestamp,
+        });
+        if (metricsBatch.length >= BATCH_SIZE) {
+            flushMetricsBatch();
+        }
 
         // Log de requests lentos (> 2s)
-        if (duration > 2000) {
+        if (isSlow) {
             console.warn(`⚠️  [SLOW_REQUEST] ${routeKey} — ${duration}ms (status ${res.statusCode})`);
         }
 
         // Log de erros críticos
-        if (res.statusCode >= 500) {
+        if (isError) {
             console.error(`❌ [HTTP_ERROR] ${routeKey} — HTTP ${res.statusCode} em ${duration}ms`);
         }
     });
