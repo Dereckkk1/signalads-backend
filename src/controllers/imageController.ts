@@ -71,25 +71,28 @@ export const getAppSheetImage = async (req: Request, res: Response) => {
         res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache no navegador por 24h
 
-        // 3. Salvar no Cache e Streamar para o Cliente ao mesmo tempo
-        const fileWriter = fs.createWriteStream(cachedFilePath);
-
-        // Pipeline: Response -> (Cliente e Arquivo)
-        // O axios stream pode ser pipado para múltiplos destinos?
-        // Sim, mas precisa cuidar com backpressure. 
-        // A maneira mais segura é response.data.pipe(res) e response.data.pipe(fileWriter)
+        // 3. Ao invés de pipe duplo (vaza memória e trava requisições se um falhar),
+        // vamos usar o pipe apenas para a Response, e salvar usando os eventos de stream originais.
 
         response.data.pipe(res);
-        response.data.pipe(fileWriter);
 
-        // Tratamento de erros no stream
-        fileWriter.on('error', (err) => {
-            console.error('Error writing to cache:', err);
-            // Não interrompe a resposta pro cliente se falhar o cache
+        const chunks: Buffer[] = [];
+        response.data.on('data', (chunk: Buffer) => {
+            chunks.push(chunk);
+        });
+
+        response.data.on('end', () => {
+            // Quando terminar o download com sucesso completo, salva no cache assincronamente
+            const fullBuffer = Buffer.concat(chunks);
+            if (fullBuffer.length > 0) {
+                fs.writeFile(cachedFilePath, fullBuffer, (err) => {
+                    if (err) console.error('Error writing image cache to disk:', err);
+                });
+            }
         });
 
         response.data.on('error', (err: any) => {
-            console.error('Error in request stream:', err);
+            console.error('Error in request stream from AppSheet:', err);
             if (!res.headersSent) {
                 res.status(502).send('Error fetching image');
             }
