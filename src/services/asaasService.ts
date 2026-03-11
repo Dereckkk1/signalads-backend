@@ -835,7 +835,12 @@ class AsaasService {
   }
 }
 
-const asaasServiceInstance = new AsaasService();
-
-export default asaasServiceInstance;
+let asaasService: AsaasService;
+export function getAsaasService(): AsaasService {
+  if (!asaasService) {
+    asaasService = new AsaasService();
+  }
+  return asaasService;
+}
+export default asaasService!;
 export { AsaasService };
