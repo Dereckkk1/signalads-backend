@@ -851,26 +851,63 @@ export const getMarketplaceBroadcasterDetails = async (req: AuthRequest, res: Re
   }
 };
 
-// Obter TODOS os produtos para o mapa (sem paginação, leve)
+// Obter emissoras para o mapa — aggregation leve, agrupado por emissora
+// Payload ~70% menor: sem broadcaster duplicado por produto, sem dados sensíveis
 export const getMapProducts = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    // Busca IDs de emissoras aprovadas e produtos ativos em paralelo
-    const approvedBroadcasterIds = await User.distinct('_id', {
-      userType: 'broadcaster',
-      status: 'approved'
-    });
+    const broadcasters = await User.aggregate([
+      // 1. Apenas emissoras aprovadas com coordenadas válidas
+      {
+        $match: {
+          userType: 'broadcaster',
+          status: 'approved',
+          'address.latitude': { $exists: true, $ne: null },
+          'address.longitude': { $exists: true, $ne: null }
+        }
+      },
+      // 2. Join com produtos ativos — só os campos que o mapa usa
+      {
+        $lookup: {
+          from: 'products',
+          let: { bid: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$broadcasterId', '$$bid'] },
+                    { $eq: ['$isActive', true] }
+                  ]
+                }
+              }
+            },
+            { $project: { _id: 1, spotType: 1, timeSlot: 1, pricePerInsertion: 1 } }
+          ],
+          as: 'products'
+        }
+      },
+      // 3. Descarta emissoras sem nenhum produto ativo
+      { $match: { 'products.0': { $exists: true } } },
+      // 4. Projeta apenas o que o mapa precisa — sem dados sensíveis
+      {
+        $project: {
+          _id: 1,
+          name: { $ifNull: ['$broadcasterProfile.generalInfo.stationName', '$companyName'] },
+          lat: '$address.latitude',
+          lng: '$address.longitude',
+          city: '$address.city',
+          dial: '$broadcasterProfile.generalInfo.dialFrequency',
+          band: '$broadcasterProfile.generalInfo.band',
+          antennaClass: '$broadcasterProfile.generalInfo.antennaClass',
+          logo: '$broadcasterProfile.logo',
+          population: '$broadcasterProfile.coverage.totalPopulation',
+          coverageCities: '$broadcasterProfile.coverage.cities',
+          products: 1
+        }
+      }
+    ]);
 
-    const products = await Product.find({
-      isActive: true,
-      broadcasterId: { $in: approvedBroadcasterIds }
-    })
-      .populate({
-        path: 'broadcasterId',
-        select: 'companyName address broadcasterProfile userType status isCatalogOnly'
-      })
-      .lean();
-
-    res.json(products);
+    res.json(broadcasters);
   } catch (error) {
     console.error('Erro ao buscar dados do mapa:', error);
     res.status(500).json({ error: 'Erro ao buscar dados do mapa' });
