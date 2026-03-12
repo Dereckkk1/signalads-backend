@@ -1124,36 +1124,46 @@ export const deleteOpec = async (req: AuthRequest, res: Response) => {
  */
 export const getCatalogOrders = async (req: AuthRequest, res: Response) => {
   try {
-    const adminId = req.userId;
+    // Admin já validado pelo middleware authenticateToken + isAdmin
 
-    // Verifica se é admin
-    const admin = await User.findById(adminId);
-    if (!admin || admin.userType !== 'admin') {
-      return res.status(403).json({ message: 'Acesso negado. Apenas administradores.' });
-    }
+    const page = parseInt(req.query.page as string) || 1;
+    const limitNum = parseInt(req.query.limit as string) || 200;
+    const skip = (page - 1) * limitNum;
 
-    // Busca todas emissoras catálogo
+    // Busca IDs de emissoras catálogo (lean para performance)
     const catalogBroadcasters = await User.find({
       userType: 'broadcaster',
       isCatalogOnly: true
-    }).select('_id');
+    }).select('_id').lean();
 
     const catalogIds = catalogBroadcasters.map(b => b._id.toString());
 
-    // Busca pedidos que contém pelo menos uma emissora catálogo
-    const orders = await Order.find({
+    const orderFilter = {
       'items.broadcasterId': { $in: catalogIds },
       status: { $in: ['approved', 'scheduled', 'in_progress', 'completed'] }
-    })
-      .sort({ createdAt: -1 })
-      .select('orderNumber buyerName status items opecs createdAt');
+    };
 
-    // Mapeia pedidos com informações de OPEC
+    // Paraleliza count + find com .lean() e paginação
+    const [total, orders] = await Promise.all([
+      Order.countDocuments(orderFilter),
+      Order.find(orderFilter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .select('orderNumber buyerName status items opecs createdAt')
+        .lean()
+    ]);
+
+    // Set para lookup O(1) ao invés de Array.includes O(n)
+    const catalogIdSet = new Set(catalogIds);
+
     const ordersWithOpecInfo = orders.map(order => {
-      const catalogItems = order.items.filter(item => catalogIds.includes(item.broadcasterId));
-      const opecCount = (order.opecs || []).length;
+      const catalogItems = order.items.filter(item => catalogIdSet.has(item.broadcasterId));
+      const orderOpecs = order.opecs || [];
+      const opecBroadcasterIds = new Set(orderOpecs.map(opec => opec.broadcasterId));
+      const opecCount = orderOpecs.length;
       const pendingOpecs = catalogItems.filter(item =>
-        !(order.opecs || []).some(opec => opec.broadcasterId === item.broadcasterId)
+        !opecBroadcasterIds.has(item.broadcasterId)
       ).length;
 
       return {
@@ -1165,7 +1175,7 @@ export const getCatalogOrders = async (req: AuthRequest, res: Response) => {
         catalogBroadcasters: catalogItems.map(item => ({
           broadcasterId: item.broadcasterId,
           broadcasterName: item.broadcasterName,
-          hasOpec: (order.opecs || []).some(opec => opec.broadcasterId === item.broadcasterId)
+          hasOpec: opecBroadcasterIds.has(item.broadcasterId)
         })),
         opecCount,
         pendingOpecs
@@ -1174,7 +1184,10 @@ export const getCatalogOrders = async (req: AuthRequest, res: Response) => {
 
     res.json({
       orders: ordersWithOpecInfo,
-      total: ordersWithOpecInfo.length
+      total,
+      page,
+      totalPages: Math.ceil(total / limitNum),
+      hasMore: page * limitNum < total
     });
   } catch (error: any) {
     console.error('❌ Erro ao listar pedidos catálogo:', error);

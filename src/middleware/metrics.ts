@@ -11,6 +11,7 @@ interface RouteMetric {
     statusCode: number;
     timestamp: Date;
     path: string;
+    ip: string;
 }
 
 interface RouteSummary {
@@ -40,6 +41,8 @@ const serverStartTime = Date.now();
 // ─────────────────────────────────────────────────────────────
 const BATCH_SIZE = 50;
 const BATCH_INTERVAL_MS = 5_000;
+const LOCALHOST_IPS = new Set(['::1', '127.0.0.1', '::ffff:127.0.0.1']);
+
 let metricsBatch: Array<{
     route: string;
     method: string;
@@ -47,6 +50,7 @@ let metricsBatch: Array<{
     duration: number;
     isError: boolean;
     isSlow: boolean;
+    ip: string;
     timestamp: Date;
 }> = [];
 
@@ -78,6 +82,7 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
         const routeKey = `${req.method} ${routePath}`;
         const isError = res.statusCode >= 500;
         const isSlow = duration > 2000;
+        const ip = req.ip || req.socket.remoteAddress || '';
 
         const metric: RouteMetric = {
             route: routeKey,
@@ -86,6 +91,7 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
             statusCode: res.statusCode,
             timestamp: new Date(),
             path: req.path,
+            ip,
         };
 
         // Circular buffer (mantido para /api/metrics em tempo real)
@@ -105,6 +111,7 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
             duration,
             isError,
             isSlow,
+            ip,
             timestamp: metric.timestamp,
         });
         if (metricsBatch.length >= BATCH_SIZE) {

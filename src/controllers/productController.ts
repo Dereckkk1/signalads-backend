@@ -337,29 +337,10 @@ export const deleteProduct = async (req: AuthRequest, res: Response): Promise<vo
 // Listar todos os produtos ativos (para o Marketplace) - COM PAGINAÇÃO POR EMISSORA
 export const getAllActiveProducts = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    // Parâmetros de paginação
-    console.log('========================================');
-    console.log('🛒 MARKETPLACE ENDPOINT CHAMADO');
-    console.log('========================================');
-    console.log('🌍 Backend recebeu:', {
-      lat: req.query.lat,
-      lng: req.query.lng,
-      userId: req.userId,
-      query: req.query
-    });
-
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 25;
     const skip = (page - 1) * limit;
     const search = (req.query.search as string) || '';
-
-    console.log('🌍 Parâmetros recebidos:', {
-      lat: req.query.lat,
-      lng: req.query.lng,
-      userId: req.userId,
-      page,
-      search
-    });
 
     // PASSO 1: Filtro de Preço (nos Produtos)
     // null = sem filtro de preço (mostra todas as emissoras, inclusive sem produtos)
@@ -540,7 +521,6 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
           }
           if (loggedUser.address.city) {
             userCity = loggedUser.address.city;
-            console.log(`📍 Usando localização do perfil do usuário: ${userCity} (Lat: ${userLat}, Lng: ${userLng})`);
           }
         }
       } catch (err) {
@@ -551,26 +531,14 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     // Se temos coordenadas mas não temos cidade, tenta obter via geocoding reverso ANTES de ordenar
     if ((userLat !== null && userLng !== null && !Number.isNaN(userLat) && !Number.isNaN(userLng)) && !userCity) {
       try {
-        console.log('🔍 Buscando cidade via geocoding reverso (antes da ordenação)...');
         const reverseResult = await getCachedReverseGeocode(userLat, userLng);
         if (reverseResult && reverseResult.length > 0 && reverseResult[0]) {
           userCity = reverseResult[0].city || (reverseResult[0].administrativeLevels && reverseResult[0].administrativeLevels.level2long) || null;
-          console.log('✅ Cidade obtida via geocoding reverso (antes da ordenação):', userCity);
-        } else {
-          console.log('⚠️ Geocoding reverso não retornou cidade');
         }
       } catch (err) {
-        console.error('❌ Erro no geocoding reverso (antes da ordenação):', err);
+        // Geocoding reverso falhou, segue sem cidade
       }
     }
-
-    console.log('========================================');
-    console.log('📍 Coordenadas finais para ordenação:', {
-      userLat,
-      userLng,
-      userCity,
-      userId: req.userId || 'não logado'
-    });
 
     // Aguarda countDocuments (já estava rodando em paralelo com geocoding)
     const totalBroadcasters = await countPromise;
@@ -583,15 +551,11 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
 
     if (hasValidCoords && !req.query.city) {
       try {
-        console.log('📊 Iniciando ordenação por proximidade...');
-
         // Busca emissoras que batem com os filtros para ordenar em memória (cap de 200)
         const allMatching = await User.find(broadcasterQuery)
           .select('_id address.city address.latitude address.longitude broadcasterProfile.pmm companyName')
           .limit(200)
           .lean();
-
-        console.log(`📊 Total de emissoras para ordenar: ${allMatching.length}`);
 
         const normalizeCityStr = (city?: string) => {
           if (!city) return '';
@@ -603,11 +567,6 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
             .replace(/\s+/g, ' ');
         };
         const normalizedUserCity = normalizeCityStr(userCity || '');
-
-        console.log('🏙️ Cidade do usuário para ordenação:', {
-          original: userCity,
-          normalized: normalizedUserCity
-        });
 
         // Pré-calcula distância de cada emissora (evita recalcular durante o sort)
         const distanceCache = new Map<string, number>();
@@ -621,8 +580,6 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
             distanceCache.set(b._id.toString(), getDistance(safeUserLat, safeUserLng, bLat, bLng));
           }
         });
-
-        console.log(`📊 Emissoras com coordenadas válidas: ${distanceCache.size} de ${allMatching.length}`);
 
         // Ordena: mesma cidade primeiro (por PMM), depois por distância crescente (PMM como desempate)
         allMatching.sort((a: any, b: any) => {
@@ -654,21 +611,12 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
           return pmmB - pmmA;
         });
 
-        // Debug: log das primeiras 10 emissoras após ordenação
-        console.log('========================================');
-        console.log('📊 Primeiras 10 emissoras após ordenação por proximidade:');
-        allMatching.slice(0, 10).forEach((b: any, idx: number) => {
-          const dist = distanceCache.get(b._id.toString());
-          console.log(`  ${idx + 1}. ${b.companyName} | Cidade: "${b.address?.city}" | Dist: ${dist != null ? dist.toFixed(1) + 'km' : 'N/A'} | PMM: ${b.broadcasterProfile?.pmm || 0}`);
-        });
-
         // Aplica paginação manual após ordenação
         paginatedBroadcasters = allMatching.slice(skip, skip + limit);
         res.locals.filteredTotalItems = allMatching.length;
         proximitySortApplied = true;
 
       } catch (proxError) {
-        console.error('❌ Erro na ordenação por proximidade, usando fallback:', proxError);
         // Fallback: usa ordenação padrão do banco
         paginatedBroadcasters = null;
         proximitySortApplied = false;
@@ -695,21 +643,45 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     if (priceMin !== null) productQuery.pricePerInsertion = { ...productQuery.pricePerInsertion, $gte: priceMin };
     if (priceMax !== null) productQuery.pricePerInsertion = { ...productQuery.pricePerInsertion, $lte: priceMax };
 
-    let products = await Product.find(productQuery)
-      .populate({
-        path: 'broadcasterId',
-        select: '-password'
-      })
-      .lean();
+    // Paraleliza products + PMM aggregation (queries independentes)
+    const citiesOnPage = [...new Set(paginatedBroadcasters.map(b => b.address?.city).filter(Boolean))];
 
-    // Reordenar os produtos com base na ordem dos broadcasters (paginatedBroadcasterIds)
-    const broadcasterIdStrings = paginatedBroadcasterIds.map((id: any) => id.toString());
+    const [products, pmmAggregation] = await Promise.all([
+      Product.find(productQuery)
+        .populate({
+          path: 'broadcasterId',
+          select: '-password'
+        })
+        .lean(),
+      citiesOnPage.length > 0
+        ? User.aggregate([
+            {
+              $match: {
+                'address.city': { $in: citiesOnPage },
+                userType: 'broadcaster',
+                status: 'approved'
+              }
+            },
+            {
+              $group: {
+                _id: '$address.city',
+                maxPMM: { $max: '$broadcasterProfile.pmm' }
+              }
+            }
+          ])
+        : []
+    ]);
+
+    // Reordenar os produtos com base na ordem dos broadcasters (Map para O(1) lookup)
+    const broadcasterOrderMap = new Map(
+      paginatedBroadcasterIds.map((id: any, idx: number) => [id.toString(), idx])
+    );
 
     products.sort((a: any, b: any) => {
       const idA = a.broadcasterId?._id ? a.broadcasterId._id.toString() : '';
       const idB = b.broadcasterId?._id ? b.broadcasterId._id.toString() : '';
-      const indexA = broadcasterIdStrings.indexOf(idA);
-      const indexB = broadcasterIdStrings.indexOf(idB);
+      const indexA = broadcasterOrderMap.get(idA) ?? broadcasterOrderMap.size;
+      const indexB = broadcasterOrderMap.get(idB) ?? broadcasterOrderMap.size;
 
       // Se forem da mesma emissora, ordena por data de criação do produto (mais novo primeiro)
       if (indexA === indexB) {
@@ -718,7 +690,6 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
 
       return indexA - indexB;
     });
-
 
     // Emissoras da página que não têm nenhum produto — precisam aparecer com products: []
     const broadcastersWithProductIdsSet = new Set(
@@ -735,39 +706,14 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
         .lean();
     }
 
-    // Aggregation de PMM por Cidade (Server-Side Context)
-    // Para cada cidade presente na página atual, buscamos o MAIOR PMM existente no banco todo
-    const citiesOnPage = [...new Set(paginatedBroadcasters.map(b => b.address?.city).filter(Boolean))];
-    let cityMaxPmm: Record<string, number> = {};
-
-    if (citiesOnPage.length > 0) {
-      const pmmAggregation = await User.aggregate([
-        {
-          $match: {
-            'address.city': { $in: citiesOnPage },
-            userType: 'broadcaster',
-            status: 'approved' // Apenas emissoras aprovadas
-          }
-        },
-        {
-          $group: {
-            _id: '$address.city',
-            maxPMM: { $max: '$broadcasterProfile.pmm' }
-          }
-        }
-      ]);
-
-      cityMaxPmm = pmmAggregation.reduce((acc, curr) => {
-        acc[curr._id] = curr.maxPMM || 0;
-        return acc;
-      }, {} as Record<string, number>);
-    }
+    const cityMaxPmm: Record<string, number> = pmmAggregation.reduce((acc: Record<string, number>, curr: any) => {
+      acc[curr._id] = curr.maxPMM || 0;
+      return acc;
+    }, {} as Record<string, number>);
 
     // Calcula totalItems real dependendo se foi filtrado por proximidade na memória ou não
     const finalTotalItems = res.locals.filteredTotalItems !== undefined ? res.locals.filteredTotalItems : totalBroadcasters;
     const finalTotalPages = Math.ceil(finalTotalItems / limit);
-
-    console.log(`✅ Marketplace response: ${products.length} produtos, proximidade=${proximitySortApplied}, total=${finalTotalItems}`);
 
     res.json({
       products,

@@ -27,7 +27,8 @@ import {
   updateUserRole,
   adminResetUserPassword,
   deleteUser,
-  adminUploadRecordingAudio
+  adminUploadRecordingAudio,
+  adminDeleteRecordingAudio
 } from '../controllers/adminController';
 import {
   createCatalogBroadcaster,
@@ -129,6 +130,7 @@ router.get('/orders/full', authenticateToken, isAdmin, getFullOrdersForAdmin);
 router.post('/orders/:orderId/approve', authenticateToken, isAdmin, adminApproveOrder);
 router.put('/orders/:orderId/status', authenticateToken, isAdmin, updateOrderStatus);
 router.post('/orders/:orderId/items/:itemIndex/upload-recording-audio', authenticateToken, isAdmin, uploadAudio.single('audio'), adminUploadRecordingAudio);
+router.delete('/orders/:orderId/items/:itemIndex/recording-audio', authenticateToken, isAdmin, adminDeleteRecordingAudio);
 
 // ========================
 // ROTAS DA WALLET DA PLATAFORMA

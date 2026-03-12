@@ -523,41 +523,41 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
       }
     }
 
-    // Busca total de documentos para paginação
-    const total = await OrderModel.countDocuments(filter);
+    // Paraleliza count + find (queries independentes)
+    const [total, orders] = await Promise.all([
+      OrderModel.countDocuments(filter),
+      OrderModel.find(filter)
+        .populate('buyerId', 'name email phone userType companyName cpf cpfOrCnpj')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+    ]);
 
-    // Busca pedidos com populate completo e paginação
-    const orders = await OrderModel.find(filter)
-      .populate('buyerId', 'name email phone userType companyName cpf cpfOrCnpj')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
+    // Batch: coleta TODOS os broadcasterIds de TODOS os pedidos em uma única query
+    const allBroadcasterIds = [...new Set(
+      orders.flatMap((o: any) => o.items?.map((i: any) => i.broadcasterId?.toString()).filter(Boolean) || [])
+    )];
 
-    // Para cada pedido, busca dados adicionais das emissoras
-    const ordersWithDetails = await Promise.all(orders.map(async (order: any) => {
-      // Extrai IDs únicos de emissoras
-      const broadcasterIds: string[] = [...new Set(order.items?.map((item: any) => item.broadcasterId?.toString()).filter(Boolean))] as string[];
+    const allBroadcasters = await User.find({
+      _id: { $in: allBroadcasterIds }
+    }).select('companyName broadcasterProfile isCatalogOnly address').lean();
 
-      // Busca dados das emissoras
-      const broadcasters = await User.find({
-        _id: { $in: broadcasterIds }
-      }).select('companyName broadcasterProfile isCatalogOnly address').lean();
+    // Mapa global de emissoras (1 lookup por ID ao invés de N queries)
+    const broadcasterMap: Record<string, any> = {};
+    allBroadcasters.forEach((b: any) => {
+      broadcasterMap[b._id.toString()] = {
+        name: b.broadcasterProfile?.generalInfo?.stationName || b.companyName,
+        isCatalog: b.isCatalogOnly || false,
+        dial: b.broadcasterProfile?.generalInfo?.dialFrequency,
+        band: b.broadcasterProfile?.generalInfo?.band,
+        city: b.address?.city,
+        logo: b.broadcasterProfile?.logo
+      };
+    });
 
-      // Mapa de emissoras por ID
-      const broadcasterMap: Record<string, any> = {};
-      broadcasters.forEach((b: any) => {
-        broadcasterMap[b._id.toString()] = {
-          name: b.broadcasterProfile?.generalInfo?.stationName || b.companyName,
-          isCatalog: b.isCatalogOnly || false,
-          dial: b.broadcasterProfile?.generalInfo?.dialFrequency,
-          band: b.broadcasterProfile?.generalInfo?.band,
-          city: b.address?.city,
-          logo: b.broadcasterProfile?.logo
-        };
-      });
-
-      // Adiciona nome da emissora a cada item
+    // Mapeia pedidos usando o mapa global (0 queries adicionais)
+    const ordersWithDetails = orders.map((order: any) => {
       const itemsWithBroadcasterNames = order.items?.map((item: any) => {
         const broadcaster = broadcasterMap[item.broadcasterId?.toString()];
         return {
@@ -571,17 +571,13 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
         };
       });
 
-      // Verifica se tem emissoras catálogo
       const hasCatalogBroadcasters = itemsWithBroadcasterNames?.some((item: any) => item.isCatalogBroadcaster);
 
       // Recalcula valores financeiros a partir dos itens (corrige pedidos com valores legados no DB)
-      // grossAmount = soma dos totalPrice dos itens (preço bruto = netPrice * 1.25)
       const grossFromItems = Math.round(
         (itemsWithBroadcasterNames || []).reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0) * 100
       ) / 100;
-      // broadcasterAmount = valor líquido a pagar para todas as emissoras (gross / 1.25)
       const broadcasterAmountCalc = Math.round((grossFromItems / 1.25) * 100) / 100;
-      // platformSplit = markup 25% (gross - net = ~20% do gross)
       const platformSplitCalc = Math.round((grossFromItems - broadcasterAmountCalc) * 100) / 100;
 
       return {
@@ -606,7 +602,7 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
         techFee: order.techFee,
         totalAmount: order.totalAmount,
       };
-    }));
+    });
 
 
     res.json({
@@ -1874,49 +1870,118 @@ export const adminUploadRecordingAudio = async (req: AuthRequest, res: Response)
 
     const parsedDuration = audioDuration ? parseFloat(audioDuration) : undefined;
 
-    // Preserva campos de roteiro para histórico
-    const previousScript = item.material.script;
-    const previousVoiceGender = item.material.voiceGender;
-    const previousMusicStyle = item.material.musicStyle;
-    const previousPhonetic = item.material.phonetic;
-    const existingChat = item.material.chat || [];
+    // Indices adicionais para aplicar o mesmo áudio (opcional)
+    const applyToItems: number[] = req.body.applyToItems
+      ? JSON.parse(req.body.applyToItems)
+      : [];
 
-    // Atualiza o material para tipo 'audio' com a URL do arquivo gravado
-    item.material = {
-      type: 'audio',
-      audioUrl,
-      audioFileName: req.file.originalname,
-      audioDuration: parsedDuration,
-      script: previousScript,
-      phonetic: previousPhonetic,
-      voiceGender: previousVoiceGender,
-      musicStyle: previousMusicStyle,
-      status: 'final_approved',
-      chat: [
-        ...existingChat,
-        {
-          sender: 'broadcaster' as const,
-          message: 'Áudio gravado enviado pelo administrador da plataforma.',
-          fileUrl: audioUrl,
-          fileName: req.file.originalname,
-          action: 'uploaded' as const,
-          timestamp: new Date(),
-        },
-      ],
-    } as any;
+    // Coleta todos os indices a atualizar (item principal + extras)
+    const allIndices = [idx, ...applyToItems.map(i => parseInt(String(i), 10))];
+    const uniqueIndices = [...new Set(allIndices)];
 
+    for (const targetIdx of uniqueIndices) {
+      const targetItem = order.items[targetIdx];
+      if (!targetItem || targetItem.material?.type !== 'recording') continue;
+
+      const previousScript = targetItem.material.script;
+      const previousVoiceGender = targetItem.material.voiceGender;
+      const previousMusicStyle = targetItem.material.musicStyle;
+      const previousPhonetic = targetItem.material.phonetic;
+      const existingChat = targetItem.material.chat || [];
+
+      targetItem.material = {
+        type: 'audio',
+        audioUrl,
+        audioFileName: req.file.originalname,
+        audioDuration: parsedDuration,
+        script: previousScript,
+        phonetic: previousPhonetic,
+        voiceGender: previousVoiceGender,
+        musicStyle: previousMusicStyle,
+        status: 'final_approved',
+        chat: [
+          ...existingChat,
+          {
+            sender: 'broadcaster' as const,
+            message: 'Áudio gravado enviado pelo administrador da plataforma.',
+            fileUrl: audioUrl,
+            fileName: req.file.originalname,
+            action: 'uploaded' as const,
+            timestamp: new Date(),
+          },
+        ],
+      } as any;
+    }
+
+    // Marca o array como modificado para o Mongoose detectar alterações em múltiplos subdocuments
+    order.markModified('items');
     await order.save();
 
-    console.log(`✅ Admin fez upload de áudio gravado para pedido ${order.orderNumber}, item ${itemIndex}`);
+    console.log(`✅ Admin fez upload de áudio gravado para pedido ${order.orderNumber}, itens [${uniqueIndices.join(', ')}]`);
 
     res.json({
       success: true,
       audioUrl,
       audioFileName: req.file.originalname,
       audioDuration: parsedDuration,
+      updatedItems: uniqueIndices.length,
     });
   } catch (error: any) {
     console.error('❌ Erro ao fazer upload do áudio gravado (admin):', error);
     res.status(500).json({ error: error.message || 'Erro ao fazer upload do áudio' });
+  }
+};
+
+/**
+ * DELETE /api/admin/orders/:orderId/items/:itemIndex/recording-audio
+ * Reverte o material de 'audio' para 'recording', removendo o áudio enviado.
+ */
+export const adminDeleteRecordingAudio = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { orderId, itemIndex } = req.params;
+
+    console.log(`🗑️ adminDeleteRecordingAudio — orderId=${orderId} itemIndex=${itemIndex}`);
+
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      console.warn(`⚠️ adminDeleteRecordingAudio — pedido não encontrado: ${orderId}`);
+      res.status(404).json({ error: 'Pedido não encontrado' });
+      return;
+    }
+
+    const idx = parseInt(itemIndex as string, 10);
+    const item = order.items[idx];
+
+    console.log(`🗑️ adminDeleteRecordingAudio — order.items.length=${order.items.length} idx=${idx} item=${item ? 'found' : 'not found'} materialType=${item?.material?.type}`);
+
+    if (!item) {
+      res.status(404).json({ error: 'Item não encontrado no pedido' });
+      return;
+    }
+
+    if (item.material?.type !== 'audio') {
+      res.status(400).json({ error: 'Este item não possui áudio para remover' });
+      return;
+    }
+
+    // Reverte para tipo 'recording' preservando dados do roteiro
+    item.material = {
+      type: 'recording',
+      script: item.material.script,
+      phonetic: item.material.phonetic,
+      voiceGender: item.material.voiceGender,
+      musicStyle: item.material.musicStyle,
+      chat: item.material.chat || [],
+    } as any;
+
+    order.markModified('items');
+    await order.save();
+
+    console.log(`🗑️ Admin removeu áudio gravado do pedido ${order.orderNumber}, item ${itemIndex}`);
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('❌ Erro ao remover áudio gravado (admin):', error);
+    res.status(500).json({ error: error.message || 'Erro ao remover áudio' });
   }
 };

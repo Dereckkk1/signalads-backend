@@ -8,6 +8,7 @@ export interface ISystemMetric extends Document {
   isError: boolean;
   isSlow: boolean;
   timestamp: Date;
+  ip?: string;
 }
 
 const systemMetricSchema = new Schema<ISystemMetric>(
@@ -37,6 +38,9 @@ const systemMetricSchema = new Schema<ISystemMetric>(
     isSlow: {
       type: Boolean,
       default: false,
+    },
+    ip: {
+      type: String,
     },
     timestamp: {
       type: Date,

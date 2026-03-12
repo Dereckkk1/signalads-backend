@@ -20,6 +20,13 @@ function sinceDate(range?: string): Date {
     return new Date(Date.now() - parseRange(range));
 }
 
+const LOCALHOST_IPS = ['::1', '127.0.0.1', '::ffff:127.0.0.1'];
+
+function localhostFilter(hideLocalhost: boolean) {
+    if (!hideLocalhost) return {};
+    return { ip: { $nin: LOCALHOST_IPS } };
+}
+
 // ─────────────────────────────────────────────────────────────
 // GET /api/admin/monitoring/overview
 // Resumo geral: uptime, memória, total requests, taxa de erro
@@ -27,14 +34,16 @@ function sinceDate(range?: string): Date {
 export const getOverview = async (req: Request, res: Response) => {
     try {
         const since = sinceDate(req.query.range as string);
+        const hideLocalhost = req.query.hideLocalhost === 'true';
         const global = getGlobalStats();
+        const ipFilter = localhostFilter(hideLocalhost);
 
         const [totalRequests, totalErrors, totalSlow, avgDuration] = await Promise.all([
-            SystemMetric.countDocuments({ timestamp: { $gte: since } }),
-            SystemMetric.countDocuments({ timestamp: { $gte: since }, isError: true }),
-            SystemMetric.countDocuments({ timestamp: { $gte: since }, isSlow: true }),
+            SystemMetric.countDocuments({ timestamp: { $gte: since }, ...ipFilter }),
+            SystemMetric.countDocuments({ timestamp: { $gte: since }, isError: true, ...ipFilter }),
+            SystemMetric.countDocuments({ timestamp: { $gte: since }, isSlow: true, ...ipFilter }),
             SystemMetric.aggregate([
-                { $match: { timestamp: { $gte: since } } },
+                { $match: { timestamp: { $gte: since }, ...ipFilter } },
                 { $group: { _id: null, avg: { $avg: '$duration' } } },
             ]),
         ]);
@@ -68,9 +77,11 @@ export const getOverview = async (req: Request, res: Response) => {
 export const getRouteMetrics = async (req: Request, res: Response) => {
     try {
         const since = sinceDate(req.query.range as string);
+        const hideLocalhost = req.query.hideLocalhost === 'true';
+        const ipFilter = localhostFilter(hideLocalhost);
 
         const routes = await SystemMetric.aggregate([
-            { $match: { timestamp: { $gte: since } } },
+            { $match: { timestamp: { $gte: since }, ...ipFilter } },
             {
                 $group: {
                     _id: '$route',
@@ -134,9 +145,11 @@ export const getRouteMetrics = async (req: Request, res: Response) => {
 export const getErrors = async (req: Request, res: Response) => {
     try {
         const since = sinceDate(req.query.range as string);
+        const hideLocalhost = req.query.hideLocalhost === 'true';
+        const ipFilter = localhostFilter(hideLocalhost);
 
         const errors = await SystemMetric.aggregate([
-            { $match: { timestamp: { $gte: since }, isError: true } },
+            { $match: { timestamp: { $gte: since }, isError: true, ...ipFilter } },
             {
                 $group: {
                     _id: { route: '$route', statusCode: '$statusCode' },
@@ -175,9 +188,12 @@ export const getErrors = async (req: Request, res: Response) => {
 export const getVitals = async (req: Request, res: Response) => {
     try {
         const since = sinceDate(req.query.range as string);
+        const hideLocalhost = req.query.hideLocalhost === 'true';
+        const vitalsMatch: Record<string, unknown> = { timestamp: { $gte: since } };
+        if (hideLocalhost) vitalsMatch.page = { $not: /localhost/ };
 
         const vitals = await WebVital.aggregate([
-            { $match: { timestamp: { $gte: since } } },
+            { $match: vitalsMatch },
             {
                 $group: {
                     _id: { name: '$name', page: '$page' },
@@ -235,10 +251,13 @@ export const getVitals = async (req: Request, res: Response) => {
 export const getSlowRequests = async (req: Request, res: Response) => {
     try {
         const since = sinceDate(req.query.range as string);
+        const hideLocalhost = req.query.hideLocalhost === 'true';
+        const ipFilter = localhostFilter(hideLocalhost);
 
         const slow = await SystemMetric.find({
             timestamp: { $gte: since },
             isSlow: true,
+            ...ipFilter,
         })
             .sort({ duration: -1 })
             .limit(100)
@@ -264,6 +283,8 @@ export const getTimeline = async (req: Request, res: Response) => {
     try {
         const range = req.query.range as string;
         const since = sinceDate(range);
+        const hideLocalhost = req.query.hideLocalhost === 'true';
+        const ipFilter = localhostFilter(hideLocalhost);
 
         // Agrupa por hora para ranges curtos, por dia para ranges longos
         const groupByDay = range === '30d' || range === '7d';
@@ -273,7 +294,7 @@ export const getTimeline = async (req: Request, res: Response) => {
             : { $dateToString: { format: '%Y-%m-%dT%H:00', date: '$timestamp' } };
 
         const timeline = await SystemMetric.aggregate([
-            { $match: { timestamp: { $gte: since } } },
+            { $match: { timestamp: { $gte: since }, ...ipFilter } },
             {
                 $group: {
                     _id: dateFormat,
