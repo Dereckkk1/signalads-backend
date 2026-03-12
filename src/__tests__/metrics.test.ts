@@ -103,6 +103,7 @@ describe('getMetricsSummary', () => {
                 statusCode: 200,
                 timestamp: new Date(),
                 path: '/api/test',
+                ip: '127.0.0.1',
             });
         }
 
@@ -129,6 +130,7 @@ describe('getMetricsSummary', () => {
                 statusCode: 200,
                 timestamp: new Date(),
                 path: '/api/auth/login',
+                ip: '127.0.0.1',
             });
         }
         metricsStore.push({
@@ -138,6 +140,7 @@ describe('getMetricsSummary', () => {
             statusCode: 500,
             timestamp: new Date(),
             path: '/api/auth/login',
+            ip: '127.0.0.1',
         });
 
         const summary = getMetricsSummary(3_600_000);
@@ -155,6 +158,7 @@ describe('getMetricsSummary', () => {
             statusCode: 200,
             timestamp: new Date(Date.now() - 7_200_000), // 2h atrás
             path: '/api/old',
+            ip: '127.0.0.1',
         });
 
         // Janela de 1 hora — não deve aparecer
