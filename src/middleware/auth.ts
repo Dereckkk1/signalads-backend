@@ -19,7 +19,10 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    // Dual-mode: cookie httpOnly primeiro, header Authorization como fallback
+    const tokenFromCookie = req.cookies?.access_token;
+    const tokenFromHeader = req.header('Authorization')?.replace('Bearer ', '');
+    const token = tokenFromCookie || tokenFromHeader;
 
     if (!token) {
       res.status(401).json({ error: 'Token não fornecido' });
@@ -55,7 +58,10 @@ export const optionalAuthenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    // Dual-mode: cookie httpOnly primeiro, header Authorization como fallback
+    const tokenFromCookie = req.cookies?.access_token;
+    const tokenFromHeader = req.header('Authorization')?.replace('Bearer ', '');
+    const token = tokenFromCookie || tokenFromHeader;
 
     if (!token) {
       next();

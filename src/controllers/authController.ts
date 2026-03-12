@@ -7,6 +7,18 @@ import BlockedDomain from '../models/BlockedDomain';
 import { sendTwoFactorEnableEmail, sendTwoFactorLoginEmail, sendTwoFactorCodeEmail, sendEmailConfirmation } from '../services/emailService';
 import { AuthRequest } from '../middleware/auth';
 import { isFreeEmailDomain, getEmailDomain } from '../utils/freeEmailDomains';
+import { generateAccessToken, generateRefreshToken, setAuthCookies, clearAuthCookies, rotateRefreshToken, revokeAllUserTokens } from '../utils/tokenService';
+
+// Validacao de senha forte — consistente em todo o backend
+export const validatePasswordStrength = (password: string): string | null => {
+  if (!password) return 'Senha é obrigatória';
+  if (password.length < 10) return 'Senha deve ter no mínimo 10 caracteres';
+  if (!/[A-Z]/.test(password)) return 'Senha deve conter ao menos uma letra maiúscula';
+  if (!/[a-z]/.test(password)) return 'Senha deve conter ao menos uma letra minúscula';
+  if (!/[0-9]/.test(password)) return 'Senha deve conter ao menos um número';
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return 'Senha deve conter ao menos um caractere especial';
+  return null;
+};
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -41,28 +53,33 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    // Verificar se usuário já existe apenas por email
+    // Verificar se usuario ja existe — mensagem generica para evitar enumeracao de contas
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      // Se existe mas não confirmou email, permite reenviar
+      // Se existe mas nao confirmou email, reenvia silenciosamente
       if (!existingUser.emailConfirmed && existingUser.emailConfirmToken) {
         const confirmToken = crypto.randomBytes(32).toString('hex');
-        const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+        const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
         existingUser.emailConfirmToken = confirmToken;
         existingUser.emailConfirmTokenExpires = tokenExpires;
         await existingUser.save();
 
         await sendEmailConfirmation(existingUser.email, existingUser.companyName || existingUser.fantasyName || 'Usuário', confirmToken);
-
-        res.status(200).json({
-          message: 'Email de confirmação reenviado. Verifique sua caixa de entrada.',
-          requiresEmailConfirmation: true
-        });
-        return;
       }
 
-      res.status(400).json({ error: 'Email já cadastrado' });
+      // Mesma resposta generica para qualquer caso — previne account enumeration
+      res.status(200).json({
+        message: 'Se este email estiver disponível, você receberá um link de confirmação.',
+        requiresEmailConfirmation: true
+      });
+      return;
+    }
+
+    // Validar forca da senha
+    const passwordError = validatePasswordStrength(password);
+    if (passwordError) {
+      res.status(400).json({ error: passwordError });
       return;
     }
 
@@ -179,14 +196,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Gerar token JWT (permite pending logar, frontend controla a navegação)
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      throw new Error('JWT_SECRET não está definido');
-    }
-
-    const token = jwt.sign({ userId: user._id }, jwtSecret, { expiresIn: '7d' });
-
     // Verificar se 2FA está habilitado
     if (user.twoFactorEnabled && user.twoFactorConfirmedAt) {
 
@@ -230,9 +239,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    // Gerar tokens (access 15min + refresh 7d em cookies httpOnly)
+    const accessToken = generateAccessToken(user._id.toString());
+    const { rawToken: refreshTokenRaw } = await generateRefreshToken(user._id.toString(), req);
+    setAuthCookies(res, accessToken, refreshTokenRaw);
+
     res.json({
       message: 'Login realizado com sucesso!',
-      token,
+      token: accessToken, // compatibilidade com frontend antigo
       user: {
         id: user._id,
         email: user.email,
@@ -356,8 +370,9 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    if (newPassword.length < 8) {
-      res.status(400).json({ message: 'A nova senha deve ter no mínimo 8 caracteres' });
+    const passwordError = validatePasswordStrength(newPassword);
+    if (passwordError) {
+      res.status(400).json({ message: passwordError });
       return;
     }
 
@@ -438,23 +453,19 @@ export const confirmTwoFactorEnable = async (req: Request, res: Response): Promi
     const { token } = req.params;
 
 
-    // Tenta buscar primeiro em twoFactorPendingToken (novo)
+    // Busca usuario pelo token pendente de confirmacao
     let user = await User.findOne({
       twoFactorPendingToken: token,
       twoFactorPendingTokenExpires: { $gt: new Date() }
     });
 
-
-    // Fallback: busca em twoFactorSecret (tokens antigos antes da correção)
-    user = await User.findOne({
-      twoFactorSecret: token,
-      twoFactorPendingTokenExpires: { $gt: new Date() }
-    });
-
-
-
-
-    // Debug: Buscar qualquer usuário com token pendente para comparação
+    // Fallback: busca em twoFactorSecret (tokens antigos antes da correcao)
+    if (!user) {
+      user = await User.findOne({
+        twoFactorSecret: token,
+        twoFactorPendingTokenExpires: { $gt: new Date() }
+      });
+    }
 
 
 
@@ -468,7 +479,6 @@ export const confirmTwoFactorEnable = async (req: Request, res: Response): Promi
 
     user.twoFactorEnabled = true;
     user.twoFactorConfirmedAt = new Date();
-    user.twoFactorPendingToken = crypto.randomBytes(32).toString('hex'); // Novo secret permanente
     user.twoFactorPendingToken = undefined;
     user.twoFactorPendingTokenExpires = undefined;
     await user.save();
@@ -540,17 +550,14 @@ export const validateTwoFactorLogin = async (req: Request, res: Response): Promi
     user.twoFactorPendingTokenExpires = undefined;
     await user.save();
 
-    // Gera JWT de autenticação
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      throw new Error('JWT_SECRET não está definido');
-    }
-
-    const jwtToken = jwt.sign({ userId: user._id }, jwtSecret, { expiresIn: '7d' });
+    // Gerar tokens (access 15min + refresh 7d em cookies httpOnly)
+    const accessToken = generateAccessToken(user._id.toString());
+    const { rawToken: refreshTokenRaw } = await generateRefreshToken(user._id.toString(), req);
+    setAuthCookies(res, accessToken, refreshTokenRaw);
 
     res.json({
       message: 'Login realizado com sucesso!',
-      token: jwtToken,
+      token: accessToken, // compatibilidade com frontend antigo
       user: {
         id: user._id,
         email: user.email,
@@ -623,18 +630,14 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
     user.twoFactorCodeExpires = undefined;
     await user.save();
 
-    // Gera token JWT
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      throw new Error('JWT_SECRET não está definido');
-    }
-
-    const token = jwt.sign({ userId: user._id }, jwtSecret, { expiresIn: '7d' });
-
+    // Gerar tokens (access 15min + refresh 7d em cookies httpOnly)
+    const accessToken = generateAccessToken(user._id.toString());
+    const { rawToken: refreshTokenRaw } = await generateRefreshToken(user._id.toString(), req);
+    setAuthCookies(res, accessToken, refreshTokenRaw);
 
     res.json({
       message: 'Login realizado com sucesso!',
-      token,
+      token: accessToken, // compatibilidade com frontend antigo
       user: {
         id: user._id,
         email: user.email,
@@ -675,5 +678,57 @@ export const getTwoFactorStatus = async (req: AuthRequest, res: Response): Promi
   } catch (error: any) {
     console.error('❌ Erro ao obter status 2FA:', error);
     res.status(500).json({ message: 'Erro ao obter status' });
+  }
+};
+
+/**
+ * Rotacionar refresh token — gera novo par access+refresh
+ * POST /api/auth/refresh
+ */
+export const refreshTokenHandler = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawToken = req.cookies?.refresh_token;
+    if (!rawToken) {
+      res.status(401).json({ error: 'Refresh token não fornecido' });
+      return;
+    }
+
+    const result = await rotateRefreshToken(rawToken, req);
+    if (!result) {
+      clearAuthCookies(res);
+      res.status(401).json({ error: 'Refresh token inválido ou expirado' });
+      return;
+    }
+
+    setAuthCookies(res, result.accessToken, result.newRawRefresh);
+
+    res.json({
+      message: 'Token renovado com sucesso',
+      token: result.accessToken // compatibilidade com frontend antigo
+    });
+  } catch (error) {
+    console.error('Erro ao renovar token:', error);
+    res.status(500).json({ error: 'Erro ao renovar token' });
+  }
+};
+
+/**
+ * Logout — revoga refresh token e limpa cookies
+ * POST /api/auth/logout
+ */
+export const logoutHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    // Revoga todos os refresh tokens do usuario se autenticado
+    if (req.userId) {
+      await revokeAllUserTokens(req.userId);
+    }
+
+    clearAuthCookies(res);
+    res.json({ message: 'Logout realizado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao fazer logout:', error);
+    // Limpa cookies mesmo em caso de erro no banco
+    clearAuthCookies(res);
+    res.json({ message: 'Logout realizado' });
   }
 };

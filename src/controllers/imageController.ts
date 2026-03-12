@@ -29,9 +29,23 @@ export const getAppSheetImage = async (req: Request, res: Response) => {
             return res.status(400).send('fileName is required');
         }
 
-        // Se já for URL completa http, redirecionar ou proxyar (mas AppSheet geralmente envia fileName parcial)
+        // Protecao contra SSRF: apenas URLs do dominio AppSheet sao permitidas
         if (fileName.startsWith('http')) {
-            return res.redirect(fileName);
+            const allowedDomains = ['appsheet.com', 'www.appsheet.com'];
+            try {
+                const urlObj = new URL(fileName);
+                const isAllowed = allowedDomains.some(domain => urlObj.hostname === domain || urlObj.hostname.endsWith('.' + domain));
+                if (!isAllowed) {
+                    return res.status(403).send('Domain not allowed');
+                }
+                // Bloqueia IPs internos/privados no hostname
+                if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|localhost|169\.254\.)/.test(urlObj.hostname)) {
+                    return res.status(403).send('Internal addresses not allowed');
+                }
+                return res.redirect(fileName);
+            } catch {
+                return res.status(400).send('Invalid URL');
+            }
         }
 
         // Sanitiza o nome do arquivo para usar no disco (remove caracteres ilegais)

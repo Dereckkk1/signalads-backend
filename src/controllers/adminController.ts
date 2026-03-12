@@ -1719,9 +1719,15 @@ export const adminResetUserPassword = async (req: AuthRequest, res: Response) =>
     const { userId } = req.params;
     const { newPassword } = req.body;
 
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ message: 'Senha deve ter pelo menos 6 caracteres' });
+    if (!newPassword) {
+      return res.status(400).json({ message: 'Nova senha é obrigatória' });
     }
+    // Mesma validacao de forca usada em todo o sistema
+    if (newPassword.length < 10) return res.status(400).json({ message: 'Senha deve ter no mínimo 10 caracteres' });
+    if (!/[A-Z]/.test(newPassword)) return res.status(400).json({ message: 'Senha deve conter ao menos uma letra maiúscula' });
+    if (!/[a-z]/.test(newPassword)) return res.status(400).json({ message: 'Senha deve conter ao menos uma letra minúscula' });
+    if (!/[0-9]/.test(newPassword)) return res.status(400).json({ message: 'Senha deve conter ao menos um número' });
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) return res.status(400).json({ message: 'Senha deve conter ao menos um caractere especial' });
 
     const user = await User.findById(userId);
     if (!user) {

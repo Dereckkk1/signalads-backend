@@ -33,7 +33,9 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 // import mongoSanitize from 'express-mongo-sanitize'; // Incompatible with Express 5
 import hpp from 'hpp';
-import { mongoSanitize } from './middleware/security';
+import cookieParser from 'cookie-parser';
+import { mongoSanitize, xssSanitize } from './middleware/security';
+import { csrfProtection } from './middleware/csrf';
 import { metricsMiddleware } from './middleware/metrics';
 import healthRoutes from './routes/healthRoutes';
 
@@ -65,6 +67,7 @@ app.use(cors({
     'X-Requested-With',
     'Accept',
     'x-access-token',
+    'X-CSRF-Token',
     'Range'
   ],
   credentials: true,
@@ -73,25 +76,44 @@ app.use(cors({
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginEmbedderPolicy: false,
-})); // Define headers HTTP seguros e permite recursos cross-origin (imagens)
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https://storage.googleapis.com", "https://*.appsheet.com", "https://ui-avatars.com", "https://lh3.googleusercontent.com"],
+      connectSrc: ["'self'", "https://api.eradios.com.br", "https://viacep.com.br", "https://*.tile.openstreetmap.org"],
+      fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+      mediaSrc: ["'self'", "https://storage.googleapis.com", "blob:"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+}));
 
-// Rate Limit Global - 60 requisições por minuto (Solicitado pelo cliente)
+// Rate Limit Global — 500 req/min por IP (seguranca contra abuso/DDoS)
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 3000,
+  max: 500,
   message: 'Muitas requisições deste IP, por favor tente novamente em um minuto.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use(limiter);
 
-// Middlewares Padrão
-// app.use(cors()); // Moved up
-app.use(express.json({ limit: '50mb' })); // Limita o tamanho do body para evitar DoS (Aumentado para 50mb para uploads)
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Middlewares Padrao
+// Body limit reduzido para 5mb (seguranca contra DoS). Uploads de audio usam multipart com limite proprio no multer.
+app.use(cookieParser());
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-// Proteção contra NoSQL Injection e XSS
-app.use(mongoSanitize); // Previne injeção de operadores MongoDB (Custom Implementation)
-// app.use(xss()); // Sanitiza o input do usuário (XSS) - DISABLING: Incompatible with Express 5 (CRASH)
-app.use(hpp()); // Previne poluição de parâmetros HTTP
+// Protecao contra NoSQL Injection, XSS, HPP e CSRF
+app.use(mongoSanitize); // Previne injecao de operadores MongoDB (Custom + prototype pollution)
+app.use(xssSanitize);   // Sanitiza input contra XSS (substitui xss-clean incompativel com Express 5)
+app.use(hpp());          // Previne poluicao de parametros HTTP
+app.use(csrfProtection); // CSRF double-submit cookie (verifica X-CSRF-Token header)
 
 // Servir arquivos estáticos (uploads locais para desenvolvimento)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

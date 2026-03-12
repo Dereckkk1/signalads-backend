@@ -17,7 +17,7 @@ const MONGODB_URI =
     'mongodb+srv://marketingE-radios:xwT7VEJ04rnHHBFu@cluster0.bnx0k.mongodb.net/E-radios?retryWrites=true&w=majority';
 
 // ─── Configuração ────────────────────────────────────────────────────────────
-const TARGET_EMAIL = 'jackson@midiabox.app.br';
+const TARGET_EMAIL = 'tatico3@hubradios.com';
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function promoteToAdmin() {
