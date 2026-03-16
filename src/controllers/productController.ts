@@ -547,10 +547,9 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
 
     if (hasValidCoords && !req.query.city) {
       try {
-        // Busca emissoras que batem com os filtros para ordenar em memória (cap de 200)
+        // Busca emissoras que batem com os filtros para ordenar em memória por proximidade
         const allMatching = await User.find(broadcasterQuery)
           .select('_id address.city address.latitude address.longitude broadcasterProfile.pmm companyName')
-          .limit(200)
           .lean();
 
         const normalizeCityStr = (city?: string) => {
@@ -609,7 +608,6 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
 
         // Aplica paginação manual após ordenação
         paginatedBroadcasters = allMatching.slice(skip, skip + limit);
-        res.locals.filteredTotalItems = allMatching.length;
         proximitySortApplied = true;
 
       } catch (proxError) {
@@ -707,8 +705,8 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       return acc;
     }, {} as Record<string, number>);
 
-    // Calcula totalItems real dependendo se foi filtrado por proximidade na memória ou não
-    const finalTotalItems = res.locals.filteredTotalItems !== undefined ? res.locals.filteredTotalItems : totalBroadcasters;
+    // totalBroadcasters vem do countDocuments — reflete o total real de emissoras que batem com os filtros
+    const finalTotalItems = totalBroadcasters;
     const finalTotalPages = Math.ceil(finalTotalItems / limit);
 
     res.json({
