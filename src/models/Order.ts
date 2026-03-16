@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { getNextSequence } from './Counter';
 
 export interface IOrderItem {
   productId: string;
@@ -426,19 +427,13 @@ const OrderSchema = new Schema<IOrder>({
   timestamps: true
 });
 
-// Gera número único do pedido antes de salvar
+// Gera número único do pedido antes de salvar (atomico via Counter)
 OrderSchema.pre('save', async function () {
   if (!this.orderNumber) {
     const date = new Date();
     const dateStr = date.toISOString().split('T')[0]?.replace(/-/g, '') || '';
-
-    // Usa this.constructor para acessar o modelo
-    const OrderModel = this.constructor as any;
-    const count = await OrderModel.countDocuments({
-      createdAt: { $gte: new Date(date.setHours(0, 0, 0, 0)) }
-    });
-
-    this.orderNumber = `ORD-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+    const seq = await getNextSequence(`order-${dateStr}`);
+    this.orderNumber = `ORD-${dateStr}-${String(seq).padStart(4, '0')}`;
   }
 });
 

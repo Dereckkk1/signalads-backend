@@ -1,3 +1,6 @@
+export const escapeRegex = (str: string): string =>
+    str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const toAccentInsensitiveRegex = (text: string): RegExp => {
     // Primeiro normalizamos o texto de entrada para remover quaisquer acentos fornecidos pelo usuário.
     // Isso é crucial para que, se o usuário pesquisar "São Paulo", possamos gerar um regex 

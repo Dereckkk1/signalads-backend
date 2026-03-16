@@ -200,7 +200,6 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
             }))
         });
     } catch (error) {
-        console.error('Erro no dashboard da agência:', error);
         res.status(500).json({ message: 'Erro ao carregar dashboard.', error });
     }
 };
@@ -217,7 +216,6 @@ export const getClients = async (req: AuthRequest, res: Response): Promise<void>
         const clients = await AgencyClient.find({ agencyId: userId }).sort({ name: 1 });
         res.json(clients);
     } catch (error) {
-        console.error('Erro ao buscar clientes da agência:', error);
         res.status(500).json({ message: 'Erro ao buscar clientes.', error });
     }
 };
@@ -259,7 +257,6 @@ export const createClient = async (req: AuthRequest, res: Response): Promise<voi
         await newClient.save();
         res.status(201).json(newClient);
     } catch (error) {
-        console.error('Erro ao criar cliente da agência:', error);
         res.status(500).json({ message: 'Erro ao criar cliente.', error });
     }
 };
@@ -282,7 +279,6 @@ export const updateClient = async (req: AuthRequest, res: Response): Promise<voi
 
         res.json(updatedClient);
     } catch (error) {
-        console.error('Erro ao atualizar cliente da agência:', error);
         res.status(500).json({ message: 'Erro ao atualizar cliente.', error });
     }
 };
@@ -303,7 +299,6 @@ export const deleteClient = async (req: AuthRequest, res: Response): Promise<voi
 
         res.json({ message: 'Cliente removido com sucesso.' });
     } catch (error) {
-        console.error('Erro ao deletar cliente da agência:', error);
         res.status(500).json({ message: 'Erro ao deletar cliente.', error });
     }
 };

@@ -57,11 +57,10 @@ import {
   getSlowRequests,
   getTimeline
 } from '../controllers/monitoringController';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
 import { auditLog } from '../middleware/auditLog';
 import AuditLog from '../models/AuditLog';
 import { Response } from 'express';
-import { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -106,113 +105,106 @@ const uploadOpecFile = multer({
   }
 });
 
-// Middleware para verificar se é admin
-const isAdmin = (req: any, res: any, next: any) => {
-  if (req.user.userType !== 'admin') {
-    return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-  }
-  next();
-};
 
 // ========================
 // ROTAS DE EMISSORAS (existentes)
 // ========================
-router.get('/broadcasters/pending', authenticateToken, isAdmin, getPendingBroadcasters);
-router.get('/broadcasters', authenticateToken, isAdmin, getAllBroadcasters);
-router.get('/broadcasters/management', authenticateToken, isAdmin, getBroadcastersForManagement);
-router.get('/broadcasters/:id', authenticateToken, isAdmin, getBroadcasterDetails);
-router.get('/broadcasters/:id/wallet', authenticateToken, isAdmin, getBroadcasterWallet);
-router.get('/broadcasters/:id/campaigns', authenticateToken, isAdmin, getBroadcasterCampaigns);
-router.post('/broadcasters/:broadcasterId/chat', authenticateToken, isAdmin, getOrCreateAdminConversation);
-router.put('/broadcasters/:broadcasterId/approve', authenticateToken, isAdmin, auditLog('broadcaster.approve', 'broadcaster'), approveBroadcaster);
-router.put('/broadcasters/:broadcasterId/reject', authenticateToken, isAdmin, auditLog('broadcaster.reject', 'broadcaster'), rejectBroadcaster);
+router.get('/broadcasters/pending', authenticateToken, requireAdmin, getPendingBroadcasters);
+router.get('/broadcasters', authenticateToken, requireAdmin, getAllBroadcasters);
+router.get('/broadcasters/management', authenticateToken, requireAdmin, getBroadcastersForManagement);
+router.get('/broadcasters/:id', authenticateToken, requireAdmin, getBroadcasterDetails);
+router.get('/broadcasters/:id/wallet', authenticateToken, requireAdmin, getBroadcasterWallet);
+router.get('/broadcasters/:id/campaigns', authenticateToken, requireAdmin, getBroadcasterCampaigns);
+router.post('/broadcasters/:broadcasterId/chat', authenticateToken, requireAdmin, getOrCreateAdminConversation);
+router.put('/broadcasters/:broadcasterId/approve', authenticateToken, requireAdmin, auditLog('broadcaster.approve', 'broadcaster'), approveBroadcaster);
+router.put('/broadcasters/:broadcasterId/reject', authenticateToken, requireAdmin, auditLog('broadcaster.reject', 'broadcaster'), rejectBroadcaster);
 
 // ========================
 // ROTAS DE PEDIDOS (gestão completa)
 // ========================
-router.get('/orders/full', authenticateToken, isAdmin, getFullOrdersForAdmin);
-router.post('/orders/:orderId/approve', authenticateToken, isAdmin, auditLog('order.approve', 'order'), adminApproveOrder);
-router.put('/orders/:orderId/status', authenticateToken, isAdmin, auditLog('order.status_change', 'order'), updateOrderStatus);
-router.post('/orders/:orderId/items/:itemIndex/upload-recording-audio', authenticateToken, isAdmin, uploadAudio.single('audio'), adminUploadRecordingAudio);
-router.delete('/orders/:orderId/items/:itemIndex/recording-audio', authenticateToken, isAdmin, adminDeleteRecordingAudio);
+router.get('/orders/full', authenticateToken, requireAdmin, getFullOrdersForAdmin);
+router.post('/orders/:orderId/approve', authenticateToken, requireAdmin, auditLog('order.approve', 'order'), adminApproveOrder);
+router.put('/orders/:orderId/status', authenticateToken, requireAdmin, auditLog('order.status_change', 'order'), updateOrderStatus);
+router.post('/orders/:orderId/items/:itemIndex/upload-recording-audio', authenticateToken, requireAdmin, uploadAudio.single('audio'), adminUploadRecordingAudio);
+router.delete('/orders/:orderId/items/:itemIndex/recording-audio', authenticateToken, requireAdmin, adminDeleteRecordingAudio);
 
 // ========================
 // ROTAS DA WALLET DA PLATAFORMA
 // ========================
-router.get('/platform-wallet', authenticateToken, isAdmin, getPlatformWallet);
-router.put('/platform-wallet/bank-account', authenticateToken, isAdmin, updatePlatformBankAccount);
-router.post('/platform-wallet/withdraw', authenticateToken, isAdmin, auditLog('wallet.withdraw', 'platform_wallet'), requestPlatformWithdraw);
-router.post('/platform-wallet/confirm-withdraw', authenticateToken, isAdmin, confirmPlatformWithdraw);
-router.get('/platform-wallet/check-transfers', authenticateToken, isAdmin, checkPendingTransfers);
+router.get('/platform-wallet', authenticateToken, requireAdmin, getPlatformWallet);
+router.put('/platform-wallet/bank-account', authenticateToken, requireAdmin, updatePlatformBankAccount);
+router.post('/platform-wallet/withdraw', authenticateToken, requireAdmin, auditLog('wallet.withdraw', 'platform_wallet'), requestPlatformWithdraw);
+router.post('/platform-wallet/confirm-withdraw', authenticateToken, requireAdmin, confirmPlatformWithdraw);
+router.get('/platform-wallet/check-transfers', authenticateToken, requireAdmin, checkPendingTransfers);
 
 // ========================
 // ROTAS DE SOLICITAÇÕES DE SAQUE (Emissoras/Agências)
 // ========================
-router.get('/withdraw-requests', authenticateToken, isAdmin, getPendingWithdrawRequests);
-router.post('/withdraw-requests/:walletId/:transactionId/process', authenticateToken, isAdmin, auditLog('withdraw.process', 'wallet'), processWithdrawRequest);
-router.post('/withdraw-requests/:walletId/:transactionId/reject', authenticateToken, isAdmin, auditLog('withdraw.reject', 'wallet'), rejectWithdrawRequest);
+router.get('/withdraw-requests', authenticateToken, requireAdmin, getPendingWithdrawRequests);
+router.post('/withdraw-requests/:walletId/:transactionId/process', authenticateToken, requireAdmin, auditLog('withdraw.process', 'wallet'), processWithdrawRequest);
+router.post('/withdraw-requests/:walletId/:transactionId/reject', authenticateToken, requireAdmin, auditLog('withdraw.reject', 'wallet'), rejectWithdrawRequest);
 
 // ========================
 // ROTAS DE EMISSORAS CATÁLOGO (novas)
 // ========================
 // CRUD de emissoras catálogo
-router.post('/catalog-broadcasters', authenticateToken, isAdmin, auditLog('catalog.create', 'broadcaster'), createCatalogBroadcaster);
-router.get('/catalog-broadcasters', authenticateToken, isAdmin, getCatalogBroadcasters);
-router.get('/catalog-broadcasters/:id', authenticateToken, isAdmin, getCatalogBroadcasterById);
-router.put('/catalog-broadcasters/:id', authenticateToken, isAdmin, auditLog('catalog.update', 'broadcaster'), updateCatalogBroadcaster);
-router.delete('/catalog-broadcasters/:id', authenticateToken, isAdmin, auditLog('catalog.delete', 'broadcaster'), deleteCatalogBroadcaster);
-router.post('/catalog-broadcasters/:id/reactivate', authenticateToken, isAdmin, reactivateCatalogBroadcaster);
+router.post('/catalog-broadcasters', authenticateToken, requireAdmin, auditLog('catalog.create', 'broadcaster'), createCatalogBroadcaster);
+router.get('/catalog-broadcasters', authenticateToken, requireAdmin, getCatalogBroadcasters);
+router.get('/catalog-broadcasters/:id', authenticateToken, requireAdmin, getCatalogBroadcasterById);
+router.put('/catalog-broadcasters/:id', authenticateToken, requireAdmin, auditLog('catalog.update', 'broadcaster'), updateCatalogBroadcaster);
+router.delete('/catalog-broadcasters/:id', authenticateToken, requireAdmin, auditLog('catalog.delete', 'broadcaster'), deleteCatalogBroadcaster);
+router.post('/catalog-broadcasters/:id/reactivate', authenticateToken, requireAdmin, reactivateCatalogBroadcaster);
 
 // Perfil completo e logo
-router.post('/catalog-broadcasters/:id/complete-profile', authenticateToken, isAdmin, completeCatalogProfile);
-router.post('/catalog-broadcasters/:id/upload-logo', authenticateToken, isAdmin, upload.single('logo'), uploadCatalogLogo);
+router.post('/catalog-broadcasters/:id/complete-profile', authenticateToken, requireAdmin, completeCatalogProfile);
+router.post('/catalog-broadcasters/:id/upload-logo', authenticateToken, requireAdmin, upload.single('logo'), uploadCatalogLogo);
 
 // Produtos de emissoras catálogo
-router.post('/catalog-broadcasters/:broadcasterId/products', authenticateToken, isAdmin, createCatalogProduct);
-router.get('/catalog-broadcasters/:broadcasterId/products', authenticateToken, isAdmin, getCatalogProducts);
-router.put('/catalog-products/:productId', authenticateToken, isAdmin, updateCatalogProduct);
-router.delete('/catalog-products/:productId', authenticateToken, isAdmin, deleteCatalogProduct);
+router.post('/catalog-broadcasters/:broadcasterId/products', authenticateToken, requireAdmin, createCatalogProduct);
+router.get('/catalog-broadcasters/:broadcasterId/products', authenticateToken, requireAdmin, getCatalogProducts);
+router.put('/catalog-products/:productId', authenticateToken, requireAdmin, updateCatalogProduct);
+router.delete('/catalog-products/:productId', authenticateToken, requireAdmin, deleteCatalogProduct);
 
 // ========================
 // ROTAS DE OPEC (Comprovantes de Veiculação)
 // ========================
-router.get('/catalog-orders', authenticateToken, isAdmin, getCatalogOrders);
-router.get('/orders/:orderId/opec', authenticateToken, isAdmin, getOrderOpecs);
-router.post('/orders/:orderId/opec', authenticateToken, isAdmin, uploadOpecFile.single('opec'), uploadOpec);
-router.delete('/orders/:orderId/opec/:opecId', authenticateToken, isAdmin, deleteOpec);
+router.get('/catalog-orders', authenticateToken, requireAdmin, getCatalogOrders);
+router.get('/orders/:orderId/opec', authenticateToken, requireAdmin, getOrderOpecs);
+router.post('/orders/:orderId/opec', authenticateToken, requireAdmin, uploadOpecFile.single('opec'), uploadOpec);
+router.delete('/orders/:orderId/opec/:opecId', authenticateToken, requireAdmin, deleteOpec);
 
 // ========================
 // ROTAS DE GESTÃO DE USUÁRIOS
 // ========================
-router.get('/users', authenticateToken, isAdmin, getAllUsers);
-router.get('/users/:userId', authenticateToken, isAdmin, getUserFullDetails);
-router.put('/users/:userId/status', authenticateToken, isAdmin, auditLog('user.status_change', 'user'), updateUserStatus);
-router.put('/users/:userId/role', authenticateToken, isAdmin, auditLog('user.role_change', 'user'), updateUserRole);
-router.put('/users/:userId/reset-password', authenticateToken, isAdmin, auditLog('user.reset_password', 'user'), adminResetUserPassword);
-router.delete('/users/:userId', authenticateToken, isAdmin, auditLog('user.delete', 'user'), deleteUser);
+router.get('/users', authenticateToken, requireAdmin, getAllUsers);
+router.get('/users/:userId', authenticateToken, requireAdmin, getUserFullDetails);
+router.put('/users/:userId/status', authenticateToken, requireAdmin, auditLog('user.status_change', 'user'), updateUserStatus);
+router.put('/users/:userId/role', authenticateToken, requireAdmin, auditLog('user.role_change', 'user'), updateUserRole);
+router.put('/users/:userId/reset-password', authenticateToken, requireAdmin, auditLog('user.reset_password', 'user'), adminResetUserPassword);
+router.delete('/users/:userId', authenticateToken, requireAdmin, auditLog('user.delete', 'user'), deleteUser);
 
 // ========================
 // ROTAS DE RELATÓRIO DA DIRETORIA
 // ========================
-router.get('/directory-report', authenticateToken, isAdmin, getDirectoryReport);
-router.get('/directory-report/spot-types', authenticateToken, isAdmin, getDirectoryReportSpotTypes);
-router.put('/directory-report/:productId', authenticateToken, isAdmin, updateDirectoryReportRecord);
+router.get('/directory-report', authenticateToken, requireAdmin, getDirectoryReport);
+router.get('/directory-report/spot-types', authenticateToken, requireAdmin, getDirectoryReportSpotTypes);
+router.put('/directory-report/:productId', authenticateToken, requireAdmin, updateDirectoryReportRecord);
 
 // ========================
 // ROTAS DE MONITORAMENTO
 // Query param: ?range=1h|24h|7d|30d (default: 24h)
 // ========================
-router.get('/monitoring/overview', authenticateToken, isAdmin, getOverview);
-router.get('/monitoring/routes', authenticateToken, isAdmin, getRouteMetrics);
-router.get('/monitoring/errors', authenticateToken, isAdmin, getErrors);
-router.get('/monitoring/vitals', authenticateToken, isAdmin, getVitals);
-router.get('/monitoring/slow', authenticateToken, isAdmin, getSlowRequests);
-router.get('/monitoring/timeline', authenticateToken, isAdmin, getTimeline);
+router.get('/monitoring/overview', authenticateToken, requireAdmin, getOverview);
+router.get('/monitoring/routes', authenticateToken, requireAdmin, getRouteMetrics);
+router.get('/monitoring/errors', authenticateToken, requireAdmin, getErrors);
+router.get('/monitoring/vitals', authenticateToken, requireAdmin, getVitals);
+router.get('/monitoring/slow', authenticateToken, requireAdmin, getSlowRequests);
+router.get('/monitoring/timeline', authenticateToken, requireAdmin, getTimeline);
 
 // ========================
 // ROTAS DE AUDIT LOG
 // ========================
-router.get('/audit-logs', authenticateToken, isAdmin, async (req: AuthRequest, res: Response) => {
+router.get('/audit-logs', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { action, resource, userId, startDate, endDate, page = '1', limit = '50' } = req.query;
 
@@ -240,8 +232,7 @@ router.get('/audit-logs', authenticateToken, isAdmin, async (req: AuthRequest, r
     ]);
 
     res.json({ logs, total, page: pageNum, totalPages: Math.ceil(total / limitNum) });
-  } catch (error) {
-    console.error('Erro ao buscar audit logs:', error);
+  } catch {
     res.status(500).json({ error: 'Erro ao buscar audit logs' });
   }
 });

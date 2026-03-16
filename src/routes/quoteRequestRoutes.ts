@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, requireAdmin } from '../middleware/auth';
 import {
   createQuoteRequest,
   getMyQuoteRequests,
@@ -47,24 +47,24 @@ router.get('/:requestNumber', authenticateToken, getQuoteRequestDetails);
  * GET /api/admin/quotes
  * Lista TODAS as solicitações (com filtros)
  */
-router.get('/admin/all', authenticateToken, getAllQuoteRequests);
+router.get('/admin/all', authenticateToken, requireAdmin, getAllQuoteRequests);
 
 /**
  * GET /api/admin/quotes/stats
  * Estatísticas para dashboard
  */
-router.get('/admin/stats', authenticateToken, getQuoteRequestStats);
+router.get('/admin/stats', authenticateToken, requireAdmin, getQuoteRequestStats);
 
 /**
  * PATCH /api/admin/quotes/:requestNumber/status
  * Atualiza status da solicitação
  */
-router.patch('/admin/:requestNumber/status', authenticateToken, updateQuoteRequestStatus);
+router.patch('/admin/:requestNumber/status', authenticateToken, requireAdmin, updateQuoteRequestStatus);
 
 /**
  * PATCH /api/admin/quotes/:requestNumber/notes
  * Adiciona/atualiza notas internas
  */
-router.patch('/admin/:requestNumber/notes', authenticateToken, updateAdminNotes);
+router.patch('/admin/:requestNumber/notes', authenticateToken, requireAdmin, updateAdminNotes);
 
 export default router;

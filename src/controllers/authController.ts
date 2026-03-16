@@ -24,10 +24,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password, userType, cpfOrCnpj, companyName, fantasyName, phone, cnpj, address } = req.body;
 
-    // ⚠️ BROADCASTER NÃO PODE SE AUTO-CADASTRAR - Apenas admin cria via catalog
-    if (userType === 'broadcaster') {
+    // ⚠️ Apenas advertiser e agency podem se auto-cadastrar
+    if (!['advertiser', 'agency'].includes(userType)) {
       res.status(403).json({
-        error: 'Emissoras não podem se auto-cadastrar. Entre em contato com o administrador.'
+        error: 'Tipo de conta não permitido para auto-cadastro. Entre em contato com o administrador.'
       });
       return;
     }
@@ -84,7 +84,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Hash da senha
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // Gera token de confirmação de email
     const confirmToken = crypto.randomBytes(32).toString('hex');
@@ -119,7 +119,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       requiresEmailConfirmation: true
     });
   } catch (error) {
-    console.error('Erro no registro:', error);
     res.status(500).json({ error: 'Erro ao cadastrar usuário' });
   }
 };
@@ -148,7 +147,6 @@ export const confirmEmail = async (req: Request, res: Response): Promise<void> =
 
     res.json({ message: 'Email confirmado com sucesso! Agora você pode fazer login.' });
   } catch (error) {
-    console.error('Erro ao confirmar email:', error);
     res.status(500).json({ error: 'Erro ao confirmar email' });
   }
 };
@@ -220,7 +218,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       } else {
 
         // Gera código de 6 dígitos
-        const twoFactorCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const twoFactorCode = crypto.randomInt(100000, 999999).toString();
         const codeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
 
         user.twoFactorCode = twoFactorCode;
@@ -230,10 +228,16 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         // Envia email com código
         await sendTwoFactorCodeEmail(user.email, user.name || user.companyName || 'Usuário', twoFactorCode);
 
+        // Token opaco em vez de ObjectId real — evita enumeracao de usuarios
+        const twoFactorSessionToken = crypto.randomBytes(32).toString('hex');
+        user.twoFactorSessionToken = twoFactorSessionToken;
+        user.twoFactorAttempts = 0;
+        await user.save();
+
         res.json({
           requiresTwoFactor: true,
           message: 'Código de verificação enviado para seu email',
-          userId: user._id
+          userId: twoFactorSessionToken
         });
         return;
       }
@@ -262,7 +266,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       }
     });
   } catch (error) {
-    console.error('❌ Erro no login:', error);
     res.status(500).json({ error: 'Erro ao fazer login' });
   }
 };
@@ -295,7 +298,6 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       broadcasterProfile: user.broadcasterProfile
     });
   } catch (error) {
-    console.error('❌ Erro ao buscar usuário:', error);
     res.status(500).json({ error: 'Erro ao buscar usuário' });
   }
 };
@@ -354,7 +356,6 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
 
     res.json({ message: 'Perfil atualizado com sucesso', user });
   } catch (error: any) {
-    console.error('❌ Erro ao atualizar perfil:', error);
     res.status(500).json({ message: 'Erro ao atualizar perfil', error: error.message });
   }
 };
@@ -394,7 +395,7 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
     }
 
     // Hash da nova senha
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     // Atualizar senha
     user.password = hashedPassword;
@@ -402,7 +403,6 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
 
     res.json({ message: 'Senha alterada com sucesso' });
   } catch (error: any) {
-    console.error('❌ Erro ao alterar senha:', error);
     res.status(500).json({ message: 'Erro ao alterar senha', error: error.message });
   }
 };
@@ -440,7 +440,6 @@ export const enableTwoFactor = async (req: AuthRequest, res: Response): Promise<
 
     res.json({ message: 'Email de confirmação enviado. Verifique sua caixa de entrada.' });
   } catch (error: any) {
-    console.error('❌ Erro ao habilitar 2FA:', error);
     res.status(500).json({ message: 'Erro ao habilitar autenticação em duas etapas' });
   }
 };
@@ -485,7 +484,6 @@ export const confirmTwoFactorEnable = async (req: Request, res: Response): Promi
 
     res.json({ message: 'Autenticação em duas etapas habilitada com sucesso!' });
   } catch (error: any) {
-    console.error('❌ Erro ao confirmar 2FA:', error);
     res.status(500).json({ message: 'Erro ao confirmar autenticação em duas etapas' });
   }
 };
@@ -521,7 +519,6 @@ export const disableTwoFactor = async (req: AuthRequest, res: Response): Promise
 
     res.json({ message: 'Autenticação em duas etapas desabilitada' });
   } catch (error: any) {
-    console.error('❌ Erro ao desabilitar 2FA:', error);
     res.status(500).json({ message: 'Erro ao desabilitar autenticação em duas etapas' });
   }
 };
@@ -573,7 +570,6 @@ export const validateTwoFactorLogin = async (req: Request, res: Response): Promi
       }
     });
   } catch (error: any) {
-    console.error('❌ Erro ao validar 2FA:', error);
     res.status(500).json({ message: 'Erro ao validar código de verificação' });
   }
 };
@@ -583,16 +579,32 @@ export const validateTwoFactorLogin = async (req: Request, res: Response): Promi
  */
 export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId, code, trustDevice } = req.body;
+    const { userId: sessionToken, code, trustDevice } = req.body;
 
-
+    // Busca por session token opaco (nao por ObjectId)
     const user = await User.findOne({
-      _id: userId,
-      twoFactorCode: code,
+      twoFactorSessionToken: sessionToken,
       twoFactorCodeExpires: { $gt: new Date() }
     });
 
     if (!user) {
+      res.status(400).json({ message: 'Código inválido ou expirado' });
+      return;
+    }
+
+    // Limita tentativas falhas — invalida codigo apos 5 erros
+    if (user.twoFactorCode !== code) {
+      user.twoFactorAttempts = (user.twoFactorAttempts || 0) + 1;
+      if (user.twoFactorAttempts >= 5) {
+        user.twoFactorCode = undefined;
+        user.twoFactorCodeExpires = undefined;
+        user.twoFactorSessionToken = undefined;
+        user.twoFactorAttempts = 0;
+        await user.save();
+        res.status(400).json({ message: 'Muitas tentativas. Solicite um novo código fazendo login novamente.' });
+        return;
+      }
+      await user.save();
       res.status(400).json({ message: 'Código inválido ou expirado' });
       return;
     }
@@ -625,9 +637,11 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
 
     }
 
-    // Limpa código usado
+    // Limpa código usado e session token
     user.twoFactorCode = undefined;
     user.twoFactorCodeExpires = undefined;
+    user.twoFactorSessionToken = undefined;
+    user.twoFactorAttempts = 0;
     await user.save();
 
     // Gerar tokens (access 15min + refresh 7d em cookies httpOnly)
@@ -653,7 +667,6 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
       }
     });
   } catch (error: any) {
-    console.error('❌ Erro ao verificar código 2FA:', error);
     res.status(500).json({ message: 'Erro ao verificar código' });
   }
 };
@@ -676,7 +689,6 @@ export const getTwoFactorStatus = async (req: AuthRequest, res: Response): Promi
       confirmedAt: user.twoFactorConfirmedAt
     });
   } catch (error: any) {
-    console.error('❌ Erro ao obter status 2FA:', error);
     res.status(500).json({ message: 'Erro ao obter status' });
   }
 };
@@ -707,7 +719,6 @@ export const refreshTokenHandler = async (req: Request, res: Response): Promise<
       token: result.accessToken // compatibilidade com frontend antigo
     });
   } catch (error) {
-    console.error('Erro ao renovar token:', error);
     res.status(500).json({ error: 'Erro ao renovar token' });
   }
 };
@@ -726,7 +737,6 @@ export const logoutHandler = async (req: AuthRequest, res: Response): Promise<vo
     clearAuthCookies(res);
     res.json({ message: 'Logout realizado com sucesso' });
   } catch (error) {
-    console.error('Erro ao fazer logout:', error);
     // Limpa cookies mesmo em caso de erro no banco
     clearAuthCookies(res);
     res.json({ message: 'Logout realizado' });

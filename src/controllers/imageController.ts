@@ -15,11 +15,43 @@ const SIGNATURE_IMAGE = 'a107f1dc96a649316127fec7b49d24ce2c7a224625d288be3423631
 
 // Diretório de cache
 const CACHE_DIR = path.join(__dirname, '../../cache/images');
+const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
+const CACHE_MAX_FILES = 5000;
 
 // Garante que o diretório existe
 if (!fs.existsSync(CACHE_DIR)) {
     fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
+
+// Limpeza periódica do cache: remove arquivos >7 dias e limita a 5000 arquivos
+const cleanupCache = () => {
+    try {
+        const files = fs.readdirSync(CACHE_DIR)
+            .map(name => {
+                const filePath = path.join(CACHE_DIR, name);
+                const stat = fs.statSync(filePath);
+                return { name, filePath, mtimeMs: stat.mtimeMs, size: stat.size };
+            })
+            .sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+        const now = Date.now();
+        let deleted = 0;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i]!;
+            const isExpired = (now - file.mtimeMs) > CACHE_MAX_AGE_MS;
+            const isOverLimit = i >= CACHE_MAX_FILES;
+
+            if (isExpired || isOverLimit) {
+                try { fs.unlinkSync(file.filePath); deleted++; } catch {}
+            }
+        }
+    } catch {}
+};
+
+// Executa limpeza na inicialização e a cada 6 horas
+cleanupCache();
+setInterval(cleanupCache, 6 * 60 * 60 * 1000);
 
 export const getAppSheetImage = async (req: Request, res: Response) => {
     try {
@@ -29,17 +61,21 @@ export const getAppSheetImage = async (req: Request, res: Response) => {
             return res.status(400).send('fileName is required');
         }
 
-        // Protecao contra SSRF: apenas URLs do dominio AppSheet sao permitidas
+        // Protecao contra SSRF: apenas URLs HTTPS do dominio AppSheet sao permitidas
         if (fileName.startsWith('http')) {
             const allowedDomains = ['appsheet.com', 'www.appsheet.com'];
             try {
                 const urlObj = new URL(fileName);
+                // Apenas HTTPS permitido
+                if (urlObj.protocol !== 'https:') {
+                    return res.status(403).send('Only HTTPS allowed');
+                }
                 const isAllowed = allowedDomains.some(domain => urlObj.hostname === domain || urlObj.hostname.endsWith('.' + domain));
                 if (!isAllowed) {
                     return res.status(403).send('Domain not allowed');
                 }
                 // Bloqueia IPs internos/privados no hostname
-                if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|localhost|169\.254\.)/.test(urlObj.hostname)) {
+                if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|localhost|169\.254\.|::1|\[::)/.test(urlObj.hostname)) {
                     return res.status(403).send('Internal addresses not allowed');
                 }
                 return res.redirect(fileName);
@@ -100,20 +136,18 @@ export const getAppSheetImage = async (req: Request, res: Response) => {
             const fullBuffer = Buffer.concat(chunks);
             if (fullBuffer.length > 0) {
                 fs.writeFile(cachedFilePath, fullBuffer, (err) => {
-                    if (err) console.error('Error writing image cache to disk:', err);
+                    // Cache write error silenced
                 });
             }
         });
 
         response.data.on('error', (err: any) => {
-            console.error('Error in request stream from AppSheet:', err);
             if (!res.headersSent) {
                 res.status(502).send('Error fetching image');
             }
         });
 
     } catch (error) {
-        console.error('Image Proxy Error:', error);
         if (!res.headersSent) {
             res.status(500).send('Internal Server Error');
         }

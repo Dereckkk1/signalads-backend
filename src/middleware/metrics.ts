@@ -41,7 +41,6 @@ const serverStartTime = Date.now();
 // ─────────────────────────────────────────────────────────────
 const BATCH_SIZE = 50;
 const BATCH_INTERVAL_MS = 5_000;
-const LOCALHOST_IPS = new Set(['::1', '127.0.0.1', '::ffff:127.0.0.1']);
 
 let metricsBatch: Array<{
     route: string;
@@ -59,9 +58,8 @@ async function flushMetricsBatch(): Promise<void> {
     const toInsert = metricsBatch.splice(0);
     try {
         await SystemMetric.insertMany(toInsert, { ordered: false });
-    } catch (err) {
+    } catch {
         // Falha silenciosa — monitoramento nunca deve quebrar a aplicação
-        console.error(`❌ [METRICS_PERSIST] Falha ao salvar ${toInsert.length} métricas:`, (err as Error).message);
     }
 }
 
@@ -118,15 +116,6 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
             flushMetricsBatch();
         }
 
-        // Log de requests lentos (> 2s)
-        if (isSlow) {
-            console.warn(`⚠️  [SLOW_REQUEST] ${routeKey} — ${duration}ms (status ${res.statusCode})`);
-        }
-
-        // Log de erros críticos
-        if (isError) {
-            console.error(`❌ [HTTP_ERROR] ${routeKey} — HTTP ${res.statusCode} em ${duration}ms`);
-        }
     });
 
     next();

@@ -588,7 +588,7 @@ export const sendOrderConfirmationToClient = async (data: {
             <td style="text-align: right;">${formatCurrency(data.subtotal)}</td>
           </tr>
           <tr>
-            <td style="color: ${colors.gray600};">Taxa da Plataforma (5%)</td>
+            <td style="color: ${colors.gray600};">Taxa da Plataforma (25%)</td>
             <td style="text-align: right;">${formatCurrency(data.techFee)}</td>
           </tr>
           <tr style="font-size: 16px; font-weight: bold;">
@@ -779,7 +779,6 @@ const sendEmail = async ({ to, subject, html }: EmailParams) => {
 
     return { success: true, messageId: info.messageId };
   } catch (error: any) {
-    console.error('❌ Erro ao enviar email:', error.message);
     // Não propaga o erro - email não deve bloquear operações
     return { success: false, error: error.message };
   }

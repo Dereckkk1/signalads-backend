@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import path from 'path';
 import multer from 'multer';
 import { AuthRequest } from '../middleware/auth';
 import { uploadFile } from '../config/storage';
@@ -36,6 +37,9 @@ const saveWithRetry = async (cart: any, itemIndex: number, material: any, maxRet
 // Configuração do Multer para upload em memória
 const storage = multer.memoryStorage();
 
+// Extensoes permitidas (validacao dupla: MIME + extensao)
+const allowedExtensions = new Set(['.mp3', '.wav', '.pdf', '.doc', '.docx', '.txt']);
+
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   // Tipos de arquivo permitidos
   const allowedAudioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav'];
@@ -48,11 +52,18 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
 
   const allAllowed = [...allowedAudioTypes, ...allowedDocTypes];
 
-  if (allAllowed.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Tipo de arquivo não permitido'));
+  // Valida MIME type
+  if (!allAllowed.includes(file.mimetype)) {
+    return cb(new Error('Tipo de arquivo não permitido'));
   }
+
+  // Valida extensao do arquivo (previne MIME spoofing)
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (!allowedExtensions.has(ext)) {
+    return cb(new Error('Extensão de arquivo não permitida'));
+  }
+
+  cb(null, true);
 };
 
 export const upload = multer({
@@ -65,12 +76,6 @@ export const upload = multer({
 
 // Upload de áudio
 export const uploadAudio = async (req: AuthRequest, res: Response): Promise<void> => {
-  console.log('📬 Recebendo requisição de upload de áudio:', {
-    fileName: req.file?.originalname,
-    fileSize: req.file?.size,
-    productId: req.body.productId,
-    userId: req.userId
-  });
   try {
     if (!req.userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
@@ -139,7 +144,6 @@ export const uploadAudio = async (req: AuthRequest, res: Response): Promise<void
       fileSize: req.file.size
     });
   } catch (error) {
-    console.error('❌ Erro ao fazer upload de áudio:', error);
     res.status(500).json({ error: 'Erro ao fazer upload do áudio' });
   }
 };
@@ -214,7 +218,6 @@ export const uploadScript = async (req: AuthRequest, res: Response): Promise<voi
       fileSize: req.file.size
     });
   } catch (error) {
-    console.error('❌ Erro ao fazer upload de roteiro:', error);
     res.status(500).json({ error: 'Erro ao fazer upload do roteiro' });
   }
 };
@@ -275,7 +278,6 @@ export const saveText = async (req: AuthRequest, res: Response): Promise<void> =
       duration
     });
   } catch (error) {
-    console.error('❌ Erro ao salvar texto:', error);
     res.status(500).json({ error: 'Erro ao salvar texto' });
   }
 };

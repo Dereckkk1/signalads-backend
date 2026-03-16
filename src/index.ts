@@ -5,20 +5,11 @@ import path from 'path';
 import connectDB from './config/database';
 import authRoutes from './routes/authRoutes';
 import adminRoutes from './routes/adminRoutes';
-// import onboardingRoutes from './routes/onboardingRoutes'; // DESABILITADO - Broadcasters gerenciados pelo admin
 import productRoutes from './routes/productRoutes';
 import cartRoutes from './routes/cartRoutes';
 import uploadRoutes from './routes/uploadRoutes';
-import paymentRoutes from './routes/paymentRoutes';
-import walletRoutes from './routes/walletRoutes';
 import campaignRoutes from './routes/campaignRoutes';
 import materialRoutes from './routes/materialRoutes';
-import chatRoutes from './routes/chatRoutes';
-import billingRoutes from './routes/billingRoutes';
-import financialRoutes from './routes/financialRoutes';
-import invoiceRoutes from './routes/invoiceRoutes';
-import favoriteRoutes from './routes/favoriteRoutes';
-import broadcasterWalletRoutes from './routes/broadcasterWalletRoutes';
 import quoteRequestRoutes from './routes/quoteRequestRoutes';
 import imageRoutes from './routes/imageRoutes';
 import recommendationRoutes from './routes/recommendationRoutes';
@@ -44,18 +35,23 @@ dotenv.config();
 const app: Application = express();
 const PORT = process.env.PORT || 5000; // v2
 
-// Habilita confiança no proxy (Nginx/Cloudflare) para pegar IP real do usuário (necessário para rate-limit)
-app.set('trust proxy', 1);
+// Confiança no proxy: apenas em prod (atrás de Nginx/Cloudflare). Em dev, usa IP direto.
+app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 
 // Configuração de Segurança
-const allowedOrigins = [
+const productionOrigins = [
   'https://eradios.com.br',
   'https://www.eradios.com.br',
   'https://api.eradios.com.br',
+];
+const devOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  'http://localhost:5000'
+  'http://localhost:5000',
 ];
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? productionOrigins
+  : [...productionOrigins, ...devOrigins];
 
 app.use(cors({
   origin: allowedOrigins,
@@ -127,21 +123,11 @@ app.use('/api', healthRoutes);
 // Rotas
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
-// app.use('/api/onboarding', onboardingRoutes); // DESABILITADO - Broadcasters gerenciados pelo admin
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/payment', paymentRoutes);
-app.use('/api/wallet', walletRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/materials', materialRoutes);
-app.use('/api/chat', chatRoutes);
-app.use('/api/billing', billingRoutes); // Rotas gerais de billing (cliente + admin)
-app.use('/api/admin/billing', billingRoutes); // Mantém compatibilidade com rotas admin
-app.use('/api/admin/financial', financialRoutes); // Rotas do painel financeiro admin
-app.use('/api/invoices', invoiceRoutes); // Rotas de notas fiscais
-app.use('/api/favorites', favoriteRoutes); // Rotas de favoritos
-app.use('/api/broadcaster', broadcasterWalletRoutes); // Rotas de wallet da emissora
 app.use('/api/quotes', quoteRequestRoutes); // Rotas de solicitações de contato (NEW)
 app.use('/api/image', imageRoutes); // Rotas de proxy de imagens
 app.use('/api/recommendations', recommendationRoutes); // Rotas de recomendação IA (NEW)
@@ -160,11 +146,10 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
-// Rota de health check legada (mantida para compatibilidade)
+// Rota de health check legada (mantida para compatibilidade) — sem dados sensiveis
 app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'OK',
-    uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
 });
@@ -186,11 +171,10 @@ app.use((err: any, req: Request, res: Response, next: any) => {
   }
 
   const status = err.status || 500;
-  const message = err.message || 'Erro interno do servidor';
 
+  // Stack traces NUNCA vao pro cliente — apenas logados server-side acima
   res.status(status).json({
-    error: message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    error: 'Erro interno do servidor'
   });
 });
 

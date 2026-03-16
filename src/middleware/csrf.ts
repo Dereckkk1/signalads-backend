@@ -19,7 +19,7 @@ const EXEMPT_ROUTES = [
 ];
 
 const isExempt = (path: string): boolean => {
-  return EXEMPT_ROUTES.some(route => path.startsWith(route));
+  return EXEMPT_ROUTES.some(route => path === route || path.startsWith(route + '/'));
 };
 
 export const csrfProtection = (req: Request, res: Response, next: NextFunction): void => {
@@ -38,14 +38,21 @@ export const csrfProtection = (req: Request, res: Response, next: NextFunction):
 
   const csrfFromCookie = req.cookies?.csrf_token;
   const csrfFromHeader = req.headers['x-csrf-token'] as string | undefined;
+  const hasAccessToken = !!req.cookies?.access_token;
 
-  // Se nao tem cookie CSRF, pode ser request sem autenticacao — permite
-  if (!csrfFromCookie) {
+  // Se usuario esta autenticado (tem access_token), CSRF e obrigatorio
+  if (hasAccessToken && !csrfFromCookie) {
+    res.status(403).json({ error: 'CSRF token ausente' });
+    return;
+  }
+
+  // Se nao esta autenticado e nao tem CSRF cookie, permite (request publico)
+  if (!hasAccessToken && !csrfFromCookie) {
     next();
     return;
   }
 
-  // Se tem cookie mas nao tem header, bloqueia
+  // Valida que header corresponde ao cookie
   if (!csrfFromHeader || csrfFromHeader !== csrfFromCookie) {
     res.status(403).json({ error: 'CSRF token inválido' });
     return;

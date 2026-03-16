@@ -107,7 +107,6 @@ export const createQuoteRequest = async (req: AuthRequest, res: Response) => {
         }
       );
     } catch (emailError) {
-      console.error('⚠️ Erro ao enviar emails:', emailError);
       // Não falha a requisição se o email falhar
     }
 
@@ -124,7 +123,6 @@ export const createQuoteRequest = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro ao criar solicitação:', error);
     return res.status(500).json({ 
       message: 'Erro ao processar solicitação. Tente novamente.' 
     });
@@ -147,7 +145,6 @@ export const getMyQuoteRequests = async (req: AuthRequest, res: Response) => {
     return res.json(requests);
 
   } catch (error) {
-    console.error('❌ Erro ao buscar solicitações:', error);
     return res.status(500).json({ message: 'Erro ao buscar solicitações' });
   }
 };
@@ -185,7 +182,6 @@ export const getQuoteRequestDetails = async (req: AuthRequest, res: Response) =>
     return res.json(response);
 
   } catch (error) {
-    console.error('❌ Erro ao buscar detalhes:', error);
     return res.status(500).json({ message: 'Erro ao buscar detalhes' });
   }
 };
@@ -206,6 +202,11 @@ export const getAllQuoteRequests = async (req: AuthRequest, res: Response) => {
 
     const { status, sortBy = 'createdAt', order = 'desc' } = req.query;
 
+    // Whitelist de campos permitidos para ordenacao (previne sort field injection)
+    const allowedSortFields = ['createdAt', 'updatedAt', 'status', 'requestNumber', 'totalPrice'];
+    const safeSortBy = allowedSortFields.includes(sortBy as string) ? (sortBy as string) : 'createdAt';
+    const safeOrder = order === 'asc' ? 1 : -1;
+
     // Monta filtro
     const filter: any = {};
     if (status && status !== 'all') {
@@ -214,14 +215,13 @@ export const getAllQuoteRequests = async (req: AuthRequest, res: Response) => {
 
     // Busca solicitações
     const requests = await QuoteRequest.find(filter)
-      .sort({ [sortBy as string]: order === 'desc' ? -1 : 1 })
+      .sort({ [safeSortBy]: safeOrder })
       .lean();
 
 
     return res.json(requests);
 
   } catch (error) {
-    console.error('❌ Erro ao buscar solicitações (admin):', error);
     return res.status(500).json({ message: 'Erro ao buscar solicitações' });
   }
 };
@@ -289,7 +289,6 @@ export const updateQuoteRequestStatus = async (req: AuthRequest, res: Response) 
     });
 
   } catch (error) {
-    console.error('❌ Erro ao atualizar status:', error);
     return res.status(500).json({ message: 'Erro ao atualizar status' });
   }
 };
@@ -321,7 +320,6 @@ export const updateAdminNotes = async (req: AuthRequest, res: Response) => {
     return res.json({ message: 'Notas atualizadas com sucesso' });
 
   } catch (error) {
-    console.error('❌ Erro ao atualizar notas:', error);
     return res.status(500).json({ message: 'Erro ao atualizar notas' });
   }
 };
@@ -378,7 +376,6 @@ export const getQuoteRequestStats = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro ao buscar estatísticas:', error);
     return res.status(500).json({ message: 'Erro ao buscar estatísticas' });
   }
 };

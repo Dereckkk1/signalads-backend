@@ -5,7 +5,25 @@ import { Product } from '../models/Product';
 import Wallet from '../models/Wallet';
 import { User } from '../models/User';
 import { sendOrderApprovedToClient, sendOrderRejectedToClient, sendNewOrderToBroadcaster } from '../services/emailService';
-import { createConversationFromOrder } from './chatController';
+
+/**
+ * Garante que a wallet da plataforma existe
+ */
+async function ensurePlatformWallet() {
+  const platformUserId = process.env.PLATFORM_USER_ID || 'platform';
+  let platformWallet = await Wallet.findOne({ userId: platformUserId });
+  if (!platformWallet) {
+    platformWallet = await Wallet.create({
+      userId: platformUserId,
+      balance: 0,
+      blockedBalance: 0,
+      totalEarned: 0,
+      totalSpent: 0,
+      transactions: []
+    });
+  }
+  return platformWallet;
+}
 
 /**
  * Controller de Campanhas
@@ -28,7 +46,6 @@ export const processAutoApprovalForCatalogItems = async (orderId: string): Promi
   try {
     const order = await Order.findById(orderId);
     if (!order) {
-      console.warn(`⚠️ Pedido ${orderId} não encontrado para auto-aprovação`);
       return { allCatalog: false, catalogItems: [], regularItems: [], autoApproved: false };
     }
 
@@ -68,7 +85,6 @@ export const processAutoApprovalForCatalogItems = async (orderId: string): Promi
       // Credita valores na wallet da plataforma (emissoras catálogo não recebem via wallet)
       for (const split of order.splits) {
         if (split.recipientType === 'platform') {
-          const { ensurePlatformWallet } = await import('./paymentController');
           const platformWallet = await ensurePlatformWallet();
 
           await platformWallet.addCredit(
@@ -106,7 +122,7 @@ export const processAutoApprovalForCatalogItems = async (orderId: string): Promi
           createdAt: order.createdAt
         });
       } catch (emailErr) {
-        console.error('❌ Erro ao enviar email de aprovação:', emailErr);
+        // Email error silenced in production
       }
 
       return { allCatalog: true, catalogItems, regularItems, autoApproved: true };
@@ -141,7 +157,7 @@ export const processAutoApprovalForCatalogItems = async (orderId: string): Promi
               createdAt: order.createdAt
             });
           } catch (emailErr) {
-            console.error(`❌ Erro ao enviar email para ${broadcaster.email}:`, emailErr);
+            // Email error silenced in production
           }
         }
       }
@@ -149,7 +165,6 @@ export const processAutoApprovalForCatalogItems = async (orderId: string): Promi
 
     return { allCatalog: false, catalogItems, regularItems, autoApproved: false };
   } catch (error: any) {
-    console.error(`❌ Erro no processamento de auto-aprovação:`, error);
     return { allCatalog: false, catalogItems: [], regularItems: [], autoApproved: false };
   }
 };
@@ -261,7 +276,6 @@ export const getMyCampaigns = async (req: AuthRequest, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('❌ Erro ao listar campanhas:', error);
     res.status(500).json({
       message: 'Erro ao listar campanhas',
       error: error.message
@@ -278,6 +292,9 @@ export const getPendingApprovalOrders = async (req: AuthRequest, res: Response) 
     const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ message: 'Usuário não autenticado' });
+    }
+    if (req.user?.userType !== 'broadcaster') {
+      return res.status(403).json({ error: 'Apenas emissoras podem acessar esta rota' });
     }
 
     const orders = await Order.find({
@@ -327,7 +344,6 @@ export const getPendingApprovalOrders = async (req: AuthRequest, res: Response) 
       total: ordersFiltered.length
     });
   } catch (error: any) {
-    console.error('❌ Erro ao listar pedidos pendentes:', error);
     res.status(500).json({
       message: 'Erro ao listar pedidos',
       error: error.message
@@ -344,6 +360,9 @@ export const getBroadcasterOrders = async (req: AuthRequest, res: Response) => {
     const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ message: 'Usuário não autenticado' });
+    }
+    if (req.user?.userType !== 'broadcaster') {
+      return res.status(403).json({ error: 'Apenas emissoras podem acessar esta rota' });
     }
 
     const { status, page = 1, limit = 100 } = req.query;
@@ -421,7 +440,6 @@ export const getBroadcasterOrders = async (req: AuthRequest, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('❌ Erro ao listar pedidos da emissora:', error);
     res.status(500).json({
       message: 'Erro ao listar pedidos',
       error: error.message
@@ -439,6 +457,9 @@ export const approveBroadcasterItems = async (req: AuthRequest, res: Response) =
     const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ message: 'Usuário não autenticado' });
+    }
+    if (req.user?.userType !== 'broadcaster') {
+      return res.status(403).json({ error: 'Apenas emissoras podem aprovar itens' });
     }
 
     const { orderId } = req.params;
@@ -538,7 +559,6 @@ export const approveBroadcasterItems = async (req: AuthRequest, res: Response) =
 
       else if (split.recipientType === 'platform') {
         // Credita wallet da plataforma
-        const { ensurePlatformWallet } = await import('./paymentController');
         const platformWallet = await ensurePlatformWallet();
 
         await platformWallet.addCredit(
@@ -601,14 +621,6 @@ export const approveBroadcasterItems = async (req: AuthRequest, res: Response) =
 
     await order.save();
 
-    // Cria conversa no chat se ainda não existir
-    try {
-      await createConversationFromOrder(order._id.toString());
-    } catch (chatError) {
-      console.error('❌ Erro ao criar conversa:', chatError);
-      // Não bloqueia a aprovação se houver erro no chat
-    }
-
     // Busca wallet atualizada da emissora
     const updatedWallet = await Wallet.findOne({ userId });
     const broadcasterCredit = creditResults.find(r => r.recipientType === 'broadcaster');
@@ -628,7 +640,7 @@ export const approveBroadcasterItems = async (req: AuthRequest, res: Response) =
       totalValue: broadcasterCredit?.amount || 0,
       itemsCount: broadcasterItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
       createdAt: order.createdAt
-    }).catch(err => console.error('❌ Erro ao enviar email de aprovação:', err));
+    }).catch(() => {});
 
     res.json({
       success: true,
@@ -642,7 +654,6 @@ export const approveBroadcasterItems = async (req: AuthRequest, res: Response) =
       creditSummary: creditResults
     });
   } catch (error: any) {
-    console.error('❌ Erro ao aprovar pedido:', error);
     res.status(500).json({
       message: 'Erro ao aprovar pedido',
       error: error.message
@@ -660,6 +671,9 @@ export const rejectBroadcasterItems = async (req: AuthRequest, res: Response) =>
     const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ message: 'Usuário não autenticado' });
+    }
+    if (req.user?.userType !== 'broadcaster') {
+      return res.status(403).json({ error: 'Apenas emissoras podem recusar itens' });
     }
 
     const { orderId } = req.params;
@@ -755,7 +769,7 @@ export const rejectBroadcasterItems = async (req: AuthRequest, res: Response) =>
       itemsCount: broadcasterItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
       createdAt: order.createdAt,
       reason
-    }).catch(err => console.error('❌ Erro ao enviar email de recusa:', err));
+    }).catch(() => {});
 
     res.json({
       success: true,
@@ -768,7 +782,6 @@ export const rejectBroadcasterItems = async (req: AuthRequest, res: Response) =>
       }
     });
   } catch (error: any) {
-    console.error('❌ Erro ao recusar pedido:', error);
     res.status(500).json({
       message: 'Erro ao recusar pedido',
       error: error.message
@@ -829,7 +842,6 @@ export const getCampaignDetails = async (req: AuthRequest, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('❌ Erro ao buscar detalhes da campanha:', error);
     res.status(500).json({
       message: 'Erro ao buscar campanha',
       error: error.message

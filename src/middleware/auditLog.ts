@@ -27,7 +27,7 @@ export const auditLog = (action: string, resource: string) => {
           },
           ipAddress: req.ip,
           userAgent: req.headers['user-agent'],
-        }).catch(err => console.error('Audit log error:', err));
+        }).catch(() => {});
       }
 
       return originalJson(body);

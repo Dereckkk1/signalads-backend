@@ -3,10 +3,6 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-
 export interface UserCriteria {
     businessDescription: string;
     location: string;
@@ -112,8 +108,7 @@ export class AIService {
                 cities: (result.cities || []).slice(0, 10),
                 states: result.states || []
             };
-        } catch (error) {
-            console.error('Error in resolveLocation:', error);
+        } catch {
             // Fallback: simple exact match attempt
             return { cities: [query], states: [] };
         }
@@ -263,7 +258,6 @@ export class AIService {
 
                 // Anti-Hallucination Guard
                 if (!candidate) {
-                    console.warn(`[AI] Skipped hallucinated item with ID: ${item.broadcasterId}`);
                     return null;
                 }
 
@@ -344,7 +338,6 @@ export class AIService {
                 }
 
                 totalCost = items.reduce((sum: number, item: any) => sum + item.totalCost, 0);
-                console.log(`[AI] Budget Filling: Used R$ ${totalCost} of R$ ${criteria.budget} (${((totalCost / criteria.budget) * 100).toFixed(1)}%)`);
             }
 
             // OVER-BUDGET JUSTIFICATION
@@ -397,7 +390,6 @@ export class AIService {
             };
 
         } catch (error) {
-            console.error('Error in buildMediaPlan:', error);
             throw error;
         }
     }

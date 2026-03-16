@@ -14,7 +14,6 @@ export const getDirectoryReportSpotTypes = async (req: AuthRequest, res: Respons
         const types = await Product.distinct('spotType');
         res.json(types.sort());
     } catch (error) {
-        console.error('Erro ao buscar tipos de spot:', error);
         res.status(500).json({ error: 'Erro ao buscar tipos de spot' });
     }
 };
@@ -146,7 +145,6 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
         });
 
     } catch (error: any) {
-        console.error('Erro ao buscar o relatório da diretoria:', error);
         res.status(500).json({ error: 'Erro ao gerar relatório da diretoria' });
     }
 };
@@ -229,7 +227,6 @@ export const updateDirectoryReportRecord = async (req: AuthRequest, res: Respons
 
         res.json({ message: 'Registro atualizado com sucesso' });
     } catch (error: any) {
-        console.error('Erro ao atualizar registro do relatório:', error);
         res.status(500).json({ error: 'Erro ao atualizar registro' });
     }
 };

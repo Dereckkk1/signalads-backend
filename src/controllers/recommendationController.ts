@@ -14,12 +14,10 @@ export const generatePlan = async (req: Request, res: Response) => {
         }
 
         // STAGE 1: Resolving Location
-        console.log(`[AI] Resolving location: "${criteria.location}"...`);
         const locationData = await aiService.resolveLocation(criteria.location);
         const cities = locationData.cities;
         const states = locationData.states;
 
-        console.log(`[AI] Resolved to: Cities=[${cities.join(', ')}], States=[${states.join(', ')}]`);
 
         // STAGE 2: Fetching Candidates from DB
         // Enhanced Location Logic:
@@ -185,7 +183,6 @@ export const generatePlan = async (req: Request, res: Response) => {
             }
         }));
 
-        console.log(`[AI] Found ${candidates.length} candidates. Leader PMM: ${maxPmm}`);
 
         // STAGE 3: AI Media Planning
         const plan = await aiService.buildMediaPlan(criteria, enrichedCandidates);
@@ -193,7 +190,6 @@ export const generatePlan = async (req: Request, res: Response) => {
         res.json(plan);
 
     } catch (error) {
-        console.error('[AI] Error generating plan:', error);
         res.status(500).json({ error: 'Failed to generate media plan' });
     }
 };

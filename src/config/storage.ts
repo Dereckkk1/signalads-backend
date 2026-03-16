@@ -18,7 +18,6 @@ const isGoogleCloudConfigured = () => {
   if (hasVars && process.env.GOOGLE_CLOUD_KEY_FILE) {
     const keyFilePath = process.env.GOOGLE_CLOUD_KEY_FILE;
     if (!fs.existsSync(keyFilePath)) {
-      console.warn(`⚠️  Arquivo de credenciais não encontrado: ${keyFilePath}`);
       return false;
     }
   }
@@ -29,8 +28,7 @@ const isGoogleCloudConfigured = () => {
 const USE_GOOGLE_CLOUD = isGoogleCloudConfigured();
 
 if (!USE_GOOGLE_CLOUD) {
-  console.warn('⚠️  Google Cloud Storage NÃO configurado. O sistema apresentará erros ao tentar fazer uploads.');
-  console.warn('⚠️  Configure as variáveis: GOOGLE_CLOUD_KEY_FILE, GOOGLE_CLOUD_PROJECT_ID, GOOGLE_CLOUD_BUCKET_NAME');
+  // Google Cloud Storage not configured
 }
 
 // Configuração do Google Cloud Storage (apenas se configurado)
@@ -89,61 +87,9 @@ export const uploadFile = async (
 
     const publicUrl = `https://storage.googleapis.com/${gcsBucketName}/${destination}`;
 
-    console.log('✅ Arquivo enviado para Cloud Storage:', publicUrl);
-
     return publicUrl;
   } catch (error: any) {
-    console.error('❌ Erro no Google Cloud Storage:', error.message);
     throw new Error(`Erro ao fazer upload no bucket: ${error.message}`);
-  }
-};
-
-/**
- * Deleta arquivo do Cloud Storage
- * @param fileUrl - URL completa do arquivo
- */
-export const deleteFile = async (fileUrl: string): Promise<void> => {
-  try {
-    if (!USE_GOOGLE_CLOUD) {
-      throw new Error('Google Cloud Storage não configurado. Deleções locais foram desativadas.');
-    }
-
-    if (!bucket || !bucketName) {
-      throw new Error('Google Cloud Storage não inicializado');
-    }
-
-    // Extrai o nome do arquivo da URL
-    const fileName = fileUrl.split(`${bucketName}/`)[1];
-
-    if (!fileName) {
-      throw new Error('URL inválida');
-    }
-
-    await bucket.file(fileName).delete();
-
-    console.log('🗑️ Arquivo deletado do Cloud Storage:', fileName);
-  } catch (error) {
-    console.error('❌ Erro ao deletar arquivo:', error);
-    throw new Error('Erro ao deletar arquivo');
-  }
-};
-
-/**
- * Gera URL assinada temporária (24 horas) para arquivo privado
- * Útil se no futuro quiser arquivos privados com acesso controlado
- */
-export const getSignedUrl = async (filePath: string): Promise<string> => {
-  try {
-    const [url] = await bucket.file(filePath).getSignedUrl({
-      version: 'v4',
-      action: 'read',
-      expires: Date.now() + 24 * 60 * 60 * 1000, // 24 horas
-    });
-
-    return url;
-  } catch (error) {
-    console.error('❌ Erro ao gerar URL assinada:', error);
-    throw new Error('Erro ao gerar URL de acesso');
   }
 };
 

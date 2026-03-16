@@ -11,5 +11,6 @@ credentials/
 token.txt
 /cache
 /data
+/dump
 /backups
 *.md

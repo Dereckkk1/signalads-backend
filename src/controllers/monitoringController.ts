@@ -65,7 +65,6 @@ export const getOverview = async (req: Request, res: Response) => {
             },
         });
     } catch (err) {
-        console.error('❌ [MONITORING] overview error:', err);
         res.status(500).json({ error: 'Erro ao buscar overview de monitoramento' });
     }
 };
@@ -133,7 +132,6 @@ export const getRouteMetrics = async (req: Request, res: Response) => {
             routes: result,
         });
     } catch (err) {
-        console.error('❌ [MONITORING] routes error:', err);
         res.status(500).json({ error: 'Erro ao buscar métricas de rotas' });
     }
 };
@@ -176,7 +174,6 @@ export const getErrors = async (req: Request, res: Response) => {
             errors: result,
         });
     } catch (err) {
-        console.error('❌ [MONITORING] errors error:', err);
         res.status(500).json({ error: 'Erro ao buscar erros' });
     }
 };
@@ -239,7 +236,6 @@ export const getVitals = async (req: Request, res: Response) => {
             vitals: result,
         });
     } catch (err) {
-        console.error('❌ [MONITORING] vitals error:', err);
         res.status(500).json({ error: 'Erro ao buscar Web Vitals' });
     }
 };
@@ -270,7 +266,6 @@ export const getSlowRequests = async (req: Request, res: Response) => {
             requests: slow,
         });
     } catch (err) {
-        console.error('❌ [MONITORING] slow error:', err);
         res.status(500).json({ error: 'Erro ao buscar requests lentos' });
     }
 };
@@ -321,7 +316,6 @@ export const getTimeline = async (req: Request, res: Response) => {
             timeline: result,
         });
     } catch (err) {
-        console.error('❌ [MONITORING] timeline error:', err);
         res.status(500).json({ error: 'Erro ao buscar timeline' });
     }
 };

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { getNextSequence } from './Counter';
 
 /**
  * QuoteRequest - Solicitação de Contato Comercial
@@ -202,40 +203,19 @@ const quoteRequestSchema = new Schema({
   timestamps: true
 });
 
-// Auto-incremento para requestNumber
+// Auto-incremento para requestNumber (atomico via Counter)
 quoteRequestSchema.pre('save', async function () {
   if (this.isNew) {
-    try {
-      // Usa this.constructor para acessar o modelo
-      const QuoteRequestModel = this.constructor as any;
-      const lastRequest = await QuoteRequestModel.findOne()
-        .sort({ createdAt: -1 })
-        .select('requestNumber')
-        .lean();
+    const seq = await getNextSequence('quoteRequest');
+    this.requestNumber = `REQ-${String(seq).padStart(6, '0')}`;
 
-      let nextNumber = 1;
-      if (lastRequest?.requestNumber) {
-        const parts = lastRequest.requestNumber.split('-');
-        if (parts.length > 1 && parts[1]) {
-          const currentNumber = parseInt(parts[1], 10);
-          if (!isNaN(currentNumber)) {
-            nextNumber = currentNumber + 1;
-          }
-        }
-      }
-
-      this.requestNumber = `REQ-${String(nextNumber).padStart(6, '0')}`;
-
-      // Adiciona primeiro item no histórico
-      this.statusHistory.push({
-        status: this.status,
-        changedBy: this.buyer,
-        changedAt: new Date(),
-        notes: 'Solicitação criada'
-      });
-    } catch (error) {
-      console.error('Erro ao gerar requestNumber:', error);
-    }
+    // Adiciona primeiro item no histórico
+    this.statusHistory.push({
+      status: this.status,
+      changedBy: this.buyer,
+      changedAt: new Date(),
+      notes: 'Solicitação criada'
+    });
   }
 });
 

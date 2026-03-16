@@ -4,6 +4,17 @@ import { Product } from '../models/Product';
 import { User } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 
+const MAX_CART_QUANTITY = 10000;
+
+// Valida e sanitiza quantidade: inteiro >= 1 e <= MAX_CART_QUANTITY
+const sanitizeQuantity = (qty: any): number | null => {
+  const n = Number(qty);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > MAX_CART_QUANTITY) {
+    return null;
+  }
+  return n;
+};
+
 // Função para validar e limpar datas expiradas
 const cleanExpiredSchedules = (items: ICartItem[], minAdvanceDays: number = 3): ICartItem[] => {
   const today = new Date();
@@ -79,7 +90,6 @@ const cleanExpiredSchedules = (items: ICartItem[], minAdvanceDays: number = 3): 
           removedCount += count as number;
         }
       } catch (error) {
-        console.error(`  ❌ Data inválida ignorada: ${dateStr}`);
         removedCount += count as number;
       }
     });
@@ -142,7 +152,6 @@ export const getCart = async (req: AuthRequest, res: Response): Promise<void> =>
 
     res.json(cartObj);
   } catch (error) {
-    console.error('❌ Erro ao buscar carrinho:', error);
     res.status(500).json({ error: 'Erro ao buscar carrinho' });
   }
 };
@@ -155,10 +164,11 @@ export const addItem = async (req: AuthRequest, res: Response): Promise<void> =>
       return;
     }
 
-    const { productId, quantity } = req.body;
+    const { productId, quantity: rawQty } = req.body;
+    const quantity = sanitizeQuantity(rawQty);
 
-    if (!productId || !quantity || quantity < 1) {
-      res.status(400).json({ error: 'Dados inválidos' });
+    if (!productId || quantity === null) {
+      res.status(400).json({ error: 'Dados inválidos. Quantidade deve ser inteiro entre 1 e ' + MAX_CART_QUANTITY });
       return;
     }
 
@@ -220,7 +230,6 @@ export const addItem = async (req: AuthRequest, res: Response): Promise<void> =>
 
     res.json(cart);
   } catch (error) {
-    console.error('❌ Erro ao adicionar item:', error);
     res.status(500).json({ error: 'Erro ao adicionar item ao carrinho' });
   }
 };
@@ -233,10 +242,11 @@ export const updateItemQuantity = async (req: AuthRequest, res: Response): Promi
       return;
     }
 
-    const { productId, quantity } = req.body;
+    const { productId, quantity: rawQty } = req.body;
+    const quantity = sanitizeQuantity(rawQty);
 
-    if (!productId || !quantity || quantity < 1) {
-      res.status(400).json({ error: 'Dados inválidos' });
+    if (!productId || quantity === null) {
+      res.status(400).json({ error: 'Dados inválidos. Quantidade deve ser inteiro entre 1 e ' + MAX_CART_QUANTITY });
       return;
     }
 
@@ -265,7 +275,6 @@ export const updateItemQuantity = async (req: AuthRequest, res: Response): Promi
 
     res.json(cart);
   } catch (error) {
-    console.error('❌ Erro ao atualizar quantidade:', error);
     res.status(500).json({ error: 'Erro ao atualizar quantidade' });
   }
 };
@@ -311,7 +320,6 @@ export const updateItemSchedule = async (req: AuthRequest, res: Response): Promi
 
     res.json(cart);
   } catch (error) {
-    console.error('❌ Erro ao atualizar agendamento:', error);
     res.status(500).json({ error: 'Erro ao atualizar agendamento' });
   }
 };
@@ -351,13 +359,22 @@ export const updateItemMaterial = async (req: AuthRequest, res: Response): Promi
       return;
     }
 
+    // Sanitiza URLs de material contra path traversal
+    if (material.audioUrl && (typeof material.audioUrl !== 'string' || !material.audioUrl.startsWith('https://'))) {
+      res.status(400).json({ error: 'URL de áudio inválida' });
+      return;
+    }
+    if (material.audioFileName && (typeof material.audioFileName !== 'string' || /[\/\\]/.test(material.audioFileName))) {
+      res.status(400).json({ error: 'Nome de arquivo inválido' });
+      return;
+    }
+
     cart.items[itemIndex].material = material;
     await cart.save();
 
 
     res.json(cart);
   } catch (error) {
-    console.error('❌ Erro ao atualizar material:', error);
     res.status(500).json({ error: 'Erro ao atualizar material' });
   }
 };
@@ -392,7 +409,6 @@ export const removeItem = async (req: AuthRequest, res: Response): Promise<void>
 
     res.json(cart);
   } catch (error) {
-    console.error('❌ Erro ao remover item:', error);
     res.status(500).json({ error: 'Erro ao remover item' });
   }
 };
@@ -417,7 +433,6 @@ export const clearCart = async (req: AuthRequest, res: Response): Promise<void> 
 
     res.json(cart);
   } catch (error) {
-    console.error('❌ Erro ao limpar carrinho:', error);
     res.status(500).json({ error: 'Erro ao limpar carrinho' });
   }
 };
@@ -463,7 +478,6 @@ export const syncCart = async (req: AuthRequest, res: Response): Promise<void> =
 
       // Se produto não existe ou broadcaster não existe, ignora o item
       if (!product || !product.broadcasterId) {
-        console.warn(`⚠️ Item ignorado no sync: Produto ${item.productId} inválido ou inativo`);
         continue;
       }
 
@@ -481,7 +495,7 @@ export const syncCart = async (req: AuthRequest, res: Response): Promise<void> =
         broadcasterLogo: broadcaster.broadcasterProfile?.logo || '',
         broadcasterCity: broadcaster.address?.city || '',
         price: product.pricePerInsertion, // 🔒 PREÇO SEGURO DO BANCO
-        quantity: item.quantity || 1,
+        quantity: sanitizeQuantity(item.quantity) || 1,
         duration: product.duration,
         schedule: item.schedule || {}, // Schedule vem do front, mas validamos datas depois
         material: item.material || undefined, // Mantém material se já existir
@@ -508,7 +522,6 @@ export const syncCart = async (req: AuthRequest, res: Response): Promise<void> =
 
     res.json(cart);
   } catch (error) {
-    console.error('❌ Erro ao sincronizar carrinho:', error);
     res.status(500).json({ error: 'Erro ao sincronizar carrinho' });
   }
 };

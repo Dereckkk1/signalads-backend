@@ -39,7 +39,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
 
     // Verifica se o usuário tem permissão
     const isBroadcaster = userType === 'broadcaster' && item.broadcasterId === userId;
-    const isClient = userType === 'advertiser' && order.buyerId.toString() === userId;
+    const isClient = ['advertiser', 'agency'].includes(userType || '') && order.buyerId.toString() === userId;
 
     if (!isBroadcaster && !isClient) {
       return res.status(403).json({ error: 'Sem permissão para acessar este chat' });
@@ -62,7 +62,6 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true, message: chatMessage });
   } catch (error: any) {
-    console.error('❌ Erro ao enviar mensagem:', error);
     res.status(500).json({ error: error.message || 'Erro ao enviar mensagem' });
   }
 };
@@ -143,7 +142,6 @@ export const uploadBroadcasterProduction = async (req: AuthRequest, res: Respons
       audioUrl 
     });
   } catch (error: any) {
-    console.error('❌ Erro ao enviar produção:', error);
     res.status(500).json({ error: error.message || 'Erro ao enviar produção' });
   }
 };
@@ -193,7 +191,6 @@ export const broadcasterRejectMaterial = async (req: AuthRequest, res: Response)
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error('❌ Erro ao rejeitar material:', error);
     res.status(500).json({ error: error.message || 'Erro ao rejeitar material' });
   }
 };
@@ -233,7 +230,6 @@ export const broadcasterApproveMaterial = async (req: AuthRequest, res: Response
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error('❌ Erro ao aprovar material:', error);
     res.status(500).json({ error: error.message || 'Erro ao aprovar material' });
   }
 };
@@ -252,7 +248,7 @@ export const clientApproveMaterial = async (req: AuthRequest, res: Response) => 
 
     const item = getOrderItem(order, itemIndex);
 
-    if (userType !== 'advertiser' || order.buyerId.toString() !== userId) {
+    if (!['advertiser', 'agency'].includes(userType || '') || order.buyerId.toString() !== userId) {
       return res.status(403).json({ error: 'Apenas o cliente pode aprovar a produção' });
     }
 
@@ -284,7 +280,6 @@ export const clientApproveMaterial = async (req: AuthRequest, res: Response) => 
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error('❌ Erro ao aprovar produção:', error);
     res.status(500).json({ error: error.message || 'Erro ao aprovar produção' });
   }
 };
@@ -304,7 +299,7 @@ export const clientRejectMaterial = async (req: AuthRequest, res: Response) => {
 
     const item = getOrderItem(order, itemIndex);
 
-    if (userType !== 'advertiser' || order.buyerId.toString() !== userId) {
+    if (!['advertiser', 'agency'].includes(userType || '') || order.buyerId.toString() !== userId) {
       return res.status(403).json({ error: 'Apenas o cliente pode rejeitar a produção' });
     }
 
@@ -337,7 +332,6 @@ export const clientRejectMaterial = async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error('❌ Erro ao rejeitar produção:', error);
     res.status(500).json({ error: error.message || 'Erro ao rejeitar produção' });
   }
 };
@@ -358,7 +352,7 @@ export const getChatHistory = async (req: AuthRequest, res: Response) => {
 
     // Verifica permissão
     const isBroadcaster = userType === 'broadcaster' && item.broadcasterId === userId;
-    const isClient = userType === 'advertiser' && order.buyerId.toString() === userId;
+    const isClient = ['advertiser', 'agency'].includes(userType || '') && order.buyerId.toString() === userId;
 
     if (!isBroadcaster && !isClient) {
       return res.status(403).json({ error: 'Sem permissão para acessar este chat' });
@@ -370,7 +364,6 @@ export const getChatHistory = async (req: AuthRequest, res: Response) => {
       broadcasterProduction: item.material.broadcasterProduction
     });
   } catch (error: any) {
-    console.error('❌ Erro ao buscar chat:', error);
     res.status(500).json({ error: error.message || 'Erro ao buscar chat' });
   }
 };

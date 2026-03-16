@@ -1,7 +1,18 @@
 import { Router, Request, Response } from 'express';
 import mongoose from 'mongoose';
+import rateLimit from 'express-rate-limit';
 import { getMetricsSummary, getGlobalStats } from '../middleware/metrics';
+import { authenticateToken, requireAdmin } from '../middleware/auth';
 import WebVital from '../models/WebVital';
+
+// Rate limit especifico para vitals — 60 req/min por IP (sendBeacon fire-and-forget)
+const vitalsLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    message: '',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 const router = Router();
 
@@ -19,24 +30,19 @@ router.get('/health', async (_req: Request, res: Response) => {
     const dbStatus = dbStatusMap[dbState] ?? 'unknown';
 
     const isHealthy = dbState === 1;
-    const stats = getGlobalStats();
 
+    // Endpoint publico: apenas status minimo. Detalhes ficam em /api/metrics (admin)
     res.status(isHealthy ? 200 : 503).json({
         status: isHealthy ? 'ok' : 'degraded',
         timestamp: new Date().toISOString(),
-        database: {
-            status: dbStatus,
-            host: mongoose.connection.host || 'N/A',
-        },
-        ...stats,
     });
 });
 
 // ─────────────────────────────────────────────────────────────
 // GET /api/metrics — Métricas por rota (últimas 1h)
-// Proteger com auth de admin em produção — por ora interno
+// Protegido com autenticação de admin
 // ─────────────────────────────────────────────────────────────
-router.get('/metrics', (_req: Request, res: Response) => {
+router.get('/metrics', authenticateToken, requireAdmin, (_req: Request, res: Response) => {
     const windowMs = 3_600_000; // 1 hora
     const routes = getMetricsSummary(windowMs);
     const global = getGlobalStats();
@@ -71,7 +77,7 @@ router.get('/metrics', (_req: Request, res: Response) => {
 // Sempre responde 204 — nunca deve retornar 500 ao cliente.
 // Erros são logados internamente sem quebrar o ciclo de resposta.
 // ─────────────────────────────────────────────────────────────
-router.post('/vitals', (req: Request, res: Response) => {
+router.post('/vitals', vitalsLimiter, (req: Request, res: Response) => {
     // Responde IMEDIATAMENTE com 204 para não bloquear o sendBeacon
     res.status(204).send();
 
@@ -98,13 +104,6 @@ router.post('/vitals', (req: Request, res: Response) => {
             timestamp: new Date(),
         }).catch(() => {});
 
-        if (rating === 'poor') {
-            console.warn(`⚠️  [VITAL_POOR]  ${name}=${rounded}ms | página: ${page}`);
-        } else if (rating === 'needs-improvement') {
-            console.log(`🟡 [VITAL_WARN]  ${name}=${rounded}ms | página: ${page}`);
-        } else {
-            console.log(`✅ [VITAL_GOOD]  ${name}=${rounded}ms | página: ${page}`);
-        }
     } catch {
         // Falha silenciosa — log de vitals nunca deve afetar a aplicação
     }

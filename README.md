@@ -23,8 +23,7 @@ npm install
 Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
 
 ```env
-MONGODB_URI=mongodb+srv://tatico3:8b990aOzLf7Cp3f8@E-rádios.edtljjf.mongodb.net/?appName=E-rádios
-PORT=5000
+MONGODB_URI= sua_string_aq
 JWT_SECRET=sua_chave_secreta_super_segura_aqui_mude_em_producao
 NODE_ENV=development
 ```

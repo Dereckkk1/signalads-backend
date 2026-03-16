@@ -14,7 +14,7 @@ export const getBlockedDomains = async (req: AuthRequest, res: Response): Promis
 
     res.json({ domains });
   } catch (error) {
-    console.error('Erro ao buscar domínios bloqueados:', error);
+
     res.status(500).json({ error: 'Erro ao buscar domínios bloqueados' });
   }
 };
@@ -67,7 +67,7 @@ export const addBlockedDomain = async (req: AuthRequest, res: Response): Promise
 
     res.status(201).json({ message: 'Domínio adicionado à blacklist', domain: blocked });
   } catch (error) {
-    console.error('Erro ao adicionar domínio:', error);
+
     res.status(500).json({ error: 'Erro ao adicionar domínio à blacklist' });
   }
 };
@@ -87,7 +87,7 @@ export const removeBlockedDomain = async (req: AuthRequest, res: Response): Prom
 
     res.json({ message: 'Domínio removido da blacklist' });
   } catch (error) {
-    console.error('Erro ao remover domínio:', error);
+
     res.status(500).json({ error: 'Erro ao remover domínio da blacklist' });
   }
 };
@@ -121,7 +121,7 @@ export const checkEmail = async (req: Request, res: Response): Promise<void> => 
 
     res.json({ blocked: false });
   } catch (error) {
-    console.error('Erro ao verificar email:', error);
+
     res.status(500).json({ error: 'Erro ao verificar email' });
   }
 };

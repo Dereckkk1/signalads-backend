@@ -84,7 +84,6 @@ export const getMyProducts = async (req: AuthRequest, res: Response): Promise<vo
 
     res.json(products);
   } catch (error) {
-    console.error('Erro ao buscar produtos:', error);
     res.status(500).json({ error: 'Erro ao buscar produtos', details: error instanceof Error ? error.message : 'Erro desconhecido' });
   }
 };
@@ -207,7 +206,6 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
       companionsCreated: createdCompanions
     });
   } catch (error) {
-    console.error('Erro ao criar produto:', error);
     res.status(500).json({ error: 'Erro ao criar produto', details: error instanceof Error ? error.message : 'Erro desconhecido' });
   }
 };
@@ -283,7 +281,6 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
       product
     });
   } catch (error) {
-    console.error('Erro ao atualizar produto:', error);
     res.status(500).json({ error: 'Erro ao atualizar produto', details: error instanceof Error ? error.message : 'Erro desconhecido' });
   }
 };
@@ -318,7 +315,7 @@ export const deleteProduct = async (req: AuthRequest, res: Response): Promise<vo
       query.broadcasterId = req.userId;
     }
 
-    const product = await Product.findByIdAndDelete(productId);
+    const product = await Product.findOneAndDelete(query);
 
     if (!product) {
       res.status(404).json({ error: 'Produto não encontrado' });
@@ -329,7 +326,6 @@ export const deleteProduct = async (req: AuthRequest, res: Response): Promise<vo
 
     res.json({ message: 'Produto deletado com sucesso!' });
   } catch (error) {
-    console.error('Erro ao deletar produto:', error);
     res.status(500).json({ error: 'Erro ao deletar produto', details: error instanceof Error ? error.message : 'Erro desconhecido' });
   }
 };
@@ -433,7 +429,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       }
       */
     } catch (e) {
-      console.error('Erro ao parsear filtros JSON', e);
+      // JSON parse error silenced
     }
 
     // Busca textual com suporte a múltiplos termos concatenados
@@ -480,7 +476,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
           if (cls === 'DE') sortOptions['broadcasterProfile.audienceProfile.socialClass.classeDE'] = -1;
         }
       }
-    } catch (e) { console.error('Error parsing socialClasses for sort', e); }
+    } catch (e) { /* parse error */ }
 
     // Prioridade 2: Gênero
     try {
@@ -492,7 +488,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
           if (gender === 'female') sortOptions['broadcasterProfile.audienceProfile.gender.female'] = -1;
         }
       }
-    } catch (e) { console.error('Error parsing genders for sort', e); }
+    } catch (e) { /* parse error */ }
 
     // Fallbacks (Padrão)
     sortOptions['broadcasterProfile.pmm'] = -1;
@@ -524,7 +520,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
           }
         }
       } catch (err) {
-        console.error('Erro ao buscar endereço do usuário logado:', err);
+        // Geocoding error silenced
       }
     }
 
@@ -730,7 +726,6 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       }
     });
   } catch (error) {
-    console.error('Erro ao buscar produtos do marketplace:', error);
     res.status(500).json({ error: 'Erro ao buscar produtos' });
   }
 };
@@ -760,7 +755,6 @@ export const getMarketplaceCities = async (req: AuthRequest, res: Response): Pro
 
     res.json(cities);
   } catch (error) {
-    console.error('Erro ao buscar cidades do marketplace:', error);
     res.status(500).json({ error: 'Erro ao buscar cidades' });
   }
 };
@@ -792,7 +786,6 @@ export const getMarketplaceBroadcasterDetails = async (req: AuthRequest, res: Re
     });
 
   } catch (error) {
-    console.error('Erro ao buscar detalhes da emissora no marketplace:', error);
     res.status(500).json({ error: 'Erro ao buscar detalhes da emissora' });
   }
 };
@@ -855,7 +848,6 @@ export const getMapProducts = async (req: AuthRequest, res: Response): Promise<v
 
     res.json(broadcasters);
   } catch (error) {
-    console.error('Erro ao buscar dados do mapa:', error);
     res.status(500).json({ error: 'Erro ao buscar dados do mapa' });
   }
 };
@@ -970,7 +962,6 @@ export const searchBroadcastersForCompare = async (req: AuthRequest, res: Respon
 
     res.json(result);
   } catch (error) {
-    console.error('Erro na busca para comparador:', error);
     res.status(500).json({ error: 'Erro ao buscar emissoras' });
   }
 };

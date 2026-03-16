@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { uploadFile } from '../config/storage';
 import { sendEmailConfirmation } from '../services/emailService';
+import { escapeRegex } from '../utils/stringUtils';
 import NodeGeocoder from 'node-geocoder';
 
 const geocoderOptions: NodeGeocoder.Options = { provider: 'openstreetmap' };
@@ -26,13 +27,10 @@ async function geocodeAddress(address: any): Promise<{ latitude: number; longitu
 
     const first = results?.[0];
     if (first && first.latitude != null && first.longitude != null) {
-      console.log(`📍 Geocodificação OK: "${query}" → (${first.latitude}, ${first.longitude})`);
       return { latitude: first.latitude, longitude: first.longitude };
     }
-    console.log(`⚠️ Geocodificação sem resultado para: "${query}"`);
     return null;
   } catch (err) {
-    console.error('❌ Erro ao geocodificar endereço:', err);
     return null;
   }
 }
@@ -91,7 +89,7 @@ export const createCatalogBroadcaster = async (req: AuthRequest, res: Response) 
 
     // Gera senha aleatória (nunca será usada, emissora catálogo não faz login)
     const randomPassword = crypto.randomBytes(16).toString('hex');
-    const hashedPassword = await bcrypt.hash(randomPassword, 10);
+    const hashedPassword = await bcrypt.hash(randomPassword, 12);
 
     // Função helper para remover undefined recursivamente
     const removeUndefined = (obj: any): any => {
@@ -185,7 +183,6 @@ export const createCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       }
     });
   } catch (error: any) {
-    console.error('❌ Erro ao criar emissora catálogo:', error);
     res.status(500).json({
       message: 'Erro ao criar emissora catálogo',
       error: error.message
@@ -216,11 +213,12 @@ export const getCatalogBroadcasters = async (req: AuthRequest, res: Response) =>
     }
 
     if (search) {
+      const safeSearch = escapeRegex(search as string);
       matchStage.$or = [
-        { companyName: { $regex: search, $options: 'i' } },
-        { fantasyName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { 'address.city': { $regex: search, $options: 'i' } }
+        { companyName: { $regex: safeSearch, $options: 'i' } },
+        { fantasyName: { $regex: safeSearch, $options: 'i' } },
+        { email: { $regex: safeSearch, $options: 'i' } },
+        { 'address.city': { $regex: safeSearch, $options: 'i' } }
       ];
     }
 
@@ -318,7 +316,6 @@ export const getCatalogBroadcasters = async (req: AuthRequest, res: Response) =>
     });
 
   } catch (error: any) {
-    console.error('❌ Erro ao listar emissoras catálogo:', error);
     res.status(500).json({
       message: 'Erro ao listar emissoras catálogo',
       error: error.message
@@ -355,7 +352,6 @@ export const getCatalogBroadcasterById = async (req: AuthRequest, res: Response)
       products
     });
   } catch (error: any) {
-    console.error('❌ Erro ao buscar emissora catálogo:', error);
     res.status(500).json({
       message: 'Erro ao buscar emissora catálogo',
       error: error.message
@@ -499,7 +495,6 @@ export const updateCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       }
     });
   } catch (error: any) {
-    console.error('❌ Erro ao atualizar emissora catálogo:', error);
     res.status(500).json({
       message: 'Erro ao atualizar emissora catálogo',
       error: error.message
@@ -542,13 +537,10 @@ export const deleteCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       { $set: { isActive: false } }
     );
 
-    console.log(`✅ Emissora catálogo ${id} desativada com sucesso`);
-
     res.json({
       message: 'Emissora catálogo desativada com sucesso!'
     });
   } catch (error: any) {
-    console.error('❌ Erro ao desativar emissora catálogo:', error);
     res.status(500).json({
       message: 'Erro ao desativar emissora catálogo',
       error: error.message
@@ -588,7 +580,6 @@ export const reactivateCatalogBroadcaster = async (req: AuthRequest, res: Respon
       }
     });
   } catch (error: any) {
-    console.error('❌ Erro ao reativar emissora catálogo:', error);
     res.status(500).json({
       message: 'Erro ao reativar emissora catálogo',
       error: error.message
@@ -687,7 +678,6 @@ export const createCatalogProduct = async (req: AuthRequest, res: Response) => {
       companionsCreated: createdCompanions
     });
   } catch (error: any) {
-    console.error('❌ Erro ao criar produto catálogo:', error);
     res.status(500).json({
       message: 'Erro ao criar produto',
       error: error.message
@@ -732,7 +722,6 @@ export const getCatalogProducts = async (req: AuthRequest, res: Response) => {
       products
     });
   } catch (error: any) {
-    console.error('❌ Erro ao listar produtos catálogo:', error);
     res.status(500).json({
       message: 'Erro ao listar produtos',
       error: error.message
@@ -787,7 +776,6 @@ export const updateCatalogProduct = async (req: AuthRequest, res: Response) => {
       product
     });
   } catch (error: any) {
-    console.error('❌ Erro ao atualizar produto catálogo:', error);
     res.status(500).json({
       message: 'Erro ao atualizar produto',
       error: error.message
@@ -828,7 +816,6 @@ export const deleteCatalogProduct = async (req: AuthRequest, res: Response) => {
       message: 'Produto deletado com sucesso!'
     });
   } catch (error: any) {
-    console.error('❌ Erro ao deletar produto catálogo:', error);
     res.status(500).json({
       message: 'Erro ao deletar produto',
       error: error.message
@@ -879,7 +866,6 @@ export const completeCatalogProfile = async (req: AuthRequest, res: Response) =>
       }
     });
   } catch (error: any) {
-    console.error('❌ Erro ao completar perfil catálogo:', error);
     res.status(500).json({
       message: 'Erro ao completar perfil',
       error: error.message
@@ -932,7 +918,6 @@ export const uploadCatalogLogo = async (req: AuthRequest, res: Response) => {
       logoUrl
     });
   } catch (error: any) {
-    console.error('❌ Erro ao enviar logo catálogo:', error);
     res.status(500).json({
       message: 'Erro ao enviar logo',
       error: error.message
@@ -1030,7 +1015,6 @@ export const uploadOpec = async (req: AuthRequest, res: Response) => {
       opec: opecData
     });
   } catch (error: any) {
-    console.error('❌ Erro ao enviar OPEC:', error);
     res.status(500).json({
       message: 'Erro ao enviar OPEC',
       error: error.message
@@ -1069,7 +1053,6 @@ export const getOrderOpecs = async (req: AuthRequest, res: Response) => {
       }))
     });
   } catch (error: any) {
-    console.error('❌ Erro ao listar OPECs:', error);
     res.status(500).json({
       message: 'Erro ao listar OPECs',
       error: error.message
@@ -1110,7 +1093,6 @@ export const deleteOpec = async (req: AuthRequest, res: Response) => {
 
     res.json({ message: 'OPEC removido com sucesso' });
   } catch (error: any) {
-    console.error('❌ Erro ao remover OPEC:', error);
     res.status(500).json({
       message: 'Erro ao remover OPEC',
       error: error.message
@@ -1190,7 +1172,6 @@ export const getCatalogOrders = async (req: AuthRequest, res: Response) => {
       hasMore: page * limitNum < total
     });
   } catch (error: any) {
-    console.error('❌ Erro ao listar pedidos catálogo:', error);
     res.status(500).json({
       message: 'Erro ao listar pedidos',
       error: error.message

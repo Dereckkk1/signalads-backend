@@ -5,7 +5,7 @@ import { Conversation } from '../models/Conversation';
 import WalletModel, { IWallet } from '../models/Wallet';
 import OrderModel, { IOrder } from '../models/Order';
 import { AuthRequest } from '../middleware/auth';
-import asaasService from '../services/asaasService';
+import { escapeRegex } from '../utils/stringUtils';
 import { Cart } from '../models/Cart';
 import bcrypt from 'bcryptjs';
 import QuoteRequest from '../models/QuoteRequest';
@@ -31,7 +31,6 @@ export const getPendingBroadcasters = async (req: Request, res: Response): Promi
       broadcasters: pendingBroadcasters
     });
   } catch (error) {
-    console.error('Erro ao buscar emissoras pendentes:', error);
     res.status(500).json({ error: 'Erro ao buscar emissoras pendentes' });
   }
 };
@@ -102,7 +101,7 @@ export const approveBroadcaster = async (req: Request, res: Response): Promise<v
         }
       }
     } catch (chatError) {
-      console.error('⚠️ Erro ao criar conversa de suporte (não crítico):', chatError);
+      // Chat creation error (non-critical)
     }
 
     res.json({
@@ -115,7 +114,6 @@ export const approveBroadcaster = async (req: Request, res: Response): Promise<v
       }
     });
   } catch (error) {
-    console.error('Erro ao aprovar emissora:', error);
     res.status(500).json({ error: 'Erro ao aprovar emissora' });
   }
 };
@@ -155,7 +153,6 @@ export const rejectBroadcaster = async (req: Request, res: Response): Promise<vo
       }
     });
   } catch (error) {
-    console.error('Erro ao reprovar emissora:', error);
     res.status(500).json({ error: 'Erro ao reprovar emissora' });
   }
 };
@@ -179,7 +176,6 @@ export const getAllBroadcasters = async (req: Request, res: Response): Promise<v
       broadcasters
     });
   } catch (error) {
-    console.error('Erro ao buscar emissoras:', error);
     res.status(500).json({ error: 'Erro ao buscar emissoras' });
   }
 };
@@ -211,10 +207,11 @@ export const getBroadcastersForManagement = async (req: AuthRequest, res: Respon
     // Se tiver busca, a gente filtra depois ou faz uma query mais complexa
     // Vamos fazer uma query básica por empresa/email no mongo, profile precisa de $regex
     if (search) {
+      const safeSearch = escapeRegex(search as string);
       filter.$or = [
-        { companyName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { 'broadcasterProfile.generalInfo.stationName': { $regex: search, $options: 'i' } }
+        { companyName: { $regex: safeSearch, $options: 'i' } },
+        { email: { $regex: safeSearch, $options: 'i' } },
+        { 'broadcasterProfile.generalInfo.stationName': { $regex: safeSearch, $options: 'i' } }
       ];
     }
 
@@ -254,7 +251,6 @@ export const getBroadcastersForManagement = async (req: AuthRequest, res: Respon
       broadcasters: broadcastersWithChat
     });
   } catch (error) {
-    console.error('❌ Erro ao buscar emissoras para gestão:', error);
     res.status(500).json({ error: 'Erro ao buscar emissoras' });
   }
 };
@@ -314,7 +310,6 @@ export const getOrCreateAdminConversation = async (req: AuthRequest, res: Respon
 
     res.json({ conversation });
   } catch (error: any) {
-    console.error('❌ Erro ao criar/buscar conversa admin:', error);
     res.status(500).json({ message: 'Erro ao processar conversa', error: error.message });
   }
 };
@@ -340,7 +335,6 @@ export const getBroadcasterDetails = async (req: Request, res: Response): Promis
 
     res.json({ broadcaster });
   } catch (error) {
-    console.error('❌ Erro ao buscar detalhes da emissora:', error);
     res.status(500).json({ error: 'Erro ao buscar detalhes da emissora' });
   }
 };
@@ -442,7 +436,6 @@ export const getBroadcasterWallet = async (req: Request, res: Response): Promise
       }
     });
   } catch (error) {
-    console.error('❌ Erro ao buscar wallet da emissora:', error);
     res.status(500).json({ error: 'Erro ao buscar dados financeiros' });
   }
 };
@@ -488,7 +481,6 @@ export const getBroadcasterCampaigns = async (req: Request, res: Response): Prom
       cancelled: cancelledCampaigns
     });
   } catch (error) {
-    console.error('❌ Erro ao buscar campanhas da emissora:', error);
     res.status(500).json({ error: 'Erro ao buscar campanhas' });
   }
 };
@@ -613,7 +605,6 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
       hasMore: pageNum * limitNum < total
     });
   } catch (error) {
-    console.error('❌ Erro ao buscar pedidos completos:', error);
     res.status(500).json({ error: 'Erro ao buscar pedidos' });
   }
 };
@@ -767,9 +758,8 @@ export const adminApproveOrder = async (req: AuthRequest, res: Response) => {
           totalValue: order.totalAmount,
           broadcasterCount: broadcasterCount || 1
         });
-        console.log(`📧 Email 'campanha em produção' enviado para ${order.buyerEmail}`);
       } catch (emailErr) {
-        console.error('❌ Erro ao enviar email de aprovação admin:', emailErr);
+        // Email error silenced in production
       }
     });
 
@@ -783,7 +773,6 @@ export const adminApproveOrder = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro ao aprovar pedido pelo admin:', error);
     return res.status(500).json({ message: 'Erro interno ao aprovar pedido' });
   }
 };
@@ -813,13 +802,8 @@ export const getPlatformWallet = async (req: AuthRequest, res: Response) => {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 50);
 
-    // Busca saldo do Asaas (para mostrar saldo real disponível para saque)
-    let asaasBalance = null;
-    try {
-      asaasBalance = await asaasService.getAccountBalance();
-    } catch (asaasError) {
-      console.warn('⚠️ Não foi possível consultar saldo Asaas:', asaasError);
-    }
+    // Asaas descontinuado — saldo retorna null
+    const asaasBalance = null;
 
     res.json({
       wallet: {
@@ -830,15 +814,11 @@ export const getPlatformWallet = async (req: AuthRequest, res: Response) => {
         availableBalance: platformWallet.balance - (platformWallet.blockedBalance || 0),
         bankAccount: platformWallet.bankAccount
       },
-      asaasBalance: asaasBalance ? {
-        balance: asaasBalance.balance,
-        transferable: asaasBalance.transferable
-      } : null,
+      asaasBalance: null,
       transactions: recentTransactions
     });
 
   } catch (error) {
-    console.error('❌ Erro ao buscar wallet da plataforma:', error);
     res.status(500).json({ message: 'Erro ao buscar wallet da plataforma' });
   }
 };
@@ -890,120 +870,16 @@ export const updatePlatformBankAccount = async (req: AuthRequest, res: Response)
     });
 
   } catch (error) {
-    console.error('❌ Erro ao atualizar dados bancários:', error);
     res.status(500).json({ message: 'Erro ao atualizar dados bancários' });
   }
 };
 
 /**
  * POST /api/admin/platform-wallet/withdraw
- * Solicita saque da wallet da plataforma - INTEGRADO COM ASAAS
+ * Descontinuado — integração Asaas removida
  */
 export const requestPlatformWithdraw = async (req: AuthRequest, res: Response) => {
-  try {
-    const { amount, operationType = 'PIX' } = req.body;
-
-
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ message: 'Valor inválido' });
-    }
-
-    if (amount < 10) {
-      return res.status(400).json({ message: 'Valor mínimo para saque: R$ 10,00' });
-    }
-
-    const platformWallet = await WalletModel.findOne({ userId: 'platform' });
-
-    if (!platformWallet) {
-      return res.status(404).json({ message: 'Wallet da plataforma não encontrada' });
-    }
-
-    // Calcula saldo disponível (total - bloqueado)
-    const availableBalance = platformWallet.balance - (platformWallet.blockedBalance || 0);
-
-    if (availableBalance < amount) {
-      return res.status(400).json({
-        message: `Saldo disponível insuficiente. Disponível: R$ ${availableBalance.toFixed(2)}`
-      });
-    }
-
-    // Verifica se tem conta bancária cadastrada
-    if (!platformWallet.bankAccount) {
-      return res.status(400).json({
-        message: 'Cadastre os dados bancários antes de solicitar saque'
-      });
-    }
-
-    const bankAccount = platformWallet.bankAccount;
-
-    // Verifica saldo disponível no Asaas antes de criar transferência
-    const asaasBalance = await asaasService.getAccountBalance();
-
-    if (asaasBalance.transferable < amount) {
-      console.warn(`⚠️ Saldo transferível no Asaas insuficiente: R$ ${asaasBalance.transferable}`);
-      return res.status(400).json({
-        message: `Saldo transferível no Asaas insuficiente. Disponível para transferência: R$ ${asaasBalance.transferable.toFixed(2)}`,
-        asaasBalance: asaasBalance.transferable
-      });
-    }
-
-    // Cria transferência no Asaas
-    const transfer = await asaasService.createTransfer({
-      value: amount,
-      operationType: operationType as 'PIX' | 'TED' | 'DOC',
-      description: `Saque Plataforma SignalAds - ${new Date().toLocaleDateString('pt-BR')}`,
-      bankAccount: {
-        bank: {
-          code: bankAccount.bankCode
-        },
-        accountName: bankAccount.holderName,
-        ownerName: bankAccount.holderName,
-        cpfCnpj: bankAccount.holderDocument.replace(/\D/g, ''),
-        agency: bankAccount.agency,
-        agencyDigit: bankAccount.agencyDigit || '',
-        account: bankAccount.account,
-        accountDigit: bankAccount.accountDigit || '0',
-        bankAccountType: bankAccount.accountType === 'checking' ? 'CONTA_CORRENTE' : 'CONTA_POUPANCA'
-      }
-    });
-
-
-    // Bloqueia o valor para saque
-    platformWallet.blockedBalance = (platformWallet.blockedBalance || 0) + amount;
-
-    // Adiciona transação de saque com referência do Asaas
-    platformWallet.transactions.push({
-      type: 'debit',
-      amount,
-      description: `Saque via ${operationType} - Asaas ID: ${transfer.id}`,
-      relatedPaymentId: transfer.id,
-      status: 'pending',
-      createdAt: new Date()
-    });
-
-    await platformWallet.save();
-
-
-    res.json({
-      message: `Transferência ${operationType} criada com sucesso! Valor líquido: R$ ${transfer.netValue.toFixed(2)}`,
-      transfer: {
-        id: transfer.id,
-        value: transfer.value,
-        netValue: transfer.netValue,
-        fee: transfer.transferFee,
-        status: transfer.status,
-        operationType
-      },
-      newAvailableBalance: platformWallet.balance - platformWallet.blockedBalance
-    });
-
-  } catch (error: any) {
-    console.error('❌ Erro ao solicitar saque:', error);
-    res.status(500).json({
-      message: error.message || 'Erro ao solicitar saque',
-      details: error.response?.data || null
-    });
-  }
+  res.status(410).json({ error: 'Feature de saque via Asaas descontinuada. Pagamentos são feitos por fora da plataforma.' });
 };
 
 /**
@@ -1044,99 +920,16 @@ export const confirmPlatformWithdraw = async (req: AuthRequest, res: Response) =
     });
 
   } catch (error) {
-    console.error('❌ Erro ao confirmar saque:', error);
     res.status(500).json({ message: 'Erro ao confirmar saque' });
   }
 };
 
 /**
  * GET /api/admin/platform-wallet/check-transfers
- * Verifica status das transferências pendentes no Asaas e atualiza wallet
+ * Descontinuado — integração Asaas removida
  */
 export const checkPendingTransfers = async (req: AuthRequest, res: Response) => {
-  try {
-
-    const platformWallet = await WalletModel.findOne({ userId: 'platform' });
-
-    if (!platformWallet) {
-      return res.status(404).json({ message: 'Wallet da plataforma não encontrada' });
-    }
-
-    // Busca transações pendentes com ID do Asaas
-    const pendingTransactions = platformWallet.transactions.filter(
-      t => t.status === 'pending' && t.relatedPaymentId && t.type === 'debit'
-    );
-
-    if (pendingTransactions.length === 0) {
-      return res.json({ message: 'Nenhuma transferência pendente', updated: 0 });
-    }
-
-
-    let updatedCount = 0;
-
-    for (const transaction of pendingTransactions) {
-      try {
-        const transferStatus = await asaasService.getTransferStatus(transaction.relatedPaymentId!);
-
-
-        // Atualiza status baseado no retorno do Asaas
-        if (transferStatus.status === 'DONE') {
-          // Transferência concluída - debita do saldo
-          const txIndex = platformWallet.transactions.findIndex(
-            t => t.relatedPaymentId === transaction.relatedPaymentId
-          );
-
-          if (txIndex >= 0 && platformWallet.transactions[txIndex]) {
-            const tx = platformWallet.transactions[txIndex];
-            tx.status = 'completed';
-            tx.description = `Saque concluído - Asaas ID: ${transaction.relatedPaymentId}`;
-          }
-
-          // Debita do saldo e libera bloqueio
-          platformWallet.balance -= transaction.amount;
-          platformWallet.blockedBalance = Math.max(0, (platformWallet.blockedBalance || 0) - transaction.amount);
-          platformWallet.totalSpent = (platformWallet.totalSpent || 0) + transaction.amount;
-
-          updatedCount++;
-
-        } else if (transferStatus.status === 'FAILED' || transferStatus.status === 'CANCELLED') {
-          // Transferência falhou - libera o bloqueio
-          const txIndex = platformWallet.transactions.findIndex(
-            t => t.relatedPaymentId === transaction.relatedPaymentId
-          );
-
-          if (txIndex >= 0 && platformWallet.transactions[txIndex]) {
-            const tx = platformWallet.transactions[txIndex];
-            tx.status = 'failed';
-            tx.description = `Saque falhou: ${transferStatus.failReason || transferStatus.status} - Asaas ID: ${transaction.relatedPaymentId}`;
-          }
-
-          // Libera o bloqueio
-          platformWallet.blockedBalance = Math.max(0, (platformWallet.blockedBalance || 0) - transaction.amount);
-
-          updatedCount++;
-        }
-        // Se PENDING ou BANK_PROCESSING, mantém como está
-
-      } catch (err: any) {
-        console.error(`⚠️ Erro ao verificar transferência ${transaction.relatedPaymentId}:`, err.message);
-      }
-    }
-
-    if (updatedCount > 0) {
-      await platformWallet.save();
-    }
-
-    res.json({
-      message: `${updatedCount} transferência(s) atualizada(s)`,
-      updated: updatedCount,
-      total: pendingTransactions.length
-    });
-
-  } catch (error) {
-    console.error('❌ Erro ao verificar transferências:', error);
-    res.status(500).json({ message: 'Erro ao verificar transferências' });
-  }
+  res.status(410).json({ error: 'Feature de verificação de transferências Asaas descontinuada.' });
 };
 
 /**
@@ -1195,130 +988,16 @@ export const getPendingWithdrawRequests = async (req: AuthRequest, res: Response
     });
 
   } catch (error) {
-    console.error('❌ Erro ao listar solicitações de saque:', error);
     res.status(500).json({ message: 'Erro ao listar solicitações' });
   }
 };
 
 /**
  * POST /api/admin/withdraw-requests/:walletId/:transactionId/process
- * Processa (aprova) uma solicitação de saque de emissora/agência
- * 
- * FLUXO:
- * 1. Admin aprova solicitação
- * 2. Sistema cria transferência no Asaas (da conta da plataforma para conta bancária da emissora)
- * 3. Débita valor da wallet interna da emissora
- * 4. Marca transação como completed
+ * Descontinuado — integração Asaas removida
  */
 export const processWithdrawRequest = async (req: AuthRequest, res: Response) => {
-  try {
-    const { walletId, transactionId } = req.params;
-    const { operationType = 'PIX' } = req.body;
-
-
-    // Busca wallet
-    const wallet = await WalletModel.findById(walletId);
-    if (!wallet) {
-      return res.status(404).json({ message: 'Wallet não encontrada' });
-    }
-
-    // Busca transação
-    const txIndex = wallet.transactions.findIndex(
-      t => (t as any)._id?.toString() === transactionId
-    );
-
-    if (txIndex === -1) {
-      return res.status(404).json({ message: 'Transação não encontrada' });
-    }
-
-    const transaction = wallet.transactions[txIndex];
-
-    if (!transaction) {
-      return res.status(404).json({ message: 'Transação não encontrada' });
-    }
-
-    if (transaction.status !== 'pending') {
-      return res.status(400).json({ message: 'Transação já foi processada' });
-    }
-
-    if (transaction.type !== 'debit') {
-      return res.status(400).json({ message: 'Transação não é uma solicitação de saque' });
-    }
-
-    // Verifica dados bancários
-    if (!wallet.bankAccount || !wallet.bankAccount.bankCode) {
-      return res.status(400).json({ message: 'Emissora não tem dados bancários cadastrados' });
-    }
-
-    const amount = transaction.amount;
-    const bankAccount = wallet.bankAccount;
-
-    // Verifica saldo disponível no Asaas
-    const asaasBalance = await asaasService.getAccountBalance();
-
-    if (asaasBalance.transferable < amount) {
-      return res.status(400).json({
-        message: `Saldo transferível no Asaas insuficiente. Disponível: R$ ${asaasBalance.transferable.toFixed(2)}`,
-        asaasBalance: asaasBalance.transferable
-      });
-    }
-
-    // Busca dados do usuário para descrição
-    const user = await User.findById(wallet.userId).select('fantasyName companyName');
-    const userName = user?.fantasyName || user?.companyName || 'Emissora';
-
-    // Cria transferência no Asaas
-    const transfer = await asaasService.createTransfer({
-      value: amount,
-      operationType: operationType as 'PIX' | 'TED',
-      description: `Saque ${userName} - SignalAds`,
-      bankAccount: {
-        bank: { code: bankAccount.bankCode },
-        accountName: bankAccount.holderName,
-        ownerName: bankAccount.holderName,
-        cpfCnpj: bankAccount.holderDocument.replace(/\D/g, ''),
-        agency: bankAccount.agency,
-        agencyDigit: bankAccount.agencyDigit || '',
-        account: bankAccount.account,
-        accountDigit: bankAccount.accountDigit || '0',
-        bankAccountType: bankAccount.accountType === 'checking' ? 'CONTA_CORRENTE' : 'CONTA_POUPANCA'
-      }
-    });
-
-
-    // Atualiza transação
-    const tx = wallet.transactions[txIndex];
-    if (tx) {
-      tx.status = 'completed';
-      tx.relatedPaymentId = transfer.id;
-      tx.description = `Saque processado via ${operationType} - Asaas ID: ${transfer.id}`;
-    }
-
-    // Débita do saldo e libera bloqueio
-    wallet.balance -= amount;
-    wallet.blockedBalance = Math.max(0, (wallet.blockedBalance || 0) - amount);
-    wallet.totalSpent = (wallet.totalSpent || 0) + amount;
-
-    await wallet.save();
-
-
-    res.json({
-      message: `Transferência ${operationType} de R$ ${amount.toFixed(2)} processada com sucesso!`,
-      transfer: {
-        id: transfer.id,
-        value: transfer.value,
-        netValue: transfer.netValue,
-        fee: transfer.transferFee,
-        status: transfer.status
-      }
-    });
-
-  } catch (error: any) {
-    console.error('❌ Erro ao processar saque:', error);
-    res.status(500).json({
-      message: error.message || 'Erro ao processar saque'
-    });
-  }
+  res.status(410).json({ error: 'Feature de processamento de saque via Asaas descontinuada.' });
 };
 
 /**
@@ -1375,7 +1054,6 @@ export const rejectWithdrawRequest = async (req: AuthRequest, res: Response) => 
     });
 
   } catch (error) {
-    console.error('❌ Erro ao rejeitar saque:', error);
     res.status(500).json({ message: 'Erro ao rejeitar saque' });
   }
 };
@@ -1429,7 +1107,6 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
             buyerEmail: order.buyerEmail,
             totalValue: order.totalAmount
           });
-          console.log(`📧 Email 'aguardando pagamento' enviado para ${order.buyerEmail}`);
         }
 
         if (status === 'paid' && oldStatus !== 'paid') {
@@ -1439,7 +1116,6 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
             buyerEmail: order.buyerEmail,
             totalValue: order.totalAmount
           });
-          console.log(`📧 Email 'pagamento confirmado' enviado para ${order.buyerEmail}`);
         }
 
         if (status === 'cancelled' && oldStatus !== 'cancelled') {
@@ -1450,10 +1126,9 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
             totalValue: order.totalAmount,
             reason: cancellationReason
           });
-          console.log(`📧 Email 'cancelado pelo admin' enviado para ${order.buyerEmail}`);
         }
       } catch (emailErr) {
-        console.error('❌ Erro ao enviar email de transição de status:', emailErr);
+        // Email error silenced in production
       }
     });
 
@@ -1467,7 +1142,6 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro ao atualizar status do pedido:', error);
     res.status(500).json({ message: 'Erro ao atualizar status' });
   }
 };
@@ -1500,7 +1174,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
     }
 
     if (search) {
-      const searchRegex = { $regex: search, $options: 'i' };
+      const searchRegex = { $regex: escapeRegex(search as string), $options: 'i' };
       filter.$or = [
         { name: searchRegex },
         { email: searchRegex },
@@ -1581,7 +1255,6 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro ao listar usuários:', error);
     res.status(500).json({ message: 'Erro ao listar usuários' });
   }
 };
@@ -1632,7 +1305,6 @@ export const getUserFullDetails = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro ao buscar detalhes do usuário:', error);
     res.status(500).json({ message: 'Erro ao buscar detalhes' });
   }
 };
@@ -1669,7 +1341,6 @@ export const updateUserStatus = async (req: AuthRequest, res: Response) => {
     res.json({ message: 'Status atualizado com sucesso', user });
 
   } catch (error) {
-    console.error('❌ Erro ao atualizar status do usuário:', error);
     res.status(500).json({ message: 'Erro ao atualizar status' });
   }
 };
@@ -1705,7 +1376,6 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
     res.json({ message: `Usuário alterado de ${oldRole} para ${role}`, user });
 
   } catch (error) {
-    console.error('❌ Erro ao alterar cargo do usuário:', error);
     res.status(500).json({ message: 'Erro ao alterar cargo' });
   }
 };
@@ -1734,8 +1404,7 @@ export const adminResetUserPassword = async (req: AuthRequest, res: Response) =>
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     user.password = hashedPassword;
     await user.save();
@@ -1744,7 +1413,6 @@ export const adminResetUserPassword = async (req: AuthRequest, res: Response) =>
     res.json({ message: 'Senha alterada com sucesso' });
 
   } catch (error) {
-    console.error('❌ Erro ao resetar senha do usuário:', error);
     res.status(500).json({ message: 'Erro ao resetar senha' });
   }
 };
@@ -1812,8 +1480,6 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     // 7. Finalmente, excluir o usuário
     await User.findByIdAndDelete(userId);
 
-    console.log(`🗑️ Usuário ${userId} (${user.email}) excluído definitivamente pelo admin ${req.user?._id}. Sumário:`, deletionSummary);
-
     res.json({
       message: 'Conta e dados do usuário excluídos definitivamente.',
       deletedUser: {
@@ -1825,7 +1491,6 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro ao excluir usuário definitivamente:', error);
     res.status(500).json({ message: 'Erro ao excluir conta do usuário' });
   }
 };
@@ -1923,8 +1588,6 @@ export const adminUploadRecordingAudio = async (req: AuthRequest, res: Response)
     order.markModified('items');
     await order.save();
 
-    console.log(`✅ Admin fez upload de áudio gravado para pedido ${order.orderNumber}, itens [${uniqueIndices.join(', ')}]`);
-
     res.json({
       success: true,
       audioUrl,
@@ -1933,7 +1596,6 @@ export const adminUploadRecordingAudio = async (req: AuthRequest, res: Response)
       updatedItems: uniqueIndices.length,
     });
   } catch (error: any) {
-    console.error('❌ Erro ao fazer upload do áudio gravado (admin):', error);
     res.status(500).json({ error: error.message || 'Erro ao fazer upload do áudio' });
   }
 };
@@ -1946,19 +1608,14 @@ export const adminDeleteRecordingAudio = async (req: AuthRequest, res: Response)
   try {
     const { orderId, itemIndex } = req.params;
 
-    console.log(`🗑️ adminDeleteRecordingAudio — orderId=${orderId} itemIndex=${itemIndex}`);
-
     const order = await OrderModel.findById(orderId);
     if (!order) {
-      console.warn(`⚠️ adminDeleteRecordingAudio — pedido não encontrado: ${orderId}`);
       res.status(404).json({ error: 'Pedido não encontrado' });
       return;
     }
 
     const idx = parseInt(itemIndex as string, 10);
     const item = order.items[idx];
-
-    console.log(`🗑️ adminDeleteRecordingAudio — order.items.length=${order.items.length} idx=${idx} item=${item ? 'found' : 'not found'} materialType=${item?.material?.type}`);
 
     if (!item) {
       res.status(404).json({ error: 'Item não encontrado no pedido' });
@@ -1983,11 +1640,8 @@ export const adminDeleteRecordingAudio = async (req: AuthRequest, res: Response)
     order.markModified('items');
     await order.save();
 
-    console.log(`🗑️ Admin removeu áudio gravado do pedido ${order.orderNumber}, item ${itemIndex}`);
-
     res.json({ success: true });
   } catch (error: any) {
-    console.error('❌ Erro ao remover áudio gravado (admin):', error);
     res.status(500).json({ error: error.message || 'Erro ao remover áudio' });
   }
 };

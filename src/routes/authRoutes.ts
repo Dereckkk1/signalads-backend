@@ -21,10 +21,10 @@ import { authenticateToken } from '../middleware/auth';
 const router = Router();
 
 // Rate Limit para Auth — Anti Brute Force
-// 10 tentativas por 15 minutos por IP (todas contam, inclusive sucesso)
+// 25 tentativas por 15 minutos por IP (todas contam, inclusive sucesso)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 25,
   skipSuccessfulRequests: false,
   message: 'Muitas tentativas de autenticação deste IP, por favor tente novamente em 15 minutos.',
   standardHeaders: true,

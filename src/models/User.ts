@@ -103,6 +103,8 @@ export interface IUser extends Document {
   // Código de verificação 6 dígitos (usado no login)
   twoFactorCode?: string;
   twoFactorCodeExpires?: Date;
+  twoFactorSessionToken?: string; // Token opaco para sessao 2FA (em vez de expor ObjectId)
+  twoFactorAttempts?: number; // Contador de tentativas falhas
 
   // Dispositivos confiáveis
   trustedDevices?: Array<{
@@ -275,6 +277,13 @@ const userSchema = new Schema<IUser>(
     },
     twoFactorCodeExpires: {
       type: Date
+    },
+    twoFactorSessionToken: {
+      type: String
+    },
+    twoFactorAttempts: {
+      type: Number,
+      default: 0
     },
 
     // Dispositivos confiáveis

@@ -89,4 +89,16 @@ export const optionalAuthenticateToken = async (
   }
 };
 
+export const requireAdmin = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  if (req.user?.userType !== 'admin') {
+    res.status(403).json({ error: 'Acesso restrito a administradores' });
+    return;
+  }
+  next();
+};
+
 export const authMiddleware = authenticateToken;

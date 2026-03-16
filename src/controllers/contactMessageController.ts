@@ -24,7 +24,6 @@ export const createMessage = async (req: Request, res: Response): Promise<void> 
 
         res.status(201).json({ message: 'Mensagem enviada com sucesso.', data: newMessage });
     } catch (error) {
-        console.error('Erro ao salvar mensagem de contato:', error);
         res.status(500).json({ error: 'Erro interno ao salvar mensagem.' });
     }
 };
@@ -39,7 +38,6 @@ export const getMessages = async (req: AuthRequest, res: Response): Promise<void
         const messages = await ContactMessage.find().sort({ createdAt: -1 });
         res.status(200).json(messages);
     } catch (error) {
-        console.error('Erro ao buscar mensagens de contato:', error);
         res.status(500).json({ error: 'Erro interno ao buscar mensagens.' });
     }
 };
@@ -67,7 +65,6 @@ export const getMessageById = async (req: AuthRequest, res: Response): Promise<v
 
         res.status(200).json(message);
     } catch (error) {
-        console.error('Erro ao buscar mensagem:', error);
         res.status(500).json({ error: 'Erro interno ao buscar mensagem.' });
     }
 };
@@ -103,7 +100,6 @@ export const deleteMessage = async (req: AuthRequest, res: Response): Promise<vo
 
         res.status(200).json({ message: 'Mensagem excluída com sucesso.' });
     } catch (error) {
-        console.error('Erro ao excluir mensagem:', error);
         res.status(500).json({ error: 'Erro interno ao excluir mensagem.' });
     }
 };

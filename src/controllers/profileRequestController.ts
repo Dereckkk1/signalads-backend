@@ -52,7 +52,7 @@ export const createProfileRequest = async (req: AuthRequest, res: Response): Pro
             request
         });
     } catch (error) {
-        console.error('Erro ao criar solicitação de perfil:', error);
+
         res.status(500).json({ error: 'Erro interno ao criar solicitação' });
     }
 };
@@ -94,7 +94,7 @@ export const getMyProfileRequests = async (req: AuthRequest, res: Response): Pro
             }
         });
     } catch (error) {
-        console.error('Erro ao buscar solicitações de perfil:', error);
+
         res.status(500).json({ error: 'Erro interno ao buscar solicitações' });
     }
 };
@@ -139,7 +139,7 @@ export const getAllProfileRequests = async (req: AuthRequest, res: Response): Pr
             }
         });
     } catch (error) {
-        console.error('Erro ao buscar solicitações de perfil:', error);
+
         res.status(500).json({ error: 'Erro interno ao buscar solicitações' });
     }
 };
@@ -232,7 +232,7 @@ export const approveProfileRequest = async (req: AuthRequest, res: Response): Pr
             request
         });
     } catch (error) {
-        console.error('Erro ao aprovar solicitação de perfil:', error);
+
         res.status(500).json({ error: 'Erro interno ao aprovar solicitação' });
     }
 };
@@ -281,7 +281,7 @@ export const rejectProfileRequest = async (req: AuthRequest, res: Response): Pro
             request
         });
     } catch (error) {
-        console.error('Erro ao recusar solicitação de perfil:', error);
+
         res.status(500).json({ error: 'Erro interno ao recusar solicitação' });
     }
 };

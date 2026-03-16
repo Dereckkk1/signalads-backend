@@ -102,7 +102,7 @@ export const createProductRequest = async (req: AuthRequest, res: Response): Pro
       request
     });
   } catch (error) {
-    console.error('Erro ao criar solicitação de produto:', error);
+
     res.status(500).json({ error: 'Erro interno ao criar solicitação' });
   }
 };
@@ -146,7 +146,7 @@ export const getMyRequests = async (req: AuthRequest, res: Response): Promise<vo
       }
     });
   } catch (error) {
-    console.error('Erro ao buscar solicitações:', error);
+
     res.status(500).json({ error: 'Erro interno ao buscar solicitações' });
   }
 };
@@ -193,7 +193,7 @@ export const getAllRequests = async (req: AuthRequest, res: Response): Promise<v
       }
     });
   } catch (error) {
-    console.error('Erro ao buscar solicitações:', error);
+
     res.status(500).json({ error: 'Erro interno ao buscar solicitações' });
   }
 };
@@ -222,7 +222,7 @@ export const getPendingRequests = async (req: AuthRequest, res: Response): Promi
 
     res.json({ requests, total: requests.length });
   } catch (error) {
-    console.error('Erro ao buscar solicitações pendentes:', error);
+
     res.status(500).json({ error: 'Erro interno ao buscar solicitações pendentes' });
   }
 };
@@ -355,7 +355,7 @@ export const approveRequest = async (req: AuthRequest, res: Response): Promise<v
       request
     });
   } catch (error) {
-    console.error('Erro ao aprovar solicitação:', error);
+
     res.status(500).json({ error: 'Erro interno ao aprovar solicitação' });
   }
 };
@@ -404,7 +404,7 @@ export const rejectRequest = async (req: AuthRequest, res: Response): Promise<vo
       request
     });
   } catch (error) {
-    console.error('Erro ao recusar solicitação:', error);
+
     res.status(500).json({ error: 'Erro interno ao recusar solicitação' });
   }
 };

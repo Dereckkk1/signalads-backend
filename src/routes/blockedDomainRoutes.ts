@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, requireAdmin } from '../middleware/auth';
 import {
   getBlockedDomains,
   getDefaultDomains,
@@ -14,9 +14,9 @@ const router = Router();
 router.post('/check', checkEmail);
 
 // Rotas protegidas (admin only)
-router.get('/', authenticateToken, getBlockedDomains);
-router.get('/defaults', authenticateToken, getDefaultDomains);
-router.post('/', authenticateToken, addBlockedDomain);
-router.delete('/:id', authenticateToken, removeBlockedDomain);
+router.get('/', authenticateToken, requireAdmin, getBlockedDomains);
+router.get('/defaults', authenticateToken, requireAdmin, getDefaultDomains);
+router.post('/', authenticateToken, requireAdmin, addBlockedDomain);
+router.delete('/:id', authenticateToken, requireAdmin, removeBlockedDomain);
 
 export default router;

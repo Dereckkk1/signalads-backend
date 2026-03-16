@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, requireAdmin } from '../middleware/auth';
 import {
     createProfileRequest,
     getMyProfileRequests,
@@ -16,9 +16,9 @@ router.post('/', authenticateToken, createProfileRequest);
 router.get('/my-requests', authenticateToken, getMyProfileRequests);
 
 // Rotas para o Administrador
-router.get('/count-pending', authenticateToken, countPendingProfileRequests);
-router.get('/', authenticateToken, getAllProfileRequests);
-router.post('/:id/approve', authenticateToken, approveProfileRequest);
-router.post('/:id/reject', authenticateToken, rejectProfileRequest);
+router.get('/count-pending', authenticateToken, requireAdmin, countPendingProfileRequests);
+router.get('/', authenticateToken, requireAdmin, getAllProfileRequests);
+router.post('/:id/approve', authenticateToken, requireAdmin, approveProfileRequest);
+router.post('/:id/reject', authenticateToken, requireAdmin, rejectProfileRequest);
 
 export default router;
