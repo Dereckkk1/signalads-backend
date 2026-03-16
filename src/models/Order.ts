@@ -427,8 +427,8 @@ const OrderSchema = new Schema<IOrder>({
   timestamps: true
 });
 
-// Gera número único do pedido antes de salvar (atomico via Counter)
-OrderSchema.pre('save', async function () {
+// Gera número único do pedido antes de validar (pre-validate garante que orderNumber existe antes do required check)
+OrderSchema.pre('validate', async function () {
   if (!this.orderNumber) {
     const date = new Date();
     const dateStr = date.toISOString().split('T')[0]?.replace(/-/g, '') || '';

@@ -18,6 +18,7 @@ import contactMessageRoutes from './routes/contactMessageRoutes';
 import blockedDomainRoutes from './routes/blockedDomainRoutes';
 import productRequestRoutes from './routes/productRequestRoutes';
 import profileRequestRoutes from './routes/profileRequestRoutes';
+import paymentRoutes from './routes/paymentRoutes';
 import { startBackupCron } from './cron/backupCron';
 // Middlewares de Segurança
 import helmet from 'helmet';
@@ -136,6 +137,7 @@ app.use('/api/contact-messages', contactMessageRoutes); // Rotas para mensagens 
 app.use('/api/blocked-domains', blockedDomainRoutes); // Rotas de domínios bloqueados (email corporativo)
 app.use('/api/product-requests', productRequestRoutes); // Rotas de solicitações de produtos (emissoras)
 app.use('/api/profile-requests', profileRequestRoutes); // Rotas de solicitações de perfil (emissoras)
+app.use('/api/payment', paymentRoutes); // Checkout (criação de pedido)
 
 // Rota de teste
 app.get('/', (req: Request, res: Response) => {
