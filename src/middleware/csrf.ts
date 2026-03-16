@@ -8,14 +8,16 @@ import { Request, Response, NextFunction } from 'express';
  * Rotas publicas (login, registro, confirmacao de email, 2FA link, contato) sao isentas.
  */
 
-// Rotas isentas de verificacao CSRF (endpoints publicos sem autenticacao)
+// Rotas isentas de verificacao CSRF
 const EXEMPT_ROUTES = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/confirm-email',
   '/api/auth/2fa/confirm',
   '/api/auth/refresh',
+  '/api/auth/logout',      // Logout deve funcionar mesmo com CSRF expirado
   '/api/contact-messages',
+  '/api/vitals',           // sendBeacon nao envia headers customizados
 ];
 
 const isExempt = (path: string): boolean => {
