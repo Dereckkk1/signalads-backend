@@ -7,6 +7,8 @@ import {
   getMe,
   updateProfile,
   changePassword,
+  forgotPassword,
+  resetPassword,
   enableTwoFactor,
   confirmTwoFactorEnable,
   disableTwoFactor,
@@ -37,6 +39,10 @@ router.post('/login', authLimiter, login);
 router.get('/me', authenticateToken, getMe);
 router.put('/update-profile', authenticateToken, updateProfile);
 router.put('/change-password', authenticateToken, changePassword);
+
+// Recuperação de senha (público)
+router.post('/forgot-password', authLimiter, forgotPassword);
+router.post('/reset-password/:token', authLimiter, resetPassword);
 
 // Rotas de autenticação em duas etapas (2FA)
 router.post('/2fa/enable', authenticateToken, enableTwoFactor);

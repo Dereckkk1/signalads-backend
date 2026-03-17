@@ -119,6 +119,10 @@ export interface IUser extends Document {
   emailConfirmToken?: string;
   emailConfirmTokenExpires?: Date;
 
+  // Password reset
+  passwordResetToken?: string;
+  passwordResetTokenExpires?: Date;
+
   // === MODELO CATÁLOGO (Emissoras gerenciadas pelo Admin) ===
   isCatalogOnly?: boolean; // true = emissora sem conta própria, cadastrada pelo admin
   managedByAdmin?: boolean; // true = admin gerencia produtos, aprovações e OPEC
@@ -318,6 +322,14 @@ const userSchema = new Schema<IUser>(
       type: Date
     },
 
+    // Password reset
+    passwordResetToken: {
+      type: String
+    },
+    passwordResetTokenExpires: {
+      type: Date
+    },
+
     // === MODELO CATÁLOGO (Emissoras gerenciadas pelo Admin) ===
     isCatalogOnly: {
       type: Boolean,
@@ -357,6 +369,7 @@ userSchema.index({ isCatalogOnly: 1, userType: 1 });
 // Busca rápida por tokens 2FA
 userSchema.index({ twoFactorPendingToken: 1 });
 userSchema.index({ emailConfirmToken: 1 });
+userSchema.index({ passwordResetToken: 1 });
 
 // Busca emissoras por cidade/estado (busca geográfica no marketplace)
 userSchema.index({ 'broadcasterProfile.coverage.states': 1 });

@@ -1845,6 +1845,50 @@ export const sendTwoFactorCodeEmail = async (
 };
 
 // ===========================================
+// RECUPERAÇÃO DE SENHA
+// ===========================================
+
+/**
+ * Email para redefinição de senha
+ */
+export const sendPasswordResetEmail = async (
+  email: string,
+  name: string,
+  token: string
+) => {
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${token}`;
+
+  const content = `
+    ${greeting(name)}
+
+    ${paragraph('Recebemos uma solicitação para redefinir a senha da sua conta na <strong>E-rádios</strong>.')}
+
+    ${paragraph('Clique no botão abaixo para criar uma nova senha:')}
+
+    ${divider()}
+
+    ${alertCard('Este link expira em <strong>1 hora</strong>. Após este período, será necessário solicitar uma nova redefinição.', 'warning')}
+
+    ${paragraph('Se você não solicitou a redefinição de senha, ignore este email. Sua senha permanecerá inalterada.', { center: true })}
+  `;
+
+  await sendEmail({
+    to: email,
+    subject: '🔑 Redefinir Senha - E-rádios',
+    html: createEmailTemplate({
+      title: 'Redefinir Senha',
+      subtitle: 'Crie uma nova senha para sua conta',
+      content,
+      buttonText: '🔑 Redefinir Minha Senha',
+      buttonUrl: resetUrl,
+      buttonColor: colors.tertiary,
+      preheader: 'Você solicitou a redefinição de senha na E-rádios',
+      showLogo: false
+    })
+  });
+};
+
+// ===========================================
 // EXEMPLOS DE USO DO TEMPLATE GENÉRICO
 // ===========================================
 

@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { User } from '../models/User';
 import BlockedDomain from '../models/BlockedDomain';
-import { sendTwoFactorEnableEmail, sendTwoFactorLoginEmail, sendTwoFactorCodeEmail, sendEmailConfirmation } from '../services/emailService';
+import { sendTwoFactorEnableEmail, sendTwoFactorLoginEmail, sendTwoFactorCodeEmail, sendEmailConfirmation, sendPasswordResetEmail } from '../services/emailService';
 import { AuthRequest } from '../middleware/auth';
 import { isFreeEmailDomain, getEmailDomain } from '../utils/freeEmailDomains';
 import { generateAccessToken, generateRefreshToken, setAuthCookies, clearAuthCookies, rotateRefreshToken, revokeAllUserTokens } from '../utils/tokenService';
@@ -720,6 +720,102 @@ export const refreshTokenHandler = async (req: Request, res: Response): Promise<
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao renovar token' });
+  }
+};
+
+/**
+ * Solicitar redefinição de senha — envia email com link
+ * POST /api/auth/forgot-password
+ */
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({ error: 'Email é obrigatório' });
+      return;
+    }
+
+    // Resposta genérica para prevenir enumeração de contas
+    const genericResponse = {
+      message: 'Se este email estiver cadastrado, você receberá um link para redefinir sua senha.'
+    };
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    if (!user) {
+      // Retorna mesma resposta genérica — não revela se email existe
+      res.json(genericResponse);
+      return;
+    }
+
+    // Gera token de reset
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    user.passwordResetToken = resetToken;
+    user.passwordResetTokenExpires = tokenExpires;
+    await user.save();
+
+    // Envia email
+    await sendPasswordResetEmail(
+      user.email,
+      user.companyName || user.fantasyName || user.name || 'Usuário',
+      resetToken
+    );
+
+    res.json(genericResponse);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao processar solicitação' });
+  }
+};
+
+/**
+ * Redefinir senha via token do email
+ * POST /api/auth/reset-password/:token
+ */
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+      res.status(400).json({ error: 'Nova senha é obrigatória' });
+      return;
+    }
+
+    // Validar força da senha
+    const passwordError = validatePasswordStrength(password);
+    if (passwordError) {
+      res.status(400).json({ error: passwordError });
+      return;
+    }
+
+    // Busca atômica para prevenir race conditions
+    const user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetTokenExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      res.status(400).json({ error: 'Link inválido ou expirado. Solicite uma nova redefinição de senha.' });
+      return;
+    }
+
+    // Hash da nova senha
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    user.password = hashedPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetTokenExpires = undefined;
+    await user.save();
+
+    // Revoga todos os refresh tokens existentes por segurança
+    await revokeAllUserTokens(user._id.toString());
+
+    res.json({ message: 'Senha redefinida com sucesso! Faça login com sua nova senha.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao redefinir senha' });
   }
 };
 
