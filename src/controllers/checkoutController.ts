@@ -124,12 +124,16 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
       ? parseFloat((grossAmount * (agencyCommPct / 100)).toFixed(2))
       : 0;
 
-    // Monitoramento: R$2 por inserção não-testemunhal
+    // Monitoramento: R$70 por emissora (emissoras com apenas testemunhal não contam)
     let monitoringCost = 0;
     if (isMonitoringEnabled) {
-      monitoringCost = orderItems
-        .filter(item => !item.productName?.toLowerCase().startsWith('testemunhal'))
-        .reduce((total: number, item: any) => total + item.quantity, 0) * 2;
+      const monitorableBroadcasters = new Set<string>();
+      orderItems.forEach((item: any) => {
+        if (!item.productName?.toLowerCase().startsWith('testemunhal')) {
+          monitorableBroadcasters.add(item.broadcasterId);
+        }
+      });
+      monitoringCost = monitorableBroadcasters.size * 70;
     }
 
     const totalAmount = parseFloat((grossAmount + techFee + agencyCommission + monitoringCost).toFixed(2));
