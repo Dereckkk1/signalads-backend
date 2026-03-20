@@ -48,7 +48,7 @@ import {
   deleteOpec,
   getCatalogOrders
 } from '../controllers/catalogBroadcasterController';
-import { getDirectoryReport, updateDirectoryReportRecord, getDirectoryReportSpotTypes } from '../controllers/reportController';
+import { getDirectoryReport, updateDirectoryReportRecord, getDirectoryReportSpotTypes, getDirectoryReportNoProducts, updateBroadcasterPmm } from '../controllers/reportController';
 import {
   getOverview,
   getRouteMetrics,
@@ -188,6 +188,8 @@ router.delete('/users/:userId', authenticateToken, requireAdmin, auditLog('user.
 // ========================
 router.get('/directory-report', authenticateToken, requireAdmin, getDirectoryReport);
 router.get('/directory-report/spot-types', authenticateToken, requireAdmin, getDirectoryReportSpotTypes);
+router.get('/directory-report/no-products', authenticateToken, requireAdmin, getDirectoryReportNoProducts);
+router.put('/directory-report/broadcaster/:broadcasterId/pmm', authenticateToken, requireAdmin, updateBroadcasterPmm);
 router.put('/directory-report/:productId', authenticateToken, requireAdmin, updateDirectoryReportRecord);
 
 // ========================

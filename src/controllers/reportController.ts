@@ -230,3 +230,116 @@ export const updateDirectoryReportRecord = async (req: AuthRequest, res: Respons
         res.status(500).json({ error: 'Erro ao atualizar registro' });
     }
 };
+
+/**
+ * GET /api/admin/directory-report/no-products
+ * Retorna emissoras que NÃO possuem nenhum produto ativo
+ */
+export const getDirectoryReportNoProducts = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { search, page = 1, limit = 50, city } = req.query;
+
+        const pageNum = Math.max(1, Number(page));
+        const limitNum = Math.max(1, Number(limit));
+        const skip = (pageNum - 1) * limitNum;
+
+        const matchStage: any = { userType: 'broadcaster' };
+        if (search) {
+            matchStage['companyName'] = toAccentInsensitiveRegex(search as string);
+        }
+        if (city) {
+            matchStage['address.city'] = city;
+        }
+
+        const pipeline: any[] = [
+            { $match: matchStage },
+            {
+                $lookup: {
+                    from: 'products',
+                    let: { bId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $and: [{ $eq: ['$broadcasterId', '$$bId'] }, { $eq: ['$isActive', true] }] } } },
+                        { $limit: 1 }
+                    ],
+                    as: 'activeProducts'
+                }
+            },
+            { $match: { activeProducts: { $size: 0 } } },
+            { $sort: { companyName: 1 } },
+            {
+                $facet: {
+                    metadata: [{ $count: 'total' }],
+                    data: [
+                        { $skip: skip },
+                        { $limit: limitNum }
+                    ]
+                }
+            }
+        ];
+
+        const result = await User.aggregate(pipeline);
+        const metadata = result[0].metadata;
+        const data = result[0].data;
+        const total = metadata.length > 0 ? metadata[0].total : 0;
+
+        const formattedData = data.map((item: any) => {
+            const profile = item.broadcasterProfile || {};
+            const generalInfo = profile.generalInfo || {};
+            const address = item.address || {};
+
+            return {
+                id: item._id,
+                broadcasterId: item._id,
+                logo: profile.logo || '',
+                emissora: generalInfo.stationName || item.companyName || '',
+                dial: generalInfo.dialFrequency || '',
+                cidade: address.city || '',
+                cnpj: item.cnpj || item.cpfOrCnpj || '',
+                produto: null,
+                precoPlataforma: null,
+                precoLiquido: null,
+                comissaoPlataforma: null,
+                precoV1: null,
+                pmm: profile.pmm || 0,
+                noProducts: true,
+            };
+        });
+
+        res.json({
+            items: formattedData,
+            total,
+            page: pageNum,
+            pages: Math.ceil(total / limitNum)
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Erro ao buscar emissoras sem produtos' });
+    }
+};
+
+/**
+ * PUT /api/admin/directory-report/broadcaster/:broadcasterId/pmm
+ * Atualiza o PMM de uma emissora diretamente (para emissoras sem produtos)
+ */
+export const updateBroadcasterPmm = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { broadcasterId } = req.params;
+        const { pmm } = req.body;
+
+        const user = await User.findById(broadcasterId);
+        if (!user) {
+            res.status(404).json({ error: 'Emissora não encontrada' });
+            return;
+        }
+
+        if (typeof pmm === 'number') {
+            if (!user.broadcasterProfile) user.broadcasterProfile = {} as any;
+            user.broadcasterProfile!.pmm = pmm;
+            user.markModified('broadcasterProfile');
+            await user.save();
+        }
+
+        res.json({ message: 'PMM atualizado com sucesso' });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Erro ao atualizar PMM' });
+    }
+};
