@@ -153,7 +153,7 @@ export const getDirectoryReport = async (req: AuthRequest, res: Response): Promi
  * PUT /api/admin/directory-report/:productId
  * Atualiza preço plataforma (apenas produtos 30s), PMM e CNPJ.
  * Ao editar um produto 30s, recalcula automaticamente os demais tempos:
- *   Comercial: 15s = x/2, 30s = x, 45s = x*1.5, 60s = x*2
+ *   Comercial: 15s = x*0.75, 30s = x, 45s = x*1.5, 60s = x*2
  *   Testemunhal: 30s = x, 60s = x*2
  */
 export const updateDirectoryReportRecord = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -187,7 +187,7 @@ export const updateDirectoryReportRecord = async (req: AuthRequest, res: Respons
                 // Atualiza 15s, 45s e 60s
                 await Product.findOneAndUpdate(
                     { broadcasterId: product.broadcasterId, spotType: 'Comercial 15s' },
-                    { pricePerInsertion: basePrice / 2, manuallyEdited: true }
+                    { pricePerInsertion: basePrice * 0.75, manuallyEdited: true }
                 );
                 await Product.findOneAndUpdate(
                     { broadcasterId: product.broadcasterId, spotType: 'Comercial 45s' },

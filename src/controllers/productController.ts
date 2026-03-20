@@ -94,7 +94,7 @@ function getCompanionProducts(spotType: string, basePrice: number, timeSlot: str
 
   if (spotType === 'Comercial 30s') {
     companions.push(
-      { spotType: 'Comercial 15s', duration: 15, timeSlot, price: Math.round(basePrice * 0.5 * 100) / 100 },
+      { spotType: 'Comercial 15s', duration: 15, timeSlot, price: Math.round(basePrice * 0.75 * 100) / 100 },
       { spotType: 'Comercial 45s', duration: 45, timeSlot, price: Math.round(basePrice * 1.5 * 100) / 100 },
       { spotType: 'Comercial 60s', duration: 60, timeSlot, price: Math.round(basePrice * 2.0 * 100) / 100 }
     );

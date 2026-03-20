@@ -638,7 +638,7 @@ export const createCatalogProduct = async (req: AuthRequest, res: Response) => {
     // Cria produtos companheiros automaticamente
     const companionRules: Record<string, Array<{ spotType: string; duration: number; multiplier: number }>> = {
       'Comercial 30s': [
-        { spotType: 'Comercial 15s', duration: 15, multiplier: 0.5 },
+        { spotType: 'Comercial 15s', duration: 15, multiplier: 0.75 },
         { spotType: 'Comercial 45s', duration: 45, multiplier: 1.5 },
         { spotType: 'Comercial 60s', duration: 60, multiplier: 2.0 }
       ],

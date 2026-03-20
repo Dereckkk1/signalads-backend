@@ -2320,10 +2320,6 @@ export const sendOrderCancelledByAdminToClient = async (data: {
     { label: 'Motivo', value: data.reason || 'Cancelado pela administração' },
     { label: 'Status', value: '❌ Cancelado' }
   ], colors.error)}
-
-    ${alertCard('Se você realizou algum pagamento, o valor será estornado para sua carteira na plataforma em até 24 horas.', 'info')}
-
-    ${paragraph('Em caso de dúvidas, entre em contato com nosso suporte pelo chat da plataforma.', { center: true })}
   `;
 
   await sendEmail({
