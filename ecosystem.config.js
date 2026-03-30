@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: 'eradios-api',
+    name: 'signalads-backend',
     script: 'dist/index.js',
     instances: 'max',
     exec_mode: 'cluster',
