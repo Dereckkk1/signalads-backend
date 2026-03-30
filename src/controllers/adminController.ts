@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { User } from '../models/User';
 import { Conversation } from '../models/Conversation';
 import WalletModel, { IWallet } from '../models/Wallet';
+import { cacheInvalidate } from '../config/redis';
 import OrderModel, { IOrder } from '../models/Order';
 import { AuthRequest } from '../middleware/auth';
 import { escapeRegex } from '../utils/stringUtils';
@@ -56,7 +57,12 @@ export const approveBroadcaster = async (req: Request, res: Response): Promise<v
     delete broadcaster.rejectionReason; // Remove o campo em vez de setar undefined
     await broadcaster.save();
 
-
+    // Invalida caches do marketplace/mapa/comparador (nova emissora aprovada)
+    await Promise.all([
+      cacheInvalidate('marketplace:*'),
+      cacheInvalidate('map:*'),
+      cacheInvalidate('compare:*'),
+    ]);
 
     // Criar conversa de suporte com admin
     try {
@@ -140,7 +146,12 @@ export const rejectBroadcaster = async (req: Request, res: Response): Promise<vo
     broadcaster.rejectionReason = reason || 'Cadastro reprovado pela administração.';
     await broadcaster.save();
 
-
+    // Invalida caches (emissora removida do marketplace)
+    await Promise.all([
+      cacheInvalidate('marketplace:*'),
+      cacheInvalidate('map:*'),
+      cacheInvalidate('compare:*'),
+    ]);
 
     res.json({
       message: 'Emissora reprovada',

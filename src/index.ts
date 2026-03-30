@@ -26,6 +26,8 @@ import rateLimit from 'express-rate-limit';
 // import mongoSanitize from 'express-mongo-sanitize'; // Incompatible with Express 5
 import hpp from 'hpp';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
+import { redis } from './config/redis';
 import { mongoSanitize, xssSanitize } from './middleware/security';
 import { csrfProtection } from './middleware/csrf';
 import { metricsMiddleware } from './middleware/metrics';
@@ -90,15 +92,19 @@ app.use(helmet({
   },
 }));
 
-// Rate Limit Global — 500 req/min por IP (seguranca contra abuso/DDoS)
+// Rate Limit Global — 2000 req/min por IP (suporta 200+ usuarios simultaneos)
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 500,
+  max: 2000,
   message: 'Muitas requisições deste IP, por favor tente novamente em um minuto.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path === '/api/health' || req.path === '/health',
 });
 app.use(limiter);
+
+// Compressao de respostas (gzip/brotli) — reduz 70-80% do tamanho de JSONs grandes
+app.use(compression());
 
 // Middlewares Padrao
 // Body limit reduzido para 5mb (seguranca contra DoS). Uploads de audio usam multipart com limite proprio no multer.
@@ -180,10 +186,17 @@ app.use((err: any, req: Request, res: Response, next: any) => {
   });
 });
 
-// Conectar ao banco e iniciar servidor
+// Conectar ao banco, Redis e iniciar servidor
 const startServer = async () => {
   try {
     await connectDB();
+
+    // Conectar Redis (lazyConnect — so conecta quando chamamos .connect())
+    try {
+      await redis.connect();
+    } catch (err) {
+      console.warn('⚠️ Redis indisponivel — app funciona sem cache:', (err as Error).message);
+    }
 
     app.listen(PORT, () => {
       console.log(`🚀 Servidor rodando na porta ${PORT}`);

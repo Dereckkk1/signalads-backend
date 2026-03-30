@@ -3,31 +3,31 @@ import { Product, PLATFORM_COMMISSION_RATE } from '../models/Product';
 import { User } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 import { toAccentInsensitiveRegex } from '../utils/stringUtils';
+import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import NodeGeocoder from 'node-geocoder';
 const options: NodeGeocoder.Options = {
   provider: 'openstreetmap'
 };
 const geocoder = NodeGeocoder(options);
 
-// Cache em memória para geocoding (TTL: 24h — evita roundtrips externos a cada requisição)
-const GEOCODE_CACHE_TTL = 24 * 60 * 60 * 1000;
-const geocodeCache = new Map<string, { result: any; expires: number }>();
-const reverseGeocodeCache = new Map<string, { result: any; expires: number }>();
-
+// Cache de geocoding via Redis (TTL: 24h, persistente, compartilhado entre workers)
 async function getCachedGeocode(query: string) {
-  const cached = geocodeCache.get(query);
-  if (cached && cached.expires > Date.now()) return cached.result;
+  const cacheKey = `geo:${query}`;
+  const cached = await cacheGet<any[]>(cacheKey);
+  if (cached) return cached;
+
   const result = await geocoder.geocode(query);
-  geocodeCache.set(query, { result, expires: Date.now() + GEOCODE_CACHE_TTL });
+  await cacheSet(cacheKey, result, 86400); // 24h
   return result;
 }
 
 async function getCachedReverseGeocode(lat: number, lng: number) {
-  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-  const cached = reverseGeocodeCache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.result;
+  const cacheKey = `geo:rev:${lat.toFixed(4)}:${lng.toFixed(4)}`;
+  const cached = await cacheGet<any[]>(cacheKey);
+  if (cached) return cached;
+
   const result = await geocoder.reverse({ lat, lon: lng });
-  reverseGeocodeCache.set(key, { result, expires: Date.now() + GEOCODE_CACHE_TTL });
+  await cacheSet(cacheKey, result, 86400); // 24h
   return result;
 }
 
@@ -200,6 +200,13 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
       }
     }
 
+    // Invalida caches que dependem de produtos/emissoras
+    await Promise.all([
+      cacheInvalidate('marketplace:*'),
+      cacheInvalidate('map:*'),
+      cacheInvalidate('compare:*'),
+    ]);
+
     res.status(201).json({
       message: 'Produto cadastrado com sucesso!',
       product,
@@ -274,7 +281,12 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
 
     await product.save();
 
-
+    // Invalida caches que dependem de produtos/emissoras
+    await Promise.all([
+      cacheInvalidate('marketplace:*'),
+      cacheInvalidate('map:*'),
+      cacheInvalidate('compare:*'),
+    ]);
 
     res.json({
       message: 'Produto atualizado com sucesso!',
@@ -322,7 +334,12 @@ export const deleteProduct = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-
+    // Invalida caches que dependem de produtos/emissoras
+    await Promise.all([
+      cacheInvalidate('marketplace:*'),
+      cacheInvalidate('map:*'),
+      cacheInvalidate('compare:*'),
+    ]);
 
     res.json({ message: 'Produto deletado com sucesso!' });
   } catch (error) {
@@ -337,6 +354,22 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     const limit = parseInt(req.query.limit as string) || 25;
     const skip = (page - 1) * limit;
     const search = (req.query.search as string) || '';
+
+    // Cache Redis (TTL 30s) — mesma combinacao de filtros retorna resposta cacheada
+    const cacheKey = `marketplace:${JSON.stringify({
+      page, limit, city: req.query.city, search: req.query.search,
+      priceMin: req.query.priceMin, priceMax: req.query.priceMax,
+      ageRanges: req.query.ageRanges, genders: req.query.genders,
+      socialClasses: req.query.socialClasses,
+      lat: req.query.lat, lng: req.query.lng,
+      userId: req.userId || 'anon',
+    })}`;
+
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
 
     // PASSO 1: Filtro de Preço (nos Produtos)
     // null = sem filtro de preço (mostra todas as emissoras, inclusive sem produtos)
@@ -709,7 +742,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     const finalTotalItems = totalBroadcasters;
     const finalTotalPages = Math.ceil(finalTotalItems / limit);
 
-    res.json({
+    const response = {
       products,
       broadcastersWithoutProducts,
       cityMaxPmm,
@@ -722,7 +755,10 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
         hasNextPage: page < finalTotalPages,
         hasPrevPage: page > 1
       }
-    });
+    };
+
+    await cacheSet(cacheKey, response, 30); // 30 segundos
+    res.json(response);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar produtos' });
   }
@@ -792,6 +828,13 @@ export const getMarketplaceBroadcasterDetails = async (req: AuthRequest, res: Re
 // Payload ~70% menor: sem broadcaster duplicado por produto, sem dados sensíveis
 export const getMapProducts = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    // Cache Redis (TTL 5min) — dados de mapa mudam raramente
+    const mapCached = await cacheGet('map:all');
+    if (mapCached) {
+      res.json(mapCached);
+      return;
+    }
+
     const broadcasters = await User.aggregate([
       // 1. Apenas emissoras aprovadas com coordenadas válidas
       {
@@ -844,6 +887,7 @@ export const getMapProducts = async (req: AuthRequest, res: Response): Promise<v
       }
     ]);
 
+    await cacheSet('map:all', broadcasters, 300); // 5 minutos
     res.json(broadcasters);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar dados do mapa' });
@@ -855,6 +899,14 @@ export const searchBroadcastersForCompare = async (req: AuthRequest, res: Respon
   try {
     const q = (req.query.q as string) || '';
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+
+    // Cache Redis (TTL 1min)
+    const compareCacheKey = `compare:${JSON.stringify({ q, limit })}`;
+    const compareCached = await cacheGet(compareCacheKey);
+    if (compareCached) {
+      res.json(compareCached);
+      return;
+    }
 
     const broadcasterQuery: any = {
       userType: 'broadcaster',
@@ -958,6 +1010,7 @@ export const searchBroadcastersForCompare = async (req: AuthRequest, res: Respon
       profile: b.broadcasterProfile || {}
     }));
 
+    await cacheSet(compareCacheKey, result, 60); // 1 minuto
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar emissoras' });

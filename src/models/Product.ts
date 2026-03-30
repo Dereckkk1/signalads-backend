@@ -88,6 +88,10 @@ productSchema.index({ broadcasterId: 1, isActive: 1 });
 
 // Busca por tipo de spot ativo (filtros no marketplace)
 productSchema.index({ broadcasterId: 1, spotType: 1, isActive: 1 });
+// Performance: filtro de preco no marketplace
+productSchema.index({ isActive: 1, pricePerInsertion: 1 });
+// Performance: ordenacao por data + broadcaster
+productSchema.index({ broadcasterId: 1, isActive: 1, createdAt: -1 });
 
 // Taxa de comissão da plataforma (25% sobre o preço líquido da emissora)
 export const PLATFORM_COMMISSION_RATE = 0.25;

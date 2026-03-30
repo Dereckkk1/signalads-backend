@@ -383,5 +383,9 @@ userSchema.index({ userType: 1, status: 1, 'address.city': 1 });
 userSchema.index({ 'broadcasterProfile.audienceProfile.ageRange': 1 });
 // Performance: ordenação por PMM
 userSchema.index({ 'broadcasterProfile.pmm': -1 });
+// Performance: endpoint /map (lat/lng + status)
+userSchema.index({ userType: 1, status: 1, 'address.latitude': 1, 'address.longitude': 1 });
+// Performance: sort por PMM no comparador/marketplace
+userSchema.index({ userType: 1, status: 1, 'broadcasterProfile.pmm': -1 });
 
 export const User = model<IUser>('User', userSchema);
