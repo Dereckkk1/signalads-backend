@@ -81,6 +81,8 @@ export const getRouteMetrics = async (req: Request, res: Response) => {
 
         const routes = await SystemMetric.aggregate([
             { $match: { timestamp: { $gte: since }, ...ipFilter } },
+            { $sort: { timestamp: -1 } },
+            { $limit: 50000 }, // Cap memory — 50k docs é suficiente para percentis precisos
             {
                 $group: {
                     _id: '$route',
@@ -191,6 +193,8 @@ export const getVitals = async (req: Request, res: Response) => {
 
         const vitals = await WebVital.aggregate([
             { $match: vitalsMatch },
+            { $sort: { timestamp: -1 } },
+            { $limit: 50000 }, // Cap memory — evita OOM em ranges longos (30d)
             {
                 $group: {
                     _id: { name: '$name', page: '$page' },

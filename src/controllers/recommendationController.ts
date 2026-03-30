@@ -60,32 +60,41 @@ export const generatePlan = async (req: Request, res: Response) => {
             });
         }
 
-        // Enrich candidates with product pricing (cheapest spot)
+        // Enrich candidates with product pricing — batch fetch (1 query em vez de N+1)
+        const broadcasterIds = broadcasters.map(b => b._id);
+        const allProducts = await Product.find({
+            broadcasterId: { $in: broadcasterIds },
+            isActive: true
+        }).lean();
+
+        // Agrupa produtos por broadcaster: prioriza 30s, fallback mais barato
+        const productByBroadcaster = new Map<string, any>();
+        for (const p of allProducts) {
+            const bId = p.broadcasterId.toString();
+            const existing = productByBroadcaster.get(bId);
+            if (!existing) {
+                productByBroadcaster.set(bId, p);
+            } else {
+                // Prioriza 30s commercial
+                const is30s = (p as any).duration === 30;
+                const existingIs30s = (existing as any).duration === 30;
+                if (is30s && !existingIs30s) {
+                    productByBroadcaster.set(bId, p);
+                } else if (!is30s && !existingIs30s && p.pricePerInsertion < existing.pricePerInsertion) {
+                    // Se nenhum e 30s, pega o mais barato
+                    productByBroadcaster.set(bId, p);
+                }
+            }
+        }
+
         let candidates: BroadcasterCandidate[] = [];
 
         for (const b of broadcasters) {
-            // Priority: Find 30s Commercial (Standard)
-            let product = await Product.findOne({
-                broadcasterId: b._id,
-                isActive: true,
-                duration: 30
-            }).lean();
-
-            // Fallback: If no 30s spot, find cheapest active product of any duration
-            if (!product) {
-                product = await Product.findOne({ broadcasterId: b._id, isActive: true })
-                    .sort({ pricePerInsertion: 1 }) // cheapest first
-                    .limit(1)
-                    .lean();
-            }
+            const product = productByBroadcaster.get((b._id as any).toString());
 
             if (product) {
-                // REMOVED STRICT BUDGET FILTER to allow "Strategic Over-Budget" choices
-                // The AI will decide if it's worth it.
-
                 const pmm = b.broadcasterProfile?.pmm || 0;
                 const price = product.pricePerInsertion;
-                // CPM = cost to reach 1000 listeners. Lower = more efficient.
                 const cpm = pmm > 0 ? Math.round((price / pmm) * 1000) : null;
 
                 candidates.push({
@@ -98,13 +107,11 @@ export const generatePlan = async (req: Request, res: Response) => {
                     price,
                     coverage: b.broadcasterProfile?.coverage || {},
                     segments: b.broadcasterProfile?.categories || [],
-                    // Rich data for frontend display & Cart
                     logo: b.broadcasterProfile?.logo || '',
                     dial: b.broadcasterProfile?.generalInfo?.dialFrequency || '',
                     pmm,
                     cpm,
                     ageRange: b.broadcasterProfile?.audienceProfile?.ageRange || '',
-                    // Geo data for campaign map
                     latitude: b.address?.latitude || undefined,
                     longitude: b.address?.longitude || undefined,
                     antennaClass: b.broadcasterProfile?.generalInfo?.antennaClass || 'A4'

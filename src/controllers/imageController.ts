@@ -90,19 +90,18 @@ export const getAppSheetImage = async (req: Request, res: Response) => {
         const safeFileName = encodeURIComponent(fileName);
         const cachedFilePath = path.join(CACHE_DIR, safeFileName);
 
-        // 1. Verificar Cache
-        if (fs.existsSync(cachedFilePath)) {
-            // Verifica se o arquivo tem tamanho > 0
-            const stats = fs.statSync(cachedFilePath);
+        // 1. Verificar Cache (async — evita bloquear event loop)
+        try {
+            const stats = await fs.promises.stat(cachedFilePath);
             if (stats.size > 0) {
-                // Serve do cache
-                res.setHeader('Content-Type', 'image/jpeg'); // Assumindo JPEG, ou detectar
-                res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache longo no navegador (1 ano)
+                res.setHeader('Content-Type', 'image/jpeg');
+                res.setHeader('Cache-Control', 'public, max-age=31536000');
                 return fs.createReadStream(cachedFilePath).pipe(res);
             } else {
-                // Arquivo vazio/corrompido, deletar
-                fs.unlinkSync(cachedFilePath);
+                await fs.promises.unlink(cachedFilePath).catch(() => {});
             }
+        } catch {
+            // Cache miss — arquivo não existe, segue para fetch
         }
 
         // 2. Fetch do AppSheet
@@ -121,30 +120,32 @@ export const getAppSheetImage = async (req: Request, res: Response) => {
         res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache no navegador por 24h
 
-        // 3. Ao invés de pipe duplo (vaza memória e trava requisições se um falhar),
-        // vamos usar o pipe apenas para a Response, e salvar usando os eventos de stream originais.
+        // 3. Stream tee: pipe para response + cache file simultaneamente (sem acumular em memória).
+        // Usa PassThrough para bifurcar o stream sem chunks[] em RAM.
+        const cacheStream = fs.createWriteStream(cachedFilePath + '.tmp');
+        const passThrough = new stream.PassThrough();
 
-        response.data.pipe(res);
+        // Pipe: source → passThrough → response (cliente recebe imediato)
+        response.data.pipe(passThrough);
+        passThrough.pipe(res);
+        // Pipe: source → cacheStream (salva em disco em paralelo)
+        response.data.pipe(cacheStream);
 
-        const chunks: Buffer[] = [];
-        response.data.on('data', (chunk: Buffer) => {
-            chunks.push(chunk);
+        cacheStream.on('finish', () => {
+            // Renomeia .tmp → final apenas quando escrita completa (evita cache corrompido)
+            fs.promises.rename(cachedFilePath + '.tmp', cachedFilePath).catch(() => {});
         });
 
-        response.data.on('end', () => {
-            // Quando terminar o download com sucesso completo, salva no cache assincronamente
-            const fullBuffer = Buffer.concat(chunks);
-            if (fullBuffer.length > 0) {
-                fs.writeFile(cachedFilePath, fullBuffer, (err) => {
-                    // Cache write error silenced
-                });
-            }
+        cacheStream.on('error', () => {
+            // Falha de cache silenciosa — não afeta resposta ao cliente
+            fs.promises.unlink(cachedFilePath + '.tmp').catch(() => {});
         });
 
         response.data.on('error', (err: any) => {
             if (!res.headersSent) {
                 res.status(502).send('Error fetching image');
             }
+            fs.promises.unlink(cachedFilePath + '.tmp').catch(() => {});
         });
 
     } catch (error) {

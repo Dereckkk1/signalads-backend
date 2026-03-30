@@ -337,41 +337,40 @@ export const getQuoteRequestStats = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'Acesso negado.' });
     }
 
-    const [pending, contacted, negotiating, converted, rejected, total] = await Promise.all([
-      QuoteRequest.countDocuments({ status: 'pending' }),
-      QuoteRequest.countDocuments({ status: 'contacted' }),
-      QuoteRequest.countDocuments({ status: 'negotiating' }),
-      QuoteRequest.countDocuments({ status: 'converted' }),
-      QuoteRequest.countDocuments({ status: 'rejected' }),
-      QuoteRequest.countDocuments({})
+    // Uma unica aggregation com $facet em vez de 8 queries separadas
+    const [stats] = await QuoteRequest.aggregate([
+      {
+        $facet: {
+          byStatus: [
+            { $group: { _id: '$status', count: { $sum: 1 } } }
+          ],
+          totalPendingValue: [
+            { $match: { status: { $in: ['pending', 'contacted', 'negotiating'] } } },
+            { $group: { _id: null, sum: { $sum: '$totalValue' } } }
+          ],
+          totalConvertedValue: [
+            { $match: { status: 'converted' } },
+            { $group: { _id: null, sum: { $sum: '$totalValue' } } }
+          ],
+          total: [
+            { $count: 'n' }
+          ]
+        }
+      }
     ]);
 
-    // Valor total pendente
-    const pendingRequests = await QuoteRequest.find({ 
-      status: { $in: ['pending', 'contacted', 'negotiating'] } 
-    }).select('totalValue');
-    
-    const totalPendingValue = pendingRequests.reduce((sum, req) => sum + req.totalValue, 0);
-
-    // Valor total convertido
-    const convertedRequests = await QuoteRequest.find({ 
-      status: 'converted' 
-    }).select('totalValue');
-    
-    const totalConvertedValue = convertedRequests.reduce((sum, req) => sum + req.totalValue, 0);
+    // Monta resposta no mesmo formato da API anterior
+    const statusCounts: Record<string, number> = { pending: 0, contacted: 0, negotiating: 0, converted: 0, rejected: 0 };
+    for (const s of stats.byStatus) {
+      if (s._id in statusCounts) statusCounts[s._id] = s.count;
+    }
 
     return res.json({
-      byStatus: {
-        pending,
-        contacted,
-        negotiating,
-        converted,
-        rejected
-      },
-      total,
+      byStatus: statusCounts,
+      total: stats.total[0]?.n || 0,
       values: {
-        totalPending: totalPendingValue,
-        totalConverted: totalConvertedValue
+        totalPending: stats.totalPendingValue[0]?.sum || 0,
+        totalConverted: stats.totalConvertedValue[0]?.sum || 0
       }
     });
 

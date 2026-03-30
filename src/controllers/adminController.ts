@@ -4,6 +4,7 @@ import { User } from '../models/User';
 import { Conversation } from '../models/Conversation';
 import WalletModel, { IWallet } from '../models/Wallet';
 import { cacheInvalidate } from '../config/redis';
+import { invalidateUserCache } from '../middleware/auth';
 import OrderModel, { IOrder } from '../models/Order';
 import { AuthRequest } from '../middleware/auth';
 import { escapeRegex } from '../utils/stringUtils';
@@ -58,10 +59,12 @@ export const approveBroadcaster = async (req: Request, res: Response): Promise<v
     await broadcaster.save();
 
     // Invalida caches do marketplace/mapa/comparador (nova emissora aprovada)
+    // + cache de auth do usuario (status mudou)
     await Promise.all([
       cacheInvalidate('marketplace:*'),
       cacheInvalidate('map:*'),
       cacheInvalidate('compare:*'),
+      invalidateUserCache(broadcaster._id.toString()),
     ]);
 
     // Criar conversa de suporte com admin
@@ -147,10 +150,12 @@ export const rejectBroadcaster = async (req: Request, res: Response): Promise<vo
     await broadcaster.save();
 
     // Invalida caches (emissora removida do marketplace)
+    // + cache de auth do usuario (status mudou)
     await Promise.all([
       cacheInvalidate('marketplace:*'),
       cacheInvalidate('map:*'),
       cacheInvalidate('compare:*'),
+      invalidateUserCache(broadcaster._id.toString()),
     ]);
 
     res.json({
@@ -1348,6 +1353,8 @@ export const updateUserStatus = async (req: AuthRequest, res: Response) => {
 
     await user.save();
 
+    // Invalida cache de auth (status/permissoes do usuario mudaram)
+    await invalidateUserCache(user._id.toString());
 
     res.json({ message: 'Status atualizado com sucesso', user });
 
@@ -1383,6 +1390,8 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
     user.userType = role;
     await user.save();
 
+    // Invalida cache de auth (role do usuario mudou — CRITICO para seguranca)
+    await invalidateUserCache(user._id.toString());
 
     res.json({ message: `Usuário alterado de ${oldRole} para ${role}`, user });
 
@@ -1420,6 +1429,8 @@ export const adminResetUserPassword = async (req: AuthRequest, res: Response) =>
     user.password = hashedPassword;
     await user.save();
 
+    // Invalida cache de auth
+    await invalidateUserCache(user._id.toString());
 
     res.json({ message: 'Senha alterada com sucesso' });
 

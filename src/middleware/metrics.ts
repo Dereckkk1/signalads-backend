@@ -41,6 +41,7 @@ const serverStartTime = Date.now();
 // ─────────────────────────────────────────────────────────────
 const BATCH_SIZE = 50;
 const BATCH_INTERVAL_MS = 5_000;
+const MAX_BATCH_BUFFER = 10_000;
 
 let metricsBatch: Array<{
     route: string;
@@ -100,6 +101,12 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
 
         totalRequests++;
         if (isError) totalErrors++;
+
+        // Protecao contra buffer overflow (se MongoDB estiver lento/fora)
+        if (metricsBatch.length >= MAX_BATCH_BUFFER) {
+            metricsBatch.splice(0, metricsBatch.length - MAX_BATCH_BUFFER / 2);
+            console.warn('[metrics] Buffer overflow — dropped oldest metrics');
+        }
 
         // Batch write assíncrono para MongoDB
         metricsBatch.push({

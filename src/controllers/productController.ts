@@ -4,7 +4,28 @@ import { User } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 import { toAccentInsensitiveRegex } from '../utils/stringUtils';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
+import crypto from 'crypto';
 import NodeGeocoder from 'node-geocoder';
+
+/**
+ * Gera cache key normalizada: ordena keys e arrays, gera hash curto.
+ * Garante que mesmos parametros em ordem diferente resultem na mesma key.
+ * Remove valores undefined/null para evitar keys desnecessarias.
+ */
+function buildCacheKey(prefix: string, params: Record<string, any>): string {
+  const normalized: Record<string, any> = {};
+  for (const key of Object.keys(params).sort()) {
+    const val = params[key];
+    if (val === undefined || val === null || val === '') continue;
+    if (Array.isArray(val)) {
+      normalized[key] = [...val].sort();
+    } else {
+      normalized[key] = val;
+    }
+  }
+  const hash = crypto.createHash('md5').update(JSON.stringify(normalized)).digest('hex').slice(0, 12);
+  return `${prefix}:${hash}`;
+}
 const options: NodeGeocoder.Options = {
   provider: 'openstreetmap'
 };
@@ -355,15 +376,14 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     const skip = (page - 1) * limit;
     const search = (req.query.search as string) || '';
 
-    // Cache Redis (TTL 30s) — mesma combinacao de filtros retorna resposta cacheada
-    const cacheKey = `marketplace:${JSON.stringify({
+    // Cache Redis (TTL 30s) — cache key normalizada para maximizar hit rate
+    const cacheKey = buildCacheKey('marketplace', {
       page, limit, city: req.query.city, search: req.query.search,
       priceMin: req.query.priceMin, priceMax: req.query.priceMax,
       ageRanges: req.query.ageRanges, genders: req.query.genders,
       socialClasses: req.query.socialClasses,
       lat: req.query.lat, lng: req.query.lng,
-      userId: req.userId || 'anon',
-    })}`;
+    });
 
     const cached = await cacheGet(cacheKey);
     if (cached) {
@@ -581,8 +601,10 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     if (hasValidCoords && !req.query.city) {
       try {
         // Busca emissoras que batem com os filtros para ordenar em memória por proximidade
+        // Limita a 3000 para evitar OOM em datasets grandes — cobre 99% dos cenários reais
         const allMatching = await User.find(broadcasterQuery)
           .select('_id address.city address.latitude address.longitude broadcasterProfile.pmm companyName')
+          .limit(3000)
           .lean();
 
         const normalizeCityStr = (city?: string) => {
@@ -677,7 +699,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       Product.find(productQuery)
         .populate({
           path: 'broadcasterId',
-          select: '-password'
+          select: '_id companyName fantasyName email broadcasterProfile address status'
         })
         .lean(),
       citiesOnPage.length > 0
@@ -729,7 +751,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     let broadcastersWithoutProducts: any[] = [];
     if (idsWithoutProducts.length > 0) {
       broadcastersWithoutProducts = await User.find({ _id: { $in: idsWithoutProducts } })
-        .select('-password')
+        .select('_id companyName fantasyName email broadcasterProfile address status')
         .lean();
     }
 

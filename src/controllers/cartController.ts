@@ -131,7 +131,7 @@ export const getCart = async (req: AuthRequest, res: Response): Promise<void> =>
     }
 
     // Popula dados do broadcaster para o frontend (necessário para insights)
-    await cart.populate('items.broadcasterId');
+    await cart.populate('items.broadcasterId', '_id companyName fantasyName broadcasterProfile address email');
 
     // Converte para objeto para poder modificar
     const cartObj = cart.toObject();
@@ -172,8 +172,8 @@ export const addItem = async (req: AuthRequest, res: Response): Promise<void> =>
       return;
     }
 
-    // Busca produto e broadcaster
-    const product = await Product.findById(productId).populate('broadcasterId');
+    // Busca produto e broadcaster (select apenas campos necessarios)
+    const product = await Product.findById(productId).populate('broadcasterId', '_id companyName fantasyName broadcasterProfile address email status');
     if (!product) {
       res.status(404).json({ error: 'Produto não encontrado' });
       return;
@@ -467,7 +467,7 @@ export const syncCart = async (req: AuthRequest, res: Response): Promise<void> =
     const productIds = items.map(item => item.productId).filter(id => id);
 
     // Buscar produtos e broadcasters em uma única query otimizada
-    const products = await Product.find({ _id: { $in: productIds } }).populate('broadcasterId');
+    const products = await Product.find({ _id: { $in: productIds } }).populate('broadcasterId', '_id companyName fantasyName broadcasterProfile address email status');
     const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
     for (const item of items) {

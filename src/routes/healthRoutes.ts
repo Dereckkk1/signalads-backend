@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import rateLimit from 'express-rate-limit';
 import { getMetricsSummary, getGlobalStats } from '../middleware/metrics';
 import { authenticateToken, requireAdmin } from '../middleware/auth';
+import { getRedisHealth } from '../config/redis';
 import WebVital from '../models/WebVital';
 
 // Rate limit especifico para vitals — 60 req/min por IP (sendBeacon fire-and-forget)
@@ -29,7 +30,10 @@ router.get('/health', async (_req: Request, res: Response) => {
     };
     const dbStatus = dbStatusMap[dbState] ?? 'unknown';
 
-    const isHealthy = dbState === 1;
+    // Redis health (nao expoe detalhes — endpoint publico)
+    const redisHealth = await getRedisHealth();
+
+    const isHealthy = dbState === 1 && redisHealth.status === 'connected';
 
     // Endpoint publico: apenas status minimo. Detalhes ficam em /api/metrics (admin)
     res.status(isHealthy ? 200 : 503).json({

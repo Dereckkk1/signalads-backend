@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
+import { cacheGet, cacheSet, redis } from '../config/redis';
+
+// TTL do cache de auth = 900s (15min, mesmo do JWT)
+const AUTH_CACHE_TTL = 900;
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -11,6 +15,19 @@ export interface AuthRequest extends Request {
     [key: string]: any;
   };
   file?: Express.Multer.File | undefined;
+}
+
+/**
+ * Invalida cache de auth de um usuario.
+ * DEVE ser chamado sempre que dados do usuario forem alterados
+ * (perfil, senha, role, status, 2FA, approve/reject).
+ */
+export async function invalidateUserCache(userId: string): Promise<void> {
+  try {
+    await redis.del(`auth:user:${userId}`);
+  } catch {
+    // Cache miss nao deve quebrar a app
+  }
 }
 
 export const authenticateToken = async (
@@ -36,12 +53,25 @@ export const authenticateToken = async (
 
     const decoded = jwt.verify(token, jwtSecret) as { userId: string };
 
-    // Busca o usuário completo no banco
+    // Tenta cache Redis antes de ir ao MongoDB
+    const cacheKey = `auth:user:${decoded.userId}`;
+    const cachedUser = await cacheGet<any>(cacheKey);
+    if (cachedUser) {
+      req.userId = decoded.userId;
+      req.user = cachedUser;
+      next();
+      return;
+    }
+
+    // Cache miss — busca no banco
     const user = await User.findById(decoded.userId).select('-password');
     if (!user) {
       res.status(401).json({ error: 'Usuário não encontrado' });
       return;
     }
+
+    // Salva no cache (objeto plain, sem metodos Mongoose)
+    await cacheSet(cacheKey, user.toObject(), AUTH_CACHE_TTL);
 
     req.userId = decoded.userId;
     req.user = user;
@@ -76,8 +106,19 @@ export const optionalAuthenticateToken = async (
 
     const decoded = jwt.verify(token, jwtSecret) as { userId: string };
 
+    // Tenta cache Redis
+    const cacheKey = `auth:user:${decoded.userId}`;
+    const cachedUser = await cacheGet<any>(cacheKey);
+    if (cachedUser) {
+      req.userId = decoded.userId;
+      req.user = cachedUser;
+      next();
+      return;
+    }
+
     const user = await User.findById(decoded.userId).select('-password');
     if (user) {
+      await cacheSet(cacheKey, user.toObject(), AUTH_CACHE_TTL);
       req.userId = decoded.userId;
       req.user = user;
     }

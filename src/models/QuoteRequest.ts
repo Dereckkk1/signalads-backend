@@ -219,6 +219,11 @@ quoteRequestSchema.pre('save', async function () {
   }
 });
 
+// Indexes de performance
+quoteRequestSchema.index({ buyer: 1, createdAt: -1 }); // "Minhas solicitacoes"
+quoteRequestSchema.index({ status: 1, createdAt: -1 }); // Admin: filtro por status
+quoteRequestSchema.index({ requestNumber: 1 }); // Busca direta (ja unique, explicita index)
+
 const QuoteRequest = mongoose.model<IQuoteRequest>('QuoteRequest', quoteRequestSchema);
 
 export default QuoteRequest;

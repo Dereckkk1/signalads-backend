@@ -180,21 +180,20 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
     cart.items = [];
     await cart.save();
 
-    // 9. Enviar emails (fire-and-forget)
-    try {
-      await sendOrderReceivedToClient({
-        orderNumber: order.orderNumber,
-        buyerName: user.name || '',
-        buyerEmail: user.email,
-        items: orderItems.map(i => ({ productName: i.productName, broadcasterName: i.broadcasterName })),
-        totalValue: totalAmount
-      });
+    // 9. Enviar emails — fire-and-forget (nao bloqueia response do checkout)
+    sendOrderReceivedToClient({
+      orderNumber: order.orderNumber,
+      buyerName: user.name || '',
+      buyerEmail: user.email,
+      items: orderItems.map(i => ({ productName: i.productName, broadcasterName: i.broadcasterName })),
+      totalValue: totalAmount
+    }).catch(err => console.error('Email error (client):', err));
 
-      // Notificar admins
-      const admins = await User.find({ userType: 'admin' }).select('email');
+    // Notificar admins (fire-and-forget)
+    User.find({ userType: 'admin' }).select('email').then(admins => {
       const adminEmails = admins.map(a => a.email);
       if (adminEmails.length > 0) {
-        await sendNewOrderToAdmin({
+        sendNewOrderToAdmin({
           orderNumber: order.orderNumber,
           buyerName: user.name || '',
           buyerEmail: user.email,
@@ -203,12 +202,9 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
           itemsCount: orderItems.length,
           adminEmails,
           isMonitoringEnabled: !!isMonitoringEnabled
-        });
+        }).catch(err => console.error('Email error (admin):', err));
       }
-    } catch (emailError) {
-      console.error('Erro ao enviar emails de confirmação:', emailError);
-      // Não falha o checkout por causa de email
-    }
+    }).catch(err => console.error('Admin lookup error:', err));
 
     res.status(201).json({
       order: {

@@ -12,12 +12,34 @@ export const redis = new Redis(REDIS_URL, {
 });
 
 redis.on('error', (err) => {
-  console.error('Redis connection error:', err.message);
+  console.error('[Redis] Connection error:', err.message);
 });
 
 redis.on('connect', () => {
-  console.log('Redis conectado com sucesso');
+  console.log('[Redis] Conectado com sucesso');
 });
+
+redis.on('reconnecting', (delay: number) => {
+  console.warn(`[Redis] Reconectando em ${delay}ms...`);
+});
+
+redis.on('close', () => {
+  console.warn('[Redis] Conexao fechada');
+});
+
+/**
+ * Verifica se Redis esta conectado e respondendo.
+ * Retorna status para uso no health check.
+ */
+export async function getRedisHealth(): Promise<{ status: string; latencyMs: number }> {
+  try {
+    const start = Date.now();
+    await redis.ping();
+    return { status: 'connected', latencyMs: Date.now() - start };
+  } catch {
+    return { status: 'disconnected', latencyMs: -1 };
+  }
+}
 
 // Helper: get com parse JSON
 export async function cacheGet<T>(key: string): Promise<T | null> {

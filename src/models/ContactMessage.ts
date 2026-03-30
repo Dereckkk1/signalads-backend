@@ -34,4 +34,8 @@ const ContactMessageSchema: Schema = new Schema({
     read: { type: Boolean, default: false },
 }, { timestamps: true });
 
+// Indexes de performance
+ContactMessageSchema.index({ read: 1, createdAt: -1 }); // Admin: unread count + listagem
+ContactMessageSchema.index({ category: 1, createdAt: -1 }); // Filtro por categoria
+
 export default mongoose.model<IContactMessage>('ContactMessage', ContactMessageSchema);

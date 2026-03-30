@@ -11,6 +11,7 @@ import {
   searchBroadcastersForCompare
 } from '../controllers/productController';
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
+import { setCacheHeaders } from '../middleware/cacheControl';
 
 const router = Router();
 
@@ -20,11 +21,11 @@ router.post('/', authenticateToken, createProduct);
 router.put('/:productId', authenticateToken, updateProduct);
 router.delete('/:productId', authenticateToken, deleteProduct);
 
-// Rota pública para marketplace (mas precisa estar autenticado)
-router.get('/map', optionalAuthenticateToken, getMapProducts); // Rota dedicada ao mapa
-router.get('/compare/search', optionalAuthenticateToken, searchBroadcastersForCompare); // Busca para o Comparador
-router.get('/marketplace/cities', optionalAuthenticateToken, getMarketplaceCities);
-router.get('/marketplace/broadcaster/:broadcasterId', optionalAuthenticateToken, getMarketplaceBroadcasterDetails);
-router.get('/marketplace', optionalAuthenticateToken, getAllActiveProducts);
+// Rotas publicas de marketplace — Cache-Control habilitado para CDN/browser
+router.get('/map', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getMapProducts);
+router.get('/compare/search', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), searchBroadcastersForCompare);
+router.get('/marketplace/cities', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getMarketplaceCities);
+router.get('/marketplace/broadcaster/:broadcasterId', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getMarketplaceBroadcasterDetails);
+router.get('/marketplace', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getAllActiveProducts);
 
 export default router;

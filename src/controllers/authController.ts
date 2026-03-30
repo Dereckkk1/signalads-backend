@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { User } from '../models/User';
 import BlockedDomain from '../models/BlockedDomain';
 import { sendTwoFactorEnableEmail, sendTwoFactorLoginEmail, sendTwoFactorCodeEmail, sendEmailConfirmation, sendPasswordResetEmail } from '../services/emailService';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, invalidateUserCache } from '../middleware/auth';
 import { isFreeEmailDomain, getEmailDomain } from '../utils/freeEmailDomains';
 import { generateAccessToken, generateRefreshToken, setAuthCookies, clearAuthCookies, rotateRefreshToken, revokeAllUserTokens } from '../utils/tokenService';
 
@@ -354,6 +354,9 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    // Invalida cache de auth (dados do usuario mudaram)
+    await invalidateUserCache(userId as string);
+
     res.json({ message: 'Perfil atualizado com sucesso', user });
   } catch (error: any) {
     res.status(500).json({ message: 'Erro ao atualizar perfil', error: error.message });
@@ -400,6 +403,9 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
     // Atualizar senha
     user.password = hashedPassword;
     await user.save();
+
+    // Invalida cache de auth
+    await invalidateUserCache(user._id.toString());
 
     res.json({ message: 'Senha alterada com sucesso' });
   } catch (error: any) {
