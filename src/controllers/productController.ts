@@ -517,16 +517,19 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     // Definição de Ordenação Dinâmica
     let sortOptions: any = {};
 
+    // Parseia filtros de target para uso tanto no sort do banco quanto no sort por proximidade
+    let targetGender: string | null = null;
+    let targetSocialClass: string | null = null;
+
     // Prioridade 1: Classe Social
     try {
       if (req.query.socialClasses) {
         const socialClasses = JSON.parse(req.query.socialClasses as string);
         if (Array.isArray(socialClasses) && socialClasses.length > 0) {
-          // Pega a primeira classe selecionada para ordenar
-          const cls = socialClasses[0];
-          if (cls === 'AB') sortOptions['broadcasterProfile.audienceProfile.socialClass.classeAB'] = -1;
-          if (cls === 'C') sortOptions['broadcasterProfile.audienceProfile.socialClass.classeC'] = -1;
-          if (cls === 'DE') sortOptions['broadcasterProfile.audienceProfile.socialClass.classeDE'] = -1;
+          targetSocialClass = socialClasses[0];
+          if (targetSocialClass === 'AB') sortOptions['broadcasterProfile.audienceProfile.socialClass.classeAB'] = -1;
+          if (targetSocialClass === 'C') sortOptions['broadcasterProfile.audienceProfile.socialClass.classeC'] = -1;
+          if (targetSocialClass === 'DE') sortOptions['broadcasterProfile.audienceProfile.socialClass.classeDE'] = -1;
         }
       }
     } catch (e) { /* parse error */ }
@@ -536,12 +539,27 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       if (req.query.genders) {
         const genders = JSON.parse(req.query.genders as string);
         if (Array.isArray(genders) && genders.length > 0) {
-          const gender = genders[0];
-          if (gender === 'male') sortOptions['broadcasterProfile.audienceProfile.gender.male'] = -1;
-          if (gender === 'female') sortOptions['broadcasterProfile.audienceProfile.gender.female'] = -1;
+          targetGender = genders[0];
+          if (targetGender === 'male') sortOptions['broadcasterProfile.audienceProfile.gender.male'] = -1;
+          if (targetGender === 'female') sortOptions['broadcasterProfile.audienceProfile.gender.female'] = -1;
         }
       }
     } catch (e) { /* parse error */ }
+
+    const hasTargetFilters = targetGender !== null || targetSocialClass !== null;
+
+    // Helper: calcula score de match com target (0-200, maior = melhor)
+    const getTargetScore = (b: any): number => {
+      let score = 0;
+      if (targetGender) {
+        score += b.broadcasterProfile?.audienceProfile?.gender?.[targetGender] || 0;
+      }
+      if (targetSocialClass) {
+        const classField = targetSocialClass === 'AB' ? 'classeAB' : targetSocialClass === 'C' ? 'classeC' : 'classeDE';
+        score += b.broadcasterProfile?.audienceProfile?.socialClass?.[classField] || 0;
+      }
+      return score;
+    };
 
     // Fallbacks (Padrão)
     sortOptions['broadcasterProfile.pmm'] = -1;
@@ -602,8 +620,11 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       try {
         // Busca emissoras que batem com os filtros para ordenar em memória por proximidade
         // Limita a 3000 para evitar OOM em datasets grandes — cobre 99% dos cenários reais
+        const selectFields = hasTargetFilters
+          ? '_id address.city address.latitude address.longitude broadcasterProfile.pmm broadcasterProfile.audienceProfile.gender broadcasterProfile.audienceProfile.socialClass companyName'
+          : '_id address.city address.latitude address.longitude broadcasterProfile.pmm companyName';
         const allMatching = await User.find(broadcasterQuery)
-          .select('_id address.city address.latitude address.longitude broadcasterProfile.pmm companyName')
+          .select(selectFields)
           .limit(3000)
           .lean();
 
@@ -631,7 +652,8 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
           }
         });
 
-        // Ordena: mesma cidade primeiro (por PMM), depois por distância crescente (PMM como desempate)
+        // Ordena: mesma cidade primeiro, depois por distância crescente
+        // Quando filtros de target estão ativos, target score tem prioridade sobre distância
         allMatching.sort((a: any, b: any) => {
           const aCity = normalizeCityStr(a.address?.city);
           const bCity = normalizeCityStr(b.address?.city);
@@ -642,11 +664,20 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
           const bIsUserCity = normalizedUserCity !== '' && bCity === normalizedUserCity;
 
           // Regra 1: Emissoras da mesma cidade do usuário sempre no topo
-          if (aIsUserCity && bIsUserCity) return pmmB - pmmA;
           if (aIsUserCity && !bIsUserCity) return -1;
           if (!aIsUserCity && bIsUserCity) return 1;
 
-          // Regra 2: Por distância crescente (PMM como desempate se < 30km de diferença)
+          // Regra 2: Quando filtros de target ativos, ordena por target score (maior = melhor)
+          if (hasTargetFilters) {
+            const scoreA = getTargetScore(a);
+            const scoreB = getTargetScore(b);
+            if (scoreA !== scoreB) return scoreB - scoreA;
+          }
+
+          // Regra 3: Dentro da mesma cidade, desempata por PMM
+          if (aIsUserCity && bIsUserCity) return pmmB - pmmA;
+
+          // Regra 4: Por distância crescente (PMM como desempate se < 30km de diferença)
           const distA = distanceCache.get(a._id.toString());
           const distB = distanceCache.get(b._id.toString());
 

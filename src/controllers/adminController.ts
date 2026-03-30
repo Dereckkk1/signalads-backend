@@ -1179,7 +1179,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Filtros
-    const filter: any = {};
+    const filter: any = { emailConfirmed: true };
 
     if (type && type !== 'all') {
       filter.userType = type;
