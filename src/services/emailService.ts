@@ -1,5 +1,19 @@
 import nodemailer from 'nodemailer';
 
+/**
+ * Escapa caracteres HTML para prevenir XSS em templates de email.
+ * Deve ser usado em TODOS os valores dinamicos interpolados em HTML.
+ */
+const escapeHtml = (str: string | undefined | null): string => {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 // Configuração do transporter
 // Em desenvolvimento, usa Ethereal (teste) ou as credenciais do .env
 const createTransporter = () => {
@@ -226,14 +240,14 @@ const createEmailTemplate = (config: EmailConfig): string => {
 // Parágrafo de texto
 export const paragraph = (text: string, options?: { bold?: boolean; center?: boolean }) => `
   <p style="margin: 0 0 16px; color: ${colors.gray700}; font-size: 15px; line-height: 1.7; ${options?.center ? 'text-align: center;' : ''} ${options?.bold ? 'font-weight: 600;' : ''}">
-    ${text}
+    ${escapeHtml(text)}
   </p>
 `;
 
 // Saudação personalizada
 export const greeting = (name: string) => `
   <p style="margin: 0 0 24px; color: ${colors.gray700}; font-size: 15px; line-height: 1.6;">
-    Olá <strong style="color: ${colors.gray900};">${name}</strong>,
+    Olá <strong style="color: ${colors.gray900};">${escapeHtml(name)}</strong>,
   </p>
 `;
 
@@ -242,15 +256,15 @@ export const infoCard = (title: string, items: Array<{ label: string; value: str
   <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="margin: 24px 0; background-color: ${colors.gray50}; border-left: 4px solid ${color}; border-radius: 8px; overflow: hidden;">
     <tr>
       <td style="padding: 20px 24px;">
-        ${title ? `<h3 style="margin: 0 0 16px; color: ${color}; font-size: 16px; font-weight: 700;">${title}</h3>` : ''}
+        ${title ? `<h3 style="margin: 0 0 16px; color: ${color}; font-size: 16px; font-weight: 700;">${escapeHtml(title)}</h3>` : ''}
         <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%">
           ${items.map(item => `
           <tr>
             <td style="padding: 6px 0; color: ${colors.gray600}; font-size: 14px; font-weight: 600;">
-              ${item.label}:
+              ${escapeHtml(item.label)}:
             </td>
             <td style="padding: 6px 0; color: ${colors.gray800}; font-size: 14px; text-align: right;">
-              ${item.value}
+              ${escapeHtml(item.value)}
             </td>
           </tr>
           `).join('')}
@@ -2374,6 +2388,7 @@ export default {
   sendOrderReceivedToClient,
   // Utilitários de template (exportar para uso externo)
   createEmailTemplate,
+  sendEmail,
   greeting,
   paragraph,
   infoCard,

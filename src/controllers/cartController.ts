@@ -120,16 +120,6 @@ export const getCart = async (req: AuthRequest, res: Response): Promise<void> =>
       { upsert: true, new: true }
     );
 
-    // Limpa datas expiradas antes de retornar
-    // const cleanedItems = cleanExpiredSchedules(cart.items);
-    const cleanedItems = cart.items;
-
-    // Atualiza no banco se houve mudanças
-    if (JSON.stringify(cleanedItems) !== JSON.stringify(cart.items)) {
-      cart.items = cleanedItems;
-      await cart.save();
-    }
-
     // Popula dados do broadcaster para o frontend (necessário para insights)
     await cart.populate('items.broadcasterId', '_id companyName fantasyName broadcasterProfile address email');
 
@@ -174,16 +164,12 @@ export const addItem = async (req: AuthRequest, res: Response): Promise<void> =>
 
     // Busca produto e broadcaster (select apenas campos necessarios)
     const product = await Product.findById(productId).populate('broadcasterId', '_id companyName fantasyName broadcasterProfile address email status');
-    if (!product) {
+    if (!product || !product.broadcasterId) {
       res.status(404).json({ error: 'Produto não encontrado' });
       return;
     }
 
-    const broadcaster = await User.findById(product.broadcasterId);
-    if (!broadcaster) {
-      res.status(404).json({ error: 'Emissora não encontrada' });
-      return;
-    }
+    const broadcaster: any = product.broadcasterId;
 
     // Busca ou cria carrinho
     let cart = await Cart.findOne({ userId: req.userId });
@@ -291,6 +277,11 @@ export const updateItemSchedule = async (req: AuthRequest, res: Response): Promi
 
     if (!productId || !schedule) {
       res.status(400).json({ error: 'Dados inválidos' });
+      return;
+    }
+
+    if (schedule && typeof schedule !== 'object') {
+      res.status(400).json({ error: 'Formato de agendamento inválido' });
       return;
     }
 

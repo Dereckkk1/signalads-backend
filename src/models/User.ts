@@ -155,7 +155,7 @@ const userSchema = new Schema<IUser>(
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],
-      default: 'approved'
+      default: 'pending'
     },
     cpf: {
       type: String,

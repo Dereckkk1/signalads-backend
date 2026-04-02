@@ -155,6 +155,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { emailOrCnpj, password } = req.body;
 
+    if (!emailOrCnpj) {
+      res.status(400).json({ error: 'Email ou CNPJ é obrigatório' });
+      return;
+    }
+
     // Verifica se é email ou número (CNPJ/CPF)
     const isEmail = emailOrCnpj.includes('@');
     const searchQuery = isEmail
@@ -338,8 +343,16 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
       });
 
       if (existingUser) {
-        res.status(400).json({ message: 'Email já está em uso' });
+        res.status(400).json({ error: 'Email já está em uso' });
         return;
+      }
+    }
+
+    // Se email mudou, resetar confirmação
+    if (filteredUpdates.email) {
+      const currentUser = await User.findById(userId).select('email');
+      if (currentUser && filteredUpdates.email !== currentUser.email) {
+        filteredUpdates.emailConfirmed = false;
       }
     }
 
@@ -350,7 +363,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
     ).select('-password');
 
     if (!user) {
-      res.status(404).json({ message: 'Usuário não encontrado' });
+      res.status(404).json({ error: 'Usuário não encontrado' });
       return;
     }
 
@@ -359,7 +372,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
 
     res.json({ message: 'Perfil atualizado com sucesso', user });
   } catch (error: any) {
-    res.status(500).json({ message: 'Erro ao atualizar perfil', error: error.message });
+    res.status(500).json({ error: 'Erro ao atualizar perfil' });
   }
 };
 
@@ -370,13 +383,13 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
-      res.status(400).json({ message: 'Senha atual e nova senha são obrigatórias' });
+      res.status(400).json({ error: 'Senha atual e nova senha são obrigatórias' });
       return;
     }
 
     const passwordError = validatePasswordStrength(newPassword);
     if (passwordError) {
-      res.status(400).json({ message: passwordError });
+      res.status(400).json({ error: passwordError });
       return;
     }
 
@@ -385,7 +398,7 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
     const user = await User.findById(userId);
 
     if (!user) {
-      res.status(404).json({ message: 'Usuário não encontrado' });
+      res.status(404).json({ error: 'Usuário não encontrado' });
       return;
     }
 
@@ -393,7 +406,7 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
     const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
 
     if (!isPasswordValid) {
-      res.status(401).json({ message: 'Senha atual incorreta' });
+      res.status(401).json({ error: 'Senha atual incorreta' });
       return;
     }
 
@@ -409,7 +422,7 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
 
     res.json({ message: 'Senha alterada com sucesso' });
   } catch (error: any) {
-    res.status(500).json({ message: 'Erro ao alterar senha', error: error.message });
+    res.status(500).json({ error: 'Erro ao alterar senha' });
   }
 };
 
@@ -423,7 +436,7 @@ export const enableTwoFactor = async (req: AuthRequest, res: Response): Promise<
 
     const user = await User.findById(userId);
     if (!user) {
-      res.status(404).json({ message: 'Usuário não encontrado' });
+      res.status(404).json({ error: 'Usuário não encontrado' });
       return;
     }
 
@@ -446,7 +459,7 @@ export const enableTwoFactor = async (req: AuthRequest, res: Response): Promise<
 
     res.json({ message: 'Email de confirmação enviado. Verifique sua caixa de entrada.' });
   } catch (error: any) {
-    res.status(500).json({ message: 'Erro ao habilitar autenticação em duas etapas' });
+    res.status(500).json({ error: 'Erro ao habilitar autenticação em duas etapas' });
   }
 };
 
@@ -477,7 +490,7 @@ export const confirmTwoFactorEnable = async (req: Request, res: Response): Promi
 
 
     if (!user) {
-      res.status(400).json({ message: 'Token inválido ou expirado' });
+      res.status(400).json({ error: 'Token inválido ou expirado' });
       return;
     }
 
@@ -490,7 +503,7 @@ export const confirmTwoFactorEnable = async (req: Request, res: Response): Promi
 
     res.json({ message: 'Autenticação em duas etapas habilitada com sucesso!' });
   } catch (error: any) {
-    res.status(500).json({ message: 'Erro ao confirmar autenticação em duas etapas' });
+    res.status(500).json({ error: 'Erro ao confirmar autenticação em duas etapas' });
   }
 };
 
@@ -505,27 +518,26 @@ export const disableTwoFactor = async (req: AuthRequest, res: Response): Promise
 
     const user = await User.findById(userId);
     if (!user) {
-      res.status(404).json({ message: 'Usuário não encontrado' });
+      res.status(404).json({ error: 'Usuário não encontrado' });
       return;
     }
 
     // Valida senha atual
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      res.status(401).json({ message: 'Senha incorreta' });
+      res.status(401).json({ error: 'Senha incorreta' });
       return;
     }
 
     user.twoFactorEnabled = false;
     user.twoFactorPendingToken = undefined;
     user.twoFactorConfirmedAt = undefined;
-    user.twoFactorPendingToken = undefined;
     user.twoFactorPendingTokenExpires = undefined;
     await user.save();
 
     res.json({ message: 'Autenticação em duas etapas desabilitada' });
   } catch (error: any) {
-    res.status(500).json({ message: 'Erro ao desabilitar autenticação em duas etapas' });
+    res.status(500).json({ error: 'Erro ao desabilitar autenticação em duas etapas' });
   }
 };
 
@@ -544,7 +556,7 @@ export const validateTwoFactorLogin = async (req: Request, res: Response): Promi
     });
 
     if (!user) {
-      res.status(400).json({ message: 'Código inválido ou expirado' });
+      res.status(400).json({ error: 'Código inválido ou expirado' });
       return;
     }
 
@@ -576,7 +588,7 @@ export const validateTwoFactorLogin = async (req: Request, res: Response): Promi
       }
     });
   } catch (error: any) {
-    res.status(500).json({ message: 'Erro ao validar código de verificação' });
+    res.status(500).json({ error: 'Erro ao validar código de verificação' });
   }
 };
 
@@ -594,7 +606,7 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
     });
 
     if (!user) {
-      res.status(400).json({ message: 'Código inválido ou expirado' });
+      res.status(400).json({ error: 'Código inválido ou expirado' });
       return;
     }
 
@@ -607,11 +619,11 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
         user.twoFactorSessionToken = undefined;
         user.twoFactorAttempts = 0;
         await user.save();
-        res.status(400).json({ message: 'Muitas tentativas. Solicite um novo código fazendo login novamente.' });
+        res.status(400).json({ error: 'Muitas tentativas. Solicite um novo código fazendo login novamente.' });
         return;
       }
       await user.save();
-      res.status(400).json({ message: 'Código inválido ou expirado' });
+      res.status(400).json({ error: 'Código inválido ou expirado' });
       return;
     }
 
@@ -632,6 +644,11 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
       // Adiciona dispositivo aos confiáveis
       if (!user.trustedDevices) {
         user.trustedDevices = [];
+      }
+
+      // Cap trusted devices at 10
+      if (user.trustedDevices.length >= 10) {
+        user.trustedDevices.shift(); // Remove oldest
       }
 
       user.trustedDevices.push({
@@ -673,7 +690,7 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
       }
     });
   } catch (error: any) {
-    res.status(500).json({ message: 'Erro ao verificar código' });
+    res.status(500).json({ error: 'Erro ao verificar código' });
   }
 };
 
@@ -686,7 +703,7 @@ export const getTwoFactorStatus = async (req: AuthRequest, res: Response): Promi
 
     const user = await User.findById(userId).select('twoFactorEnabled twoFactorConfirmedAt');
     if (!user) {
-      res.status(404).json({ message: 'Usuário não encontrado' });
+      res.status(404).json({ error: 'Usuário não encontrado' });
       return;
     }
 
@@ -695,7 +712,7 @@ export const getTwoFactorStatus = async (req: AuthRequest, res: Response): Promi
       confirmedAt: user.twoFactorConfirmedAt
     });
   } catch (error: any) {
-    res.status(500).json({ message: 'Erro ao obter status' });
+    res.status(500).json({ error: 'Erro ao obter status' });
   }
 };
 

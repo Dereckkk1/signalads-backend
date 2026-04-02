@@ -57,6 +57,10 @@ export const authenticateToken = async (
     const cacheKey = `auth:user:${decoded.userId}`;
     const cachedUser = await cacheGet<any>(cacheKey);
     if (cachedUser) {
+      if (cachedUser.status !== 'approved') {
+        res.status(403).json({ error: 'Conta suspensa ou pendente de aprovação' });
+        return;
+      }
       req.userId = decoded.userId;
       req.user = cachedUser;
       next();
@@ -67,6 +71,11 @@ export const authenticateToken = async (
     const user = await User.findById(decoded.userId).select('-password');
     if (!user) {
       res.status(401).json({ error: 'Usuário não encontrado' });
+      return;
+    }
+
+    if (user.status !== 'approved') {
+      res.status(403).json({ error: 'Conta suspensa ou pendente de aprovação' });
       return;
     }
 

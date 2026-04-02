@@ -26,22 +26,22 @@ export const createQuoteRequest = async (req: AuthRequest, res: Response) => {
     const cart = await Cart.findOne({ userId }).populate('items.broadcasterId', 'companyName fantasyName');
 
     if (!cart || !cart.items || cart.items.length === 0) {
-      return res.status(400).json({ 
-        message: 'Seu carrinho está vazio. Adicione produtos antes de solicitar contato.' 
+      return res.status(400).json({
+        error: 'Seu carrinho está vazio. Adicione produtos antes de solicitar contato.'
       });
     }
 
     // 2. Busca dados do cliente
     const buyer = await User.findById(userId);
     if (!buyer) {
-      return res.status(404).json({ message: 'Usuário não encontrado' });
+      return res.status(404).json({ error: 'Usuário não encontrado' });
     }
 
     // 3. Valida que todos os itens têm material anexado
     const itemsWithoutMaterial = cart.items.filter(item => !item.material || !item.material.type);
     if (itemsWithoutMaterial.length > 0) {
-      return res.status(400).json({ 
-        message: 'Todos os produtos precisam ter material (áudio, roteiro ou texto) anexado.' 
+      return res.status(400).json({
+        error: 'Todos os produtos precisam ter material (áudio, roteiro ou texto) anexado.'
       });
     }
 
@@ -123,8 +123,8 @@ export const createQuoteRequest = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    return res.status(500).json({ 
-      message: 'Erro ao processar solicitação. Tente novamente.' 
+    return res.status(500).json({
+      error: 'Erro ao processar solicitação. Tente novamente.'
     });
   }
 };
@@ -145,7 +145,7 @@ export const getMyQuoteRequests = async (req: AuthRequest, res: Response) => {
     return res.json(requests);
 
   } catch (error) {
-    return res.status(500).json({ message: 'Erro ao buscar solicitações' });
+    return res.status(500).json({ error: 'Erro ao buscar solicitações' });
   }
 };
 
@@ -161,7 +161,7 @@ export const getQuoteRequestDetails = async (req: AuthRequest, res: Response) =>
     const request = await QuoteRequest.findOne({ requestNumber });
 
     if (!request) {
-      return res.status(404).json({ message: 'Solicitação não encontrada' });
+      return res.status(404).json({ error: 'Solicitação não encontrada' });
     }
 
     // Verifica se o usuário tem permissão (dono ou admin)
@@ -170,7 +170,7 @@ export const getQuoteRequestDetails = async (req: AuthRequest, res: Response) =>
     const isAdmin = user?.userType === 'admin';
 
     if (!isOwner && !isAdmin) {
-      return res.status(403).json({ message: 'Sem permissão para ver esta solicitação' });
+      return res.status(403).json({ error: 'Sem permissão para ver esta solicitação' });
     }
 
     // Remove notas internas se não for admin
@@ -182,7 +182,7 @@ export const getQuoteRequestDetails = async (req: AuthRequest, res: Response) =>
     return res.json(response);
 
   } catch (error) {
-    return res.status(500).json({ message: 'Erro ao buscar detalhes' });
+    return res.status(500).json({ error: 'Erro ao buscar detalhes' });
   }
 };
 
@@ -197,7 +197,7 @@ export const getAllQuoteRequests = async (req: AuthRequest, res: Response) => {
     // Verifica se é admin
     const user = await User.findById(userId);
     if (user?.userType !== 'admin') {
-      return res.status(403).json({ message: 'Acesso negado. Apenas administradores.' });
+      return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
     }
 
     const { status, sortBy = 'createdAt', order = 'desc' } = req.query;
@@ -222,7 +222,7 @@ export const getAllQuoteRequests = async (req: AuthRequest, res: Response) => {
     return res.json(requests);
 
   } catch (error) {
-    return res.status(500).json({ message: 'Erro ao buscar solicitações' });
+    return res.status(500).json({ error: 'Erro ao buscar solicitações' });
   }
 };
 
@@ -239,18 +239,18 @@ export const updateQuoteRequestStatus = async (req: AuthRequest, res: Response) 
     // Verifica se é admin
     const user = await User.findById(userId);
     if (user?.userType !== 'admin') {
-      return res.status(403).json({ message: 'Acesso negado.' });
+      return res.status(403).json({ error: 'Acesso negado.' });
     }
 
     const request = await QuoteRequest.findOne({ requestNumber });
     if (!request) {
-      return res.status(404).json({ message: 'Solicitação não encontrada' });
+      return res.status(404).json({ error: 'Solicitação não encontrada' });
     }
 
     // Valida status
     const validStatuses = ['pending', 'contacted', 'negotiating', 'converted', 'rejected'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ message: 'Status inválido' });
+      return res.status(400).json({ error: 'Status inválido' });
     }
 
     // Atualiza status
@@ -289,7 +289,7 @@ export const updateQuoteRequestStatus = async (req: AuthRequest, res: Response) 
     });
 
   } catch (error) {
-    return res.status(500).json({ message: 'Erro ao atualizar status' });
+    return res.status(500).json({ error: 'Erro ao atualizar status' });
   }
 };
 
@@ -305,12 +305,12 @@ export const updateAdminNotes = async (req: AuthRequest, res: Response) => {
 
     const user = await User.findById(userId);
     if (user?.userType !== 'admin') {
-      return res.status(403).json({ message: 'Acesso negado.' });
+      return res.status(403).json({ error: 'Acesso negado.' });
     }
 
     const request = await QuoteRequest.findOne({ requestNumber });
     if (!request) {
-      return res.status(404).json({ message: 'Solicitação não encontrada' });
+      return res.status(404).json({ error: 'Solicitação não encontrada' });
     }
 
     request.adminNotes = adminNotes;
@@ -320,7 +320,7 @@ export const updateAdminNotes = async (req: AuthRequest, res: Response) => {
     return res.json({ message: 'Notas atualizadas com sucesso' });
 
   } catch (error) {
-    return res.status(500).json({ message: 'Erro ao atualizar notas' });
+    return res.status(500).json({ error: 'Erro ao atualizar notas' });
   }
 };
 
@@ -334,7 +334,7 @@ export const getQuoteRequestStats = async (req: AuthRequest, res: Response) => {
 
     const user = await User.findById(userId);
     if (user?.userType !== 'admin') {
-      return res.status(403).json({ message: 'Acesso negado.' });
+      return res.status(403).json({ error: 'Acesso negado.' });
     }
 
     // Uma unica aggregation com $facet em vez de 8 queries separadas
@@ -375,6 +375,6 @@ export const getQuoteRequestStats = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    return res.status(500).json({ message: 'Erro ao buscar estatísticas' });
+    return res.status(500).json({ error: 'Erro ao buscar estatísticas' });
   }
 };

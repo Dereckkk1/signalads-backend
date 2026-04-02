@@ -19,7 +19,10 @@ import blockedDomainRoutes from './routes/blockedDomainRoutes';
 import productRequestRoutes from './routes/productRequestRoutes';
 import profileRequestRoutes from './routes/profileRequestRoutes';
 import paymentRoutes from './routes/paymentRoutes';
+import proposalRoutes from './routes/proposalRoutes';
 import { startBackupCron } from './cron/backupCron';
+import { startExpireProposalsCron } from './cron/expireProposals';
+import { startProposalAlertsCron } from './cron/proposalAlerts';
 // Middlewares de Segurança
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -144,6 +147,7 @@ app.use('/api/blocked-domains', blockedDomainRoutes); // Rotas de domínios bloq
 app.use('/api/product-requests', productRequestRoutes); // Rotas de solicitações de produtos (emissoras)
 app.use('/api/profile-requests', profileRequestRoutes); // Rotas de solicitações de perfil (emissoras)
 app.use('/api/payment', paymentRoutes); // Checkout (criação de pedido)
+app.use('/api/proposals', proposalRoutes); // Propostas comerciais de agências
 
 // Rota de teste
 app.get('/', (req: Request, res: Response) => {
@@ -203,8 +207,10 @@ const startServer = async () => {
       console.log(`📍 http://localhost:${PORT}`);
     });
 
-    // Inicia cron de backup automatico (meia-noite)
+    // Inicia crons
     startBackupCron();
+    startExpireProposalsCron();
+    startProposalAlertsCron();
   } catch (error) {
     console.error('Erro ao iniciar servidor:', error);
     process.exit(1);

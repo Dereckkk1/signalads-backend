@@ -42,11 +42,13 @@ export const mongoSanitize = (req: Request, res: Response, next: NextFunction) =
 // XSS Protection (substitui xss-clean incompativel com Express 5)
 // Sanitiza strings em body, query e params para remover HTML/JS malicioso
 // ============================================================
+
+// Sanitizador GLOBAL: zero tags permitidas (strip all HTML)
 const sanitizeXssValue = (value: any): any => {
     if (typeof value === 'string') {
         return sanitizeHtml(value, {
-            allowedTags: [],       // Nenhuma tag HTML permitida
-            allowedAttributes: {}, // Nenhum atributo permitido
+            allowedTags: [],
+            allowedAttributes: {},
             disallowedTagsMode: 'recursiveEscape'
         });
     }
@@ -61,6 +63,32 @@ const sanitizeXssValue = (value: any): any => {
         return cleaned;
     }
     return value;
+};
+
+// Sanitizador para campos RICH TEXT (Tiptap editor) — uso exclusivo em rotas especificas
+const RICH_TEXT_TAGS = [
+    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'del',
+    'h1', 'h2', 'h3', 'h4',
+    'ul', 'ol', 'li',
+    'blockquote', 'hr', 'code', 'pre',
+    'a', 'span',
+];
+
+const RICH_TEXT_ATTRIBUTES: Record<string, string[]> = {
+    'a': ['href', 'target', 'rel'],
+    'span': ['style'],
+    '*': [],
+};
+
+export const sanitizeRichText = (html: string): string => {
+    return sanitizeHtml(html, {
+        allowedTags: RICH_TEXT_TAGS,
+        allowedAttributes: RICH_TEXT_ATTRIBUTES,
+        allowedStyles: {
+            'span': { 'font-size': [/^\d+(?:px|em|rem|%)$/] },
+        },
+        disallowedTagsMode: 'recursiveEscape'
+    });
 };
 
 export const xssSanitize = (req: Request, res: Response, next: NextFunction) => {

@@ -21,6 +21,14 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
 
     const { isMonitoringEnabled, agencyCommission: agencyCommPct, clientId } = req.body;
 
+    if (agencyCommPct !== undefined) {
+      const pct = Number(agencyCommPct);
+      if (!Number.isFinite(pct) || pct < 0 || pct > 50) {
+        res.status(400).json({ error: 'Percentual de comissão da agência deve ser entre 0 e 50%' });
+        return;
+      }
+    }
+
     // 1. Buscar carrinho do banco (dados confiáveis)
     const cart = await Cart.findOne({ userId });
     if (!cart || cart.items.length === 0) {
@@ -37,7 +45,7 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
 
     // 3. Buscar produtos do banco para validar preços
     const productIds = cart.items.map(item => item.productId);
-    const products = await Product.find({ _id: { $in: productIds } }).populate('broadcasterId');
+    const products = await Product.find({ _id: { $in: productIds }, isActive: true }).populate('broadcasterId');
     const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
     // 4. Construir itens do pedido com preços do banco

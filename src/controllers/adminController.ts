@@ -11,6 +11,7 @@ import { escapeRegex } from '../utils/stringUtils';
 import { Cart } from '../models/Cart';
 import bcrypt from 'bcryptjs';
 import QuoteRequest from '../models/QuoteRequest';
+import { PLATFORM_COMMISSION_RATE } from '../models/Product';
 import {
   sendOrderPendingPaymentToClient,
   sendOrderPaidConfirmedToClient,
@@ -242,22 +243,28 @@ export const getBroadcastersForManagement = async (req: AuthRequest, res: Respon
       .limit(limitNum)
       .lean();
 
-    // Para cada emissora, buscar se existe conversa com o admin
-    const broadcastersWithChat = await Promise.all(
-      broadcasters.map(async (broadcaster) => {
-        const conversation = await Conversation.findOne({
-          broadcasterId: broadcaster._id.toString(),
-          advertiserName: 'Suporte E-rádios'
-        }).lean();
+    // Batch: buscar todas as conversas de admin com emissoras em uma única query
+    const broadcasterIds = broadcasters.map(b => b._id.toString());
+    const conversations = await Conversation.find({
+      broadcasterId: { $in: broadcasterIds },
+      advertiserName: 'Suporte E-rádios'
+    }).lean();
 
-        return {
-          ...broadcaster,
-          hasAdminChat: !!conversation,
-          conversationId: conversation?._id || null,
-          lastMessageAt: conversation?.lastMessageAt || null
-        };
-      })
-    );
+    // Map para O(1) lookup por broadcasterId
+    const conversationMap = new Map<string, typeof conversations[0]>();
+    conversations.forEach(conv => {
+      conversationMap.set(conv.broadcasterId, conv);
+    });
+
+    const broadcastersWithChat = broadcasters.map((broadcaster) => {
+      const conversation = conversationMap.get(broadcaster._id.toString()) || null;
+      return {
+        ...broadcaster,
+        hasAdminChat: !!conversation,
+        conversationId: conversation?._id || null,
+        lastMessageAt: conversation?.lastMessageAt || null
+      };
+    });
 
 
     res.json({
@@ -326,7 +333,7 @@ export const getOrCreateAdminConversation = async (req: AuthRequest, res: Respon
 
     res.json({ conversation });
   } catch (error: any) {
-    res.status(500).json({ message: 'Erro ao processar conversa', error: error.message });
+    res.status(500).json({ error: 'Erro ao processar conversa' });
   }
 };
 
@@ -585,7 +592,7 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
       const grossFromItems = Math.round(
         (itemsWithBroadcasterNames || []).reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0) * 100
       ) / 100;
-      const broadcasterAmountCalc = Math.round((grossFromItems / 1.25) * 100) / 100;
+      const broadcasterAmountCalc = Math.round((grossFromItems / (1 + PLATFORM_COMMISSION_RATE)) * 100) / 100;
       const platformSplitCalc = Math.round((grossFromItems - broadcasterAmountCalc) * 100) / 100;
 
       return {
@@ -904,8 +911,12 @@ export const requestPlatformWithdraw = async (req: AuthRequest, res: Response) =
  */
 export const confirmPlatformWithdraw = async (req: AuthRequest, res: Response) => {
   try {
-    const { amount, externalReference } = req.body;
+    const { externalReference } = req.body;
+    const amount = Number(req.body.amount);
 
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Valor de saque deve ser um número positivo' });
+    }
 
     const platformWallet = await WalletModel.findOne({ userId: 'platform' });
 
@@ -965,14 +976,19 @@ export const getPendingWithdrawRequests = async (req: AuthRequest, res: Response
       }
     });
 
+    // Filtra wallets de usuários (exclui plataforma) e busca todos os usuários em batch
+    const userWallets = walletsWithPendingWithdraws.filter(w => w.userId !== 'platform');
+    const userIds = userWallets.map(w => w.userId);
+    const users = await User.find({ _id: { $in: userIds } }).select('fantasyName companyName email userType');
+
+    // Map para O(1) lookup por userId
+    const userMap = new Map<string, typeof users[0]>();
+    users.forEach(u => userMap.set(u._id.toString(), u));
+
     const requests: any[] = [];
 
-    for (const wallet of walletsWithPendingWithdraws) {
-      // Pula a wallet da plataforma
-      if (wallet.userId === 'platform') continue;
-
-      // Busca dados do usuário
-      const user = await User.findById(wallet.userId).select('fantasyName companyName email userType');
+    for (const wallet of userWallets) {
+      const user = userMap.get(wallet.userId.toString()) || null;
 
       // Filtra transações pendentes
       const pendingTransactions = wallet.transactions.filter(
@@ -1618,7 +1634,7 @@ export const adminUploadRecordingAudio = async (req: AuthRequest, res: Response)
       updatedItems: uniqueIndices.length,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Erro ao fazer upload do áudio' });
+    res.status(500).json({ error: 'Erro ao fazer upload do áudio' });
   }
 };
 
@@ -1664,6 +1680,6 @@ export const adminDeleteRecordingAudio = async (req: AuthRequest, res: Response)
 
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Erro ao remover áudio' });
+    res.status(500).json({ error: 'Erro ao remover áudio' });
   }
 };

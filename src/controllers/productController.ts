@@ -105,7 +105,7 @@ export const getMyProducts = async (req: AuthRequest, res: Response): Promise<vo
 
     res.json(products);
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar produtos', details: error instanceof Error ? error.message : 'Erro desconhecido' });
+    res.status(500).json({ error: 'Erro ao buscar produtos' });
   }
 };
 
@@ -234,7 +234,7 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
       companionsCreated: createdCompanions
     });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao criar produto', details: error instanceof Error ? error.message : 'Erro desconhecido' });
+    res.status(500).json({ error: 'Erro ao criar produto' });
   }
 };
 
@@ -314,7 +314,7 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
       product
     });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao atualizar produto', details: error instanceof Error ? error.message : 'Erro desconhecido' });
+    res.status(500).json({ error: 'Erro ao atualizar produto' });
   }
 };
 
@@ -364,7 +364,7 @@ export const deleteProduct = async (req: AuthRequest, res: Response): Promise<vo
 
     res.json({ message: 'Produto deletado com sucesso!' });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao deletar produto', details: error instanceof Error ? error.message : 'Erro desconhecido' });
+    res.status(500).json({ error: 'Erro ao deletar produto' });
   }
 };
 

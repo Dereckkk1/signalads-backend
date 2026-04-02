@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AIService, UserCriteria, BroadcasterCandidate } from '../services/AIService';
 import { User } from '../models/User';
 import { Product } from '../models/Product';
+import { escapeRegex } from '../utils/stringUtils';
 
 const aiService = new AIService();
 
@@ -26,7 +27,7 @@ export const generatePlan = async (req: Request, res: Response) => {
 
         const isRegionalSearch = criteria.location.toLowerCase().includes('regi') || cities.length > 1 || states.length > 0;
 
-        const regexCities = cities.map(c => new RegExp(c, 'i'));
+        const regexCities = cities.map((c: string) => new RegExp(escapeRegex(c), 'i'));
         const regexStates = states.map(s => new RegExp(`^${s}$`, 'i'));
 
         // Logic to limit coverage matching to the FIRST 5 CITIES only

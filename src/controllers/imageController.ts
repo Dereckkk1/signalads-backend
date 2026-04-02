@@ -11,7 +11,7 @@ const pipeline = promisify(stream.pipeline);
 const BASE_APP_URL = 'https://www.appsheet.com/image/getimageurl';
 const APP_NAME = 'E-Rádios-408183446-24-03-22-2';
 const VERSION_RADIOS = '1.002203';
-const SIGNATURE_IMAGE = 'a107f1dc96a649316127fec7b49d24ce2c7a224625d288be3423631f42d8ea3f';
+const SIGNATURE_IMAGE = process.env.IMAGE_SIGNATURE || '';
 
 // Diretório de cache
 const CACHE_DIR = path.join(__dirname, '../../cache/images');
@@ -62,7 +62,7 @@ export const getAppSheetImage = async (req: Request, res: Response) => {
         }
 
         // Protecao contra SSRF: apenas URLs HTTPS do dominio AppSheet sao permitidas
-        if (fileName.startsWith('http')) {
+        if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
             const allowedDomains = ['appsheet.com', 'www.appsheet.com'];
             try {
                 const urlObj = new URL(fileName);
