@@ -8,6 +8,8 @@ import Proposal from '../models/Proposal';
  * Alertas:
  * 1. Proposta visualizada 3+ vezes mas sem resposta há 5+ dias
  * 2. Propostas enviadas há 7+ dias sem visualização
+ *
+ * Suporta propostas de agências e emissoras (ownerType).
  */
 export function startProposalAlertsCron(): void {
   cron.schedule('0 9 * * 1-5', async () => { // 09:00, seg-sex
@@ -23,47 +25,54 @@ export function startProposalAlertsCron(): void {
         status: 'viewed',
         viewCount: { $gte: 3 },
         viewedAt: { $lt: fiveDaysAgo }
-      }).populate('agencyId', 'email companyName').lean();
+      }).populate('agencyId', 'email companyName').populate('broadcasterId', 'email companyName').lean();
 
       // 2. Propostas enviadas há 7+ dias sem visualização
       const sentNoView = await Proposal.find({
         status: 'sent',
         sentAt: { $lt: sevenDaysAgo }
-      }).populate('agencyId', 'email companyName').lean();
+      }).populate('agencyId', 'email companyName').populate('broadcasterId', 'email companyName').lean();
 
       if (viewedNoResponse.length === 0 && sentNoView.length === 0) return;
 
       try {
         const emailSvc = (await import('../services/emailService')).default;
 
-        // Agrupar por agência
-        const agencyAlerts = new Map<string, { email: string; name: string; viewed: any[]; stale: any[] }>();
+        // Agrupar por dono (agência ou emissora)
+        const ownerAlerts = new Map<string, { email: string; name: string; proposalsPath: string; viewed: any[]; stale: any[] }>();
+
+        const getOwner = (prop: any) => {
+          if (prop.ownerType === 'broadcaster' && prop.broadcasterId) {
+            return { owner: prop.broadcasterId as any, path: 'broadcaster/proposals' };
+          }
+          return { owner: prop.agencyId as any, path: 'proposals' };
+        };
 
         for (const prop of viewedNoResponse) {
-          const agency = prop.agencyId as any;
-          if (!agency?.email) continue;
-          const key = agency._id.toString();
-          if (!agencyAlerts.has(key)) {
-            agencyAlerts.set(key, { email: agency.email, name: agency.companyName || '', viewed: [], stale: [] });
+          const { owner, path } = getOwner(prop);
+          if (!owner?.email) continue;
+          const key = owner._id.toString();
+          if (!ownerAlerts.has(key)) {
+            ownerAlerts.set(key, { email: owner.email, name: owner.companyName || '', proposalsPath: path, viewed: [], stale: [] });
           }
-          agencyAlerts.get(key)!.viewed.push(prop);
+          ownerAlerts.get(key)!.viewed.push(prop);
         }
 
         for (const prop of sentNoView) {
-          const agency = prop.agencyId as any;
-          if (!agency?.email) continue;
-          const key = agency._id.toString();
-          if (!agencyAlerts.has(key)) {
-            agencyAlerts.set(key, { email: agency.email, name: agency.companyName || '', viewed: [], stale: [] });
+          const { owner, path } = getOwner(prop);
+          if (!owner?.email) continue;
+          const key = owner._id.toString();
+          if (!ownerAlerts.has(key)) {
+            ownerAlerts.set(key, { email: owner.email, name: owner.companyName || '', proposalsPath: path, viewed: [], stale: [] });
           }
-          agencyAlerts.get(key)!.stale.push(prop);
+          ownerAlerts.get(key)!.stale.push(prop);
         }
 
-        for (const [, data] of agencyAlerts) {
+        for (const [, data] of ownerAlerts) {
           let content = '';
 
           if (data.viewed.length > 0) {
-            content += '<h3 style="margin:0 0 8px;font-size:14px;">🔥 Propostas quentes (visualizadas mas sem resposta)</h3><ul>';
+            content += '<h3 style="margin:0 0 8px;font-size:14px;">Propostas quentes (visualizadas mas sem resposta)</h3><ul>';
             for (const p of data.viewed) {
               content += `<li><strong>${p.proposalNumber}</strong> — "${p.title}" (${p.clientName || 'cliente'}) · ${p.viewCount} visualizações</li>`;
             }
@@ -72,7 +81,7 @@ export function startProposalAlertsCron(): void {
 
           if (data.stale.length > 0) {
             if (content) content += '<br>';
-            content += '<h3 style="margin:0 0 8px;font-size:14px;">📭 Propostas sem visualização (7+ dias)</h3><ul>';
+            content += '<h3 style="margin:0 0 8px;font-size:14px;">Propostas sem visualização (7+ dias)</h3><ul>';
             for (const p of data.stale) {
               content += `<li><strong>${p.proposalNumber}</strong> — "${p.title}" (${p.clientName || 'cliente'})</li>`;
             }
@@ -84,7 +93,7 @@ export function startProposalAlertsCron(): void {
             icon: '📊',
             content,
             buttonText: 'Ver Propostas',
-            buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/proposals`,
+            buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${data.proposalsPath}`,
           });
 
           emailSvc.sendEmail?.({
@@ -94,7 +103,7 @@ export function startProposalAlertsCron(): void {
           });
         }
 
-        console.log(`[Cron] Alertas enviados para ${agencyAlerts.size} agência(s)`);
+        console.log(`[Cron] Alertas enviados para ${ownerAlerts.size} usuário(s)`);
       } catch (emailErr) {
         console.error('[Cron] Erro ao enviar alertas:', emailErr);
       }

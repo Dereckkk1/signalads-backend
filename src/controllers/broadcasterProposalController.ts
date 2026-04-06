@@ -5,9 +5,7 @@ import Proposal from '../models/Proposal';
 import ProposalTemplate from '../models/ProposalTemplate';
 import ProposalVersion from '../models/ProposalVersion';
 import { Product } from '../models/Product';
-import Order from '../models/Order';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
-import { sendOrderReceivedToClient, sendNewOrderToAdmin } from '../services/emailService';
 import ExcelJS from 'exceljs';
 import { uploadFile } from '../config/storage';
 import crypto from 'crypto';
@@ -28,16 +26,16 @@ function slugify(text: string): string {
     .substring(0, 50);
 }
 
-function requireAgency(req: AuthRequest, res: Response): boolean {
-  if (req.user?.userType !== 'agency') {
-    res.status(403).json({ error: 'Acesso restrito a agências' });
+function requireBroadcaster(req: AuthRequest, res: Response): boolean {
+  if (req.user?.userType !== 'broadcaster') {
+    res.status(403).json({ error: 'Acesso restrito a emissoras' });
     return false;
   }
   return true;
 }
 
-async function invalidateProposalCache(agencyId: string, slug?: string): Promise<void> {
-  await cacheInvalidate(`proposals:agency:${agencyId}*`);
+async function invalidateProposalCache(broadcasterId: string, slug?: string): Promise<void> {
+  await cacheInvalidate(`proposals:broadcaster:${broadcasterId}*`);
   if (slug) {
     await cacheInvalidate(`proposal:public:${slug}`);
   }
@@ -68,8 +66,8 @@ async function createVersion(proposalId: string, userId: string, changeType: 'ma
         grossAmount: proposal.grossAmount,
         techFee: proposal.techFee || 0,
         productionCost: proposal.productionCost || 0,
-        agencyCommission: proposal.agencyCommission,
-        agencyCommissionAmount: proposal.agencyCommissionAmount,
+        agencyCommission: 0,
+        agencyCommissionAmount: 0,
         monitoringCost: proposal.monitoringCost,
         discount: proposal.discount,
         discountAmount: proposal.discountAmount || 0,
@@ -96,15 +94,14 @@ async function createVersion(proposalId: string, userId: string, changeType: 'ma
 // ─── CRUD de Propostas ────────────────────────────────────────────────────
 
 /**
- * POST /api/proposals
- * Cria proposta a partir dos dados do marketplace (snapshot).
+ * POST /api/broadcaster-proposals
+ * Cria proposta a partir dos produtos da emissora (snapshot).
  */
 export const createProposal = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
-    const { items, clientId: rawClientId, agencyClientId, clientName, title, description, templateId, agencyCommission, isMonitoringEnabled, discount: discountInput } = req.body;
-    const clientId = rawClientId || agencyClientId;
+    const { items, clientName, title, description, templateId, isMonitoringEnabled, discount: discountInput } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       res.status(400).json({ error: 'Itens da proposta são obrigatórios' });
@@ -115,7 +112,7 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
     const marketplaceItems = items.filter((i: any) => !i.isCustom && i.productId);
     const customItems = items.filter((i: any) => i.isCustom);
 
-    // Validar precos dos itens do marketplace contra o banco
+    // Validar que os produtos pertencem a esta emissora
     const productIds = marketplaceItems.map((item: any) => item.productId);
     const products = productIds.length > 0
       ? await Product.find({ _id: { $in: productIds } }).populate('broadcasterId')
@@ -125,11 +122,17 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
     const proposalItems: any[] = [];
     let productsTotal = 0;
 
-    // Processar itens do marketplace
+    // Processar itens do marketplace (produtos da emissora)
     for (const item of marketplaceItems) {
       const product = productMap.get(item.productId?.toString());
       if (!product) {
         res.status(400).json({ error: `Produto ${item.productId} não encontrado` });
+        return;
+      }
+
+      // Validar que o produto pertence a esta emissora
+      if (product.broadcasterId?.toString() !== req.userId && (product.broadcasterId as any)?._id?.toString() !== req.userId) {
+        res.status(403).json({ error: `Produto ${item.productId} não pertence a esta emissora` });
         return;
       }
 
@@ -215,12 +218,8 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
     const recordingItems = proposalItems.filter((i: any) => i.needsRecording && !i.isCustom && !i.productName?.toLowerCase().startsWith('testemunhal'));
     const productionCost = recordingItems.length * 50;
 
-    // Calcular financeiro (snapshot)
+    // Calcular financeiro (snapshot) — SEM comissão de agência
     const grossAmount = parseFloat((productsTotal + productionCost).toFixed(2));
-    const agencyCommPct = agencyCommission || 0;
-    const agencyCommissionAmount = agencyCommPct
-      ? parseFloat((grossAmount * (agencyCommPct / 100)).toFixed(2))
-      : 0;
 
     let monitoringCost = 0;
     if (isMonitoringEnabled) {
@@ -240,7 +239,8 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
     const discountAmount = calculateDiscount(grossAmount, discountInput);
     const discount = discountInput?.value > 0 ? { type: discountInput.type, value: discountInput.value, reason: discountInput.reason } : undefined;
 
-    const totalAmount = parseFloat((grossAmount + techFee - discountAmount + agencyCommissionAmount + monitoringCost).toFixed(2));
+    // totalAmount = grossAmount + techFee - discountAmount + monitoringCost (sem comissão)
+    const totalAmount = parseFloat((grossAmount + techFee - discountAmount + monitoringCost).toFixed(2));
 
     // Gerar slug unico
     const slugBase = slugify(title || 'proposta-comercial');
@@ -249,15 +249,18 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
     // Se template foi selecionado, copiar customization
     let customization: any = undefined;
     if (templateId) {
-      const template = await ProposalTemplate.findById(templateId);
+      const template = await ProposalTemplate.findOne({
+        _id: templateId,
+        $or: [{ broadcasterId: req.userId }, { isDefault: true }]
+      });
       if (template) {
         customization = template.customization;
       }
     }
 
     const proposal = new Proposal({
-      agencyId: req.userId,
-      clientId: clientId || undefined,
+      ownerType: 'broadcaster',
+      broadcasterId: req.userId,
       clientName: clientName || undefined,
       title: title || 'Proposta Comercial',
       description: description || undefined,
@@ -266,8 +269,8 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
       grossAmount,
       techFee,
       productionCost,
-      agencyCommission: agencyCommPct,
-      agencyCommissionAmount,
+      agencyCommission: 0,
+      agencyCommissionAmount: 0,
       monitoringCost,
       discount,
       discountAmount,
@@ -291,18 +294,18 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
 };
 
 /**
- * GET /api/proposals
- * Lista propostas da agencia autenticada.
+ * GET /api/broadcaster-proposals
+ * Lista propostas da emissora autenticada.
  */
 export const getProposals = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const { status, search, page = '1', limit = '20' } = req.query;
     const pageNum = Math.max(1, parseInt(page as string));
     const limitNum = Math.min(50, Math.max(1, parseInt(limit as string)));
 
-    const filter: any = { agencyId: req.userId };
+    const filter: any = { broadcasterId: req.userId };
     if (status && status !== 'all') {
       filter.status = status;
     }
@@ -316,7 +319,6 @@ export const getProposals = async (req: AuthRequest, res: Response): Promise<voi
 
     const [proposals, total] = await Promise.all([
       Proposal.find(filter)
-        .populate('clientId', 'name documentNumber')
         .sort({ createdAt: -1 })
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
@@ -340,17 +342,17 @@ export const getProposals = async (req: AuthRequest, res: Response): Promise<voi
 };
 
 /**
- * GET /api/proposals/:id
+ * GET /api/broadcaster-proposals/:id
  * Detalhe de uma proposta (apenas owner).
  */
 export const getProposal = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const proposal = await Proposal.findOne({
       _id: req.params.id,
-      agencyId: req.userId
-    }).populate('clientId', 'name documentNumber email phone');
+      broadcasterId: req.userId
+    });
 
     if (!proposal) {
       res.status(404).json({ error: 'Proposta não encontrada' });
@@ -365,16 +367,16 @@ export const getProposal = async (req: AuthRequest, res: Response): Promise<void
 };
 
 /**
- * PUT /api/proposals/:id
+ * PUT /api/broadcaster-proposals/:id
  * Edita proposta (items, dados gerais, customizacao).
  */
 export const updateProposal = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const proposal = await Proposal.findOne({
       _id: req.params.id,
-      agencyId: req.userId
+      broadcasterId: req.userId
     });
 
     if (!proposal) {
@@ -382,13 +384,11 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const { title, description, clientId: rawClientId, agencyClientId, clientName, items, customization, validUntil, agencyCommission, isMonitoringEnabled, discount: discountInput } = req.body;
-    const clientId = rawClientId || agencyClientId;
+    const { title, description, clientName, items, customization, validUntil, isMonitoringEnabled, discount: discountInput } = req.body;
 
     // Atualizar campos basicos
     if (title !== undefined) proposal.title = title;
     if (description !== undefined) proposal.description = description;
-    if (clientId !== undefined) proposal.clientId = clientId || undefined;
     if (clientName !== undefined) proposal.clientName = clientName;
     if (validUntil !== undefined) proposal.validUntil = validUntil ? new Date(validUntil) : undefined;
 
@@ -421,8 +421,6 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       const prodCost = recordingItems.length * 50;
 
       const grossAmount = parseFloat((productsTotal + prodCost).toFixed(2));
-      const commPct = agencyCommission !== undefined ? agencyCommission : proposal.agencyCommission;
-      const commAmount = commPct ? parseFloat((grossAmount * (commPct / 100)).toFixed(2)) : 0;
 
       let monitoringCost = 0;
       if (isMonitoringEnabled) {
@@ -441,21 +439,18 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       proposal.grossAmount = grossAmount;
       proposal.techFee = techFee;
       proposal.productionCost = prodCost;
-      proposal.agencyCommission = commPct;
-      proposal.agencyCommissionAmount = commAmount;
+      proposal.agencyCommission = 0;
+      proposal.agencyCommissionAmount = 0;
       proposal.monitoringCost = monitoringCost;
       proposal.discountAmount = discountAmt;
-      proposal.totalAmount = parseFloat((grossAmount + techFee - discountAmt + commAmount + monitoringCost).toFixed(2));
-    } else if (agencyCommission !== undefined || discountInput !== undefined) {
+      proposal.totalAmount = parseFloat((grossAmount + techFee - discountAmt + monitoringCost).toFixed(2));
+    } else if (discountInput !== undefined) {
       // Recalcular sem alterar items
-      const commPct = agencyCommission !== undefined ? agencyCommission : proposal.agencyCommission;
-      proposal.agencyCommission = commPct;
-      proposal.agencyCommissionAmount = parseFloat((proposal.grossAmount * (commPct / 100)).toFixed(2));
       const techFee = parseFloat((proposal.grossAmount * 0.05).toFixed(2));
       proposal.techFee = techFee;
       const discountAmt = calculateDiscount(proposal.grossAmount, proposal.discount);
       proposal.discountAmount = discountAmt;
-      proposal.totalAmount = parseFloat((proposal.grossAmount + techFee - discountAmt + proposal.agencyCommissionAmount + proposal.monitoringCost).toFixed(2));
+      proposal.totalAmount = parseFloat((proposal.grossAmount + techFee - discountAmt + proposal.monitoringCost).toFixed(2));
     }
 
     await proposal.save();
@@ -472,12 +467,12 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
 };
 
 /**
- * PUT /api/proposals/:id/customization
+ * PUT /api/broadcaster-proposals/:id/customization
  * Atualiza apenas a customizacao visual (autosave do editor).
  */
 export const updateCustomization = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const { customization } = req.body;
     if (!customization) {
@@ -486,7 +481,7 @@ export const updateCustomization = async (req: AuthRequest, res: Response): Prom
     }
 
     const proposal = await Proposal.findOneAndUpdate(
-      { _id: req.params.id, agencyId: req.userId },
+      { _id: req.params.id, broadcasterId: req.userId },
       { $set: { customization } },
       { new: true }
     );
@@ -506,16 +501,16 @@ export const updateCustomization = async (req: AuthRequest, res: Response): Prom
 };
 
 /**
- * DELETE /api/proposals/:id
+ * DELETE /api/broadcaster-proposals/:id
  * Exclui proposta permanentemente.
  */
 export const deleteProposal = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const proposal = await Proposal.findOneAndDelete({
       _id: req.params.id,
-      agencyId: req.userId
+      broadcasterId: req.userId
     });
 
     if (!proposal) {
@@ -533,16 +528,16 @@ export const deleteProposal = async (req: AuthRequest, res: Response): Promise<v
 };
 
 /**
- * POST /api/proposals/:id/duplicate
+ * POST /api/broadcaster-proposals/:id/duplicate
  * Duplica proposta existente como rascunho.
  */
 export const duplicateProposal = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const original = await Proposal.findOne({
       _id: req.params.id,
-      agencyId: req.userId
+      broadcasterId: req.userId
     }).lean();
 
     if (!original) {
@@ -554,8 +549,8 @@ export const duplicateProposal = async (req: AuthRequest, res: Response): Promis
     const slug = `${slugBase}-${generateId(8)}`;
 
     const duplicate = new Proposal({
-      agencyId: original.agencyId,
-      clientId: original.clientId,
+      ownerType: 'broadcaster',
+      broadcasterId: original.broadcasterId,
       clientName: original.clientName,
       title: `Cópia de ${original.title}`,
       description: original.description,
@@ -563,9 +558,11 @@ export const duplicateProposal = async (req: AuthRequest, res: Response): Promis
       items: original.items,
       grossAmount: original.grossAmount,
       techFee: original.techFee || parseFloat((original.grossAmount * 0.05).toFixed(2)),
-      agencyCommission: original.agencyCommission,
-      agencyCommissionAmount: original.agencyCommissionAmount,
+      agencyCommission: 0,
+      agencyCommissionAmount: 0,
       monitoringCost: original.monitoringCost,
+      discount: original.discount,
+      discountAmount: original.discountAmount || 0,
       totalAmount: original.totalAmount,
       customization: original.customization,
       templateId: original.templateId,
@@ -583,16 +580,16 @@ export const duplicateProposal = async (req: AuthRequest, res: Response): Promis
 };
 
 /**
- * POST /api/proposals/:id/send
+ * POST /api/broadcaster-proposals/:id/send
  * Marca proposta como enviada.
  */
 export const sendProposal = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const proposal = await Proposal.findOne({
       _id: req.params.id,
-      agencyId: req.userId
+      broadcasterId: req.userId
     });
 
     if (!proposal) {
@@ -625,17 +622,17 @@ export const sendProposal = async (req: AuthRequest, res: Response): Promise<voi
 // ─── Upload de Imagens ────────────────────────────────────────────────────
 
 /**
- * POST /api/proposals/:id/upload
+ * POST /api/broadcaster-proposals/:id/upload
  * Upload de logo ou cover image para a proposta.
  * Expects multipart/form-data com campo 'file' e query ?type=logo|cover
  */
 export const uploadProposalImage = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const proposal = await Proposal.findOne({
       _id: req.params.id,
-      agencyId: req.userId
+      broadcasterId: req.userId
     });
 
     if (!proposal) {
@@ -677,236 +674,19 @@ export const uploadProposalImage = async (req: AuthRequest, res: Response): Prom
   }
 };
 
-// ─── Página Pública ───────────────────────────────────────────────────────
-
-/**
- * GET /api/proposals/public/:slug
- * Retorna dados da proposta para a pagina publica (sem auth).
- */
-export const getPublicProposal = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { slug } = req.params;
-
-    // Cache de 5min para pagina publica
-    const cacheKey = `proposal:public:${slug}`;
-    const cached = await cacheGet<any>(cacheKey);
-    if (cached) {
-      res.json(cached);
-      return;
-    }
-
-    const proposal = await Proposal.findOne({ slug })
-      .populate('agencyId', 'companyName fantasyName name email phone')
-      .populate('broadcasterId', 'companyName fantasyName name email phone broadcasterProfile')
-      .populate('clientId', 'name')
-      .lean();
-
-    if (!proposal) {
-      res.status(404).json({ error: 'Proposta não encontrada' });
-      return;
-    }
-
-    if (proposal.status === 'expired') {
-      res.status(410).json({ error: 'Esta proposta expirou', proposal: { title: proposal.title, status: 'expired' } });
-      return;
-    }
-
-    // Verificar proteção por PIN
-    if (proposal.protection?.enabled) {
-      // Retornar indicação de proteção (sem dados da proposta)
-      res.json({
-        proposal: null,
-        protected: true,
-        proposalNumber: proposal.proposalNumber,
-        title: proposal.title
-      });
-      return;
-    }
-
-    // Montar resposta publica (sem dados internos sensiveis)
-    const publicData = {
-      proposal: {
-        proposalNumber: proposal.proposalNumber,
-        title: proposal.title,
-        description: proposal.description,
-        items: proposal.items,
-        grossAmount: proposal.grossAmount,
-        techFee: proposal.techFee || 0,
-        agencyCommission: proposal.agencyCommission,
-        agencyCommissionAmount: proposal.agencyCommissionAmount,
-        productionCost: proposal.productionCost || 0,
-        monitoringCost: proposal.monitoringCost,
-        discount: proposal.discount ? { type: proposal.discount.type, value: proposal.discount.value } : undefined,
-        discountAmount: proposal.discountAmount || 0,
-        totalAmount: proposal.totalAmount,
-        customization: proposal.customization,
-        status: proposal.status,
-        validUntil: proposal.validUntil,
-        respondedAt: proposal.respondedAt,
-        responseNote: proposal.responseNote,
-        createdAt: proposal.createdAt,
-        ownerType: proposal.ownerType || 'agency',
-        agency: proposal.agencyId, // populated (agency proposals)
-        broadcaster: proposal.broadcasterId, // populated (broadcaster proposals)
-        client: proposal.clientId, // populated (nome apenas)
-        comments: proposal.comments || [],
-        approval: proposal.approval ? { name: proposal.approval.name, approvedAt: proposal.approval.approvedAt } : undefined,
-      }
-    };
-
-    await cacheSet(cacheKey, publicData, 300); // 5min
-
-    res.json(publicData);
-  } catch (error) {
-    console.error('Erro ao buscar proposta pública:', error);
-    res.status(500).json({ error: 'Erro ao buscar proposta' });
-  }
-};
-
-/**
- * POST /api/proposals/public/:slug/view
- * Registra visualizacao da proposta (fire-and-forget no frontend).
- */
-export const trackProposalView = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { slug } = req.params;
-
-    const update: any = {
-      $inc: { viewCount: 1 },
-      $set: { lastViewedAt: new Date() }
-    };
-
-    // Marca como 'viewed' apenas na primeira visualizacao se status for 'sent'
-    const proposal = await Proposal.findOne({ slug });
-    if (proposal && proposal.status === 'sent') {
-      update.$set.status = 'viewed';
-      update.$set.viewedAt = new Date();
-
-      // Notificar dono (agência ou emissora) que proposta foi visualizada
-      try {
-        const { User } = await import('../models/User');
-        const ownerId = proposal.ownerType === 'broadcaster' ? proposal.broadcasterId : proposal.agencyId;
-        const proposalsPath = proposal.ownerType === 'broadcaster' ? 'broadcaster/proposals' : 'proposals';
-        const owner = await User.findById(ownerId).lean();
-        if ((owner as any)?.email) {
-          const emailSvc = (await import('../services/emailService')).default;
-          const html = emailSvc.createEmailTemplate({
-            title: 'Proposta visualizada!',
-            icon: '👀',
-            content: `<p>O cliente abriu a proposta <strong>${proposal.proposalNumber}</strong> — "${proposal.title}".</p><p>Agora é um bom momento para acompanhar se há dúvidas ou negociações.</p>`,
-            buttonText: 'Ver Proposta',
-            buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${proposalsPath}/${proposal._id}`,
-          });
-          emailSvc.sendEmail?.({ to: (owner as any).email, subject: `Proposta ${proposal.proposalNumber} foi visualizada`, html });
-        }
-      } catch { /* silent - email não deve bloquear tracking */ }
-    }
-
-    await Proposal.updateOne({ slug }, update);
-
-    res.json({ ok: true });
-  } catch (error) {
-    // Nao quebrar a experiencia do cliente por erro de tracking
-    res.json({ ok: true });
-  }
-};
-
-/**
- * POST /api/proposals/public/:slug/respond
- * Cliente aprova ou recusa a proposta.
- */
-export const respondToProposal = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { slug } = req.params;
-    const { action, note, approvalName, approvalEmail } = req.body;
-
-    if (action !== 'approve' && action !== 'reject') {
-      res.status(400).json({ error: 'Ação deve ser "approve" ou "reject"' });
-      return;
-    }
-
-    const proposal = await Proposal.findOne({ slug });
-    if (!proposal) {
-      res.status(404).json({ error: 'Proposta não encontrada' });
-      return;
-    }
-
-    if (proposal.status === 'approved' || proposal.status === 'rejected') {
-      res.status(400).json({ error: 'Esta proposta já foi respondida' });
-      return;
-    }
-
-    if (proposal.status === 'expired') {
-      res.status(410).json({ error: 'Esta proposta expirou' });
-      return;
-    }
-
-    proposal.status = action === 'approve' ? 'approved' : 'rejected';
-    proposal.respondedAt = new Date();
-    proposal.responseNote = note || undefined;
-
-    // Capturar dados de aprovação formal (assinatura digital)
-    if (action === 'approve') {
-      proposal.approval = {
-        name: approvalName || undefined,
-        email: approvalEmail || undefined,
-        ip: (req as any).ip || (req as any).connection?.remoteAddress || undefined,
-        userAgent: req.headers['user-agent'] || undefined,
-        approvedAt: new Date()
-      };
-    }
-
-    await proposal.save();
-    const ownerId = proposal.ownerType === 'broadcaster' ? proposal.broadcasterId?.toString() : proposal.agencyId?.toString();
-    if (ownerId) await invalidateProposalCache(ownerId, slug);
-
-    // Enviar email para dono (agência ou emissora) notificando resposta
-    try {
-      const { User } = await import('../models/User');
-      const ownerIdForLookup = proposal.ownerType === 'broadcaster' ? proposal.broadcasterId : proposal.agencyId;
-      const proposalsPath = proposal.ownerType === 'broadcaster' ? 'broadcaster/proposals' : 'proposals';
-      const owner = await User.findById(ownerIdForLookup).lean();
-      if (owner?.email) {
-        const emailSvc = (await import('../services/emailService')).default;
-        const statusText = action === 'approve' ? 'aprovada' : 'recusada';
-        const html = emailSvc.createEmailTemplate({
-          title: `Proposta ${statusText}!`,
-          icon: action === 'approve' ? '✅' : '❌',
-          content: `
-            <p>O cliente <strong>${proposal.clientName || 'Anônimo'}</strong> <strong>${statusText}</strong> a proposta <strong>${proposal.proposalNumber}</strong> — "${proposal.title}".</p>
-            ${note ? `<p><strong>Observação do cliente:</strong> ${note}</p>` : ''}
-            <p>Valor total: <strong>R$ ${proposal.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></p>
-          `,
-          buttonText: 'Ver Proposta',
-          buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${proposalsPath}/${proposal._id}`,
-        });
-        await emailSvc.sendEmail?.({ to: owner.email, subject: `Proposta ${proposal.proposalNumber} ${statusText}`, html })
-          || console.log(`[DEV] Email de resposta: proposta ${statusText}`);
-      }
-    } catch (emailErr) {
-      console.error('Erro ao enviar email de resposta:', emailErr);
-    }
-
-    res.json({ message: action === 'approve' ? 'Proposta aprovada com sucesso' : 'Proposta recusada', status: proposal.status });
-  } catch (error) {
-    console.error('Erro ao responder proposta:', error);
-    res.status(500).json({ error: 'Erro ao responder proposta' });
-  }
-};
-
 // ─── Templates ────────────────────────────────────────────────────────────
 
 /**
- * GET /api/proposals/templates
- * Lista templates da agencia + templates padrao da plataforma.
+ * GET /api/broadcaster-proposals/templates
+ * Lista templates da emissora + templates padrao da plataforma.
  */
 export const getTemplates = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const templates = await ProposalTemplate.find({
       $or: [
-        { agencyId: req.userId },
+        { broadcasterId: req.userId },
         { isDefault: true }
       ]
     }).sort({ isDefault: -1, createdAt: -1 }).lean();
@@ -919,12 +699,12 @@ export const getTemplates = async (req: AuthRequest, res: Response): Promise<voi
 };
 
 /**
- * POST /api/proposals/templates
+ * POST /api/broadcaster-proposals/templates
  * Cria template a partir da customizacao atual.
  */
 export const createTemplate = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const { name, customization, category } = req.body;
 
@@ -940,7 +720,7 @@ export const createTemplate = async (req: AuthRequest, res: Response): Promise<v
 
     const template = new ProposalTemplate({
       name,
-      agencyId: req.userId,
+      broadcasterId: req.userId,
       customization,
       ...(category && { category }),
     });
@@ -955,18 +735,18 @@ export const createTemplate = async (req: AuthRequest, res: Response): Promise<v
 };
 
 /**
- * PUT /api/proposals/templates/:id
+ * PUT /api/broadcaster-proposals/templates/:id
  * Edita template (apenas owner).
  */
 export const updateTemplate = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const { name, customization, category } = req.body;
 
     const template = await ProposalTemplate.findOne({
       _id: req.params.id,
-      agencyId: req.userId,
+      broadcasterId: req.userId,
       isDefault: false // nao pode editar templates padrao
     });
 
@@ -989,16 +769,16 @@ export const updateTemplate = async (req: AuthRequest, res: Response): Promise<v
 };
 
 /**
- * DELETE /api/proposals/templates/:id
+ * DELETE /api/broadcaster-proposals/templates/:id
  * Exclui template (apenas owner, nao padrao).
  */
 export const deleteTemplate = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const template = await ProposalTemplate.findOneAndDelete({
       _id: req.params.id,
-      agencyId: req.userId,
+      broadcasterId: req.userId,
       isDefault: false
     });
 
@@ -1014,157 +794,15 @@ export const deleteTemplate = async (req: AuthRequest, res: Response): Promise<v
   }
 };
 
-// ─── Conversão Proposta → Pedido ─────────────────────────────────────────
-
-/**
- * POST /api/proposals/:id/convert
- * Converte proposta aprovada em pedido.
- */
-export const convertToOrder = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    if (!requireAgency(req, res)) return;
-
-    const proposal = await Proposal.findOne({
-      _id: req.params.id,
-      agencyId: req.userId
-    });
-
-    if (!proposal) {
-      res.status(404).json({ error: 'Proposta não encontrada' });
-      return;
-    }
-
-    if (proposal.status !== 'approved') {
-      res.status(400).json({ error: 'Apenas propostas aprovadas podem ser convertidas em pedido' });
-      return;
-    }
-
-    if (proposal.convertedOrderId) {
-      res.status(400).json({ error: 'Esta proposta já foi convertida em pedido' });
-      return;
-    }
-
-    // Buscar dados do comprador (agência)
-    const { User } = await import('../models/User');
-    const buyer = await User.findById(req.userId).lean();
-    if (!buyer) {
-      res.status(404).json({ error: 'Usuário não encontrado' });
-      return;
-    }
-
-    // Criar pedido a partir dos itens da proposta (apenas itens de marketplace)
-    const orderItems = proposal.items
-      .filter(item => !item.isCustom && item.productId && item.broadcasterId)
-      .map(item => ({
-        productId: item.productId,
-        productName: item.productName,
-        broadcasterName: item.broadcasterName,
-        broadcasterId: item.broadcasterId,
-        quantity: item.quantity,
-        unitPrice: item.adjustedPrice || item.unitPrice,
-        totalPrice: (item.adjustedPrice || item.unitPrice) * item.quantity,
-        schedule: item.schedule || new Map(),
-        material: { type: 'text' as const, text: '', status: 'pending_broadcaster_review' as const, chat: [] }
-      }));
-
-    if (orderItems.length === 0) {
-      res.status(400).json({ error: 'Proposta não contém itens válidos para conversão' });
-      return;
-    }
-
-    // Calcular valores financeiros
-    const grossAmount = proposal.grossAmount;
-    const broadcasterAmount = parseFloat((grossAmount * 0.75).toFixed(2));
-    const platformSplit = parseFloat((grossAmount * 0.20).toFixed(2));
-    const techFee = parseFloat((grossAmount * 0.05).toFixed(2));
-    const agencyCommission = proposal.agencyCommissionAmount || 0;
-    const monitoringCost = proposal.monitoringCost || 0;
-    const totalAmount = parseFloat((grossAmount + techFee + agencyCommission + monitoringCost).toFixed(2));
-
-    const order = new Order({
-      buyerId: (buyer as any)._id,
-      buyerName: (buyer as any).name || (buyer as any).companyName || (buyer as any).fantasyName || '',
-      buyerEmail: (buyer as any).email,
-      buyerPhone: (buyer as any).phone || '',
-      buyerDocument: (buyer as any).cpfOrCnpj || (buyer as any).cpf || '',
-      clientId: proposal.clientId,
-      items: orderItems,
-      payment: {
-        method: 'pending_contact',
-        status: 'pending',
-        walletAmountUsed: 0,
-        chargedAmount: totalAmount,
-        totalAmount: totalAmount
-      },
-      splits: [],
-      status: 'pending_contact',
-      grossAmount,
-      broadcasterAmount,
-      platformSplit,
-      techFee,
-      agencyCommission,
-      monitoringCost,
-      isMonitoringEnabled: monitoringCost > 0,
-      totalAmount,
-      subtotal: grossAmount,
-      platformFee: techFee,
-      billingInvoices: [],
-      billingDocuments: [],
-      broadcasterInvoices: [],
-      opecs: [],
-      notifications: [],
-      webhookLogs: []
-    });
-
-    await order.save();
-
-    // Atualizar proposta
-    proposal.status = 'converted';
-    proposal.convertedOrderId = order._id;
-    await proposal.save();
-    await invalidateProposalCache(req.userId!, proposal.slug);
-
-    // Enviar emails — fire-and-forget
-    sendOrderReceivedToClient({
-      orderNumber: order.orderNumber,
-      buyerName: (buyer as any).name || '',
-      buyerEmail: (buyer as any).email,
-      items: orderItems.map(i => ({ productName: i.productName, broadcasterName: i.broadcasterName || '' })),
-      totalValue: totalAmount
-    }).catch(err => console.error('Email error (client):', err));
-
-    User.find({ userType: 'admin' }).select('email').then(admins => {
-      const adminEmails = admins.map(a => a.email);
-      if (adminEmails.length > 0) {
-        sendNewOrderToAdmin({
-          orderNumber: order.orderNumber,
-          buyerName: (buyer as any).name || '',
-          buyerEmail: (buyer as any).email,
-          buyerPhone: (buyer as any).phone || '',
-          totalValue: totalAmount,
-          itemsCount: orderItems.length,
-          adminEmails,
-          isMonitoringEnabled: monitoringCost > 0
-        }).catch(err => console.error('Email error (admin):', err));
-      }
-    }).catch(err => console.error('Admin lookup error:', err));
-
-    res.json({ order, proposal });
-  } catch (error) {
-    console.error('Erro ao converter proposta em pedido:', error);
-    res.status(500).json({ error: 'Erro ao converter proposta em pedido' });
-  }
-};
-
 // ─── Comentários ─────────────────────────────────────────────────────────
 
 /**
- * POST /api/proposals/:id/comments
- * Adiciona comentário a uma seção (agency).
+ * POST /api/broadcaster-proposals/:id/comments
+ * Adiciona comentário a uma seção (broadcaster).
  */
 export const addComment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const { sectionId, text } = req.body;
     if (!sectionId || !text) {
@@ -1174,7 +812,7 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
 
     const proposal = await Proposal.findOne({
       _id: req.params.id,
-      agencyId: req.userId
+      broadcasterId: req.userId
     });
 
     if (!proposal) {
@@ -1187,9 +825,9 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
 
     proposal.comments.push({
       sectionId,
-      author: (user as any)?.companyName || (user as any)?.fantasyName || 'Agência',
+      author: (user as any)?.companyName || (user as any)?.fantasyName || 'Emissora',
       authorEmail: (user as any)?.email,
-      authorType: 'agency',
+      authorType: 'broadcaster',
       text,
       createdAt: new Date()
     });
@@ -1204,76 +842,17 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-/**
- * POST /api/proposals/public/:slug/comments
- * Adiciona comentário do cliente (público).
- */
-export const addPublicComment = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { slug } = req.params;
-    const { sectionId, text, author, authorEmail } = req.body;
-
-    if (!sectionId || !text || !author) {
-      res.status(400).json({ error: 'Seção, texto e nome são obrigatórios' });
-      return;
-    }
-
-    const proposal = await Proposal.findOne({ slug });
-    if (!proposal) {
-      res.status(404).json({ error: 'Proposta não encontrada' });
-      return;
-    }
-
-    proposal.comments.push({
-      sectionId,
-      author,
-      authorEmail: authorEmail || undefined,
-      authorType: 'client',
-      text,
-      createdAt: new Date()
-    });
-
-    await proposal.save();
-    const commentOwnerId = proposal.ownerType === 'broadcaster' ? proposal.broadcasterId?.toString() : proposal.agencyId?.toString();
-    if (commentOwnerId) await invalidateProposalCache(commentOwnerId, slug);
-
-    // Notificar dono (agência ou emissora) sobre novo comentário
-    try {
-      const { User } = await import('../models/User');
-      const ownerIdForComment = proposal.ownerType === 'broadcaster' ? proposal.broadcasterId : proposal.agencyId;
-      const commentProposalsPath = proposal.ownerType === 'broadcaster' ? 'broadcaster/proposals' : 'proposals';
-      const owner = await User.findById(ownerIdForComment).lean();
-      if ((owner as any)?.email) {
-        const emailSvc = (await import('../services/emailService')).default;
-        const html = emailSvc.createEmailTemplate({
-          title: 'Novo comentário na proposta',
-          icon: '💬',
-          content: `<p><strong>${author}</strong> comentou na proposta <strong>${proposal.proposalNumber}</strong>:</p><blockquote>${text}</blockquote>`,
-          buttonText: 'Ver Proposta',
-          buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${commentProposalsPath}/${proposal._id}`,
-        });
-        emailSvc.sendEmail?.({ to: (owner as any).email, subject: `Novo comentário — ${proposal.proposalNumber}`, html });
-      }
-    } catch { /* silent */ }
-
-    res.json({ comments: proposal.comments });
-  } catch (error) {
-    console.error('Erro ao adicionar comentário público:', error);
-    res.status(500).json({ error: 'Erro ao adicionar comentário' });
-  }
-};
-
 // ─── Versionamento ───────────────────────────────────────────────────────
 
 /**
- * GET /api/proposals/:id/versions
+ * GET /api/broadcaster-proposals/:id/versions
  * Lista versões de uma proposta.
  */
 export const getVersions = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
-    const proposal = await Proposal.findOne({ _id: req.params.id, agencyId: req.userId });
+    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: req.userId });
     if (!proposal) {
       res.status(404).json({ error: 'Proposta não encontrada' });
       return;
@@ -1291,14 +870,14 @@ export const getVersions = async (req: AuthRequest, res: Response): Promise<void
 };
 
 /**
- * POST /api/proposals/:id/versions/:versionId/restore
+ * POST /api/broadcaster-proposals/:id/versions/:versionId/restore
  * Restaura uma versão anterior.
  */
 export const restoreVersion = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
-    const proposal = await Proposal.findOne({ _id: req.params.id, agencyId: req.userId });
+    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: req.userId });
     if (!proposal) {
       res.status(404).json({ error: 'Proposta não encontrada' });
       return;
@@ -1319,8 +898,8 @@ export const restoreVersion = async (req: AuthRequest, res: Response): Promise<v
     proposal.items = snap.items;
     proposal.grossAmount = snap.grossAmount;
     proposal.techFee = snap.techFee || parseFloat((snap.grossAmount * 0.05).toFixed(2));
-    proposal.agencyCommission = snap.agencyCommission;
-    proposal.agencyCommissionAmount = snap.agencyCommissionAmount;
+    proposal.agencyCommission = 0;
+    proposal.agencyCommissionAmount = 0;
     proposal.monitoringCost = snap.monitoringCost;
     proposal.discount = snap.discount as any;
     proposal.discountAmount = snap.discountAmount || 0;
@@ -1340,15 +919,15 @@ export const restoreVersion = async (req: AuthRequest, res: Response): Promise<v
 // ─── Analytics ───────────────────────────────────────────────────────────
 
 /**
- * GET /api/proposals/analytics
- * Dashboard de analytics de propostas da agência.
+ * GET /api/broadcaster-proposals/analytics
+ * Dashboard de analytics de propostas da emissora.
  */
 export const getAnalytics = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
-    const agencyId = req.userId;
-    const agencyOid = new mongoose.Types.ObjectId(agencyId);
+    const broadcasterId = req.userId;
+    const broadcasterOid = new mongoose.Types.ObjectId(broadcasterId);
     const { period = '30' } = req.query; // dias
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(period as string));
@@ -1362,30 +941,30 @@ export const getAnalytics = async (req: AuthRequest, res: Response): Promise<voi
       totalValueAgg,
       avgResponseTime
     ] = await Promise.all([
-      Proposal.countDocuments({ agencyId }),
+      Proposal.countDocuments({ broadcasterId }),
       Proposal.aggregate([
-        { $match: { agencyId: agencyOid, createdAt: { $gte: startDate } } },
+        { $match: { broadcasterId: broadcasterOid, createdAt: { $gte: startDate } } },
         { $group: { _id: '$status', count: { $sum: 1 }, value: { $sum: '$totalAmount' } } }
       ]),
-      Proposal.find({ agencyId, createdAt: { $gte: startDate } })
+      Proposal.find({ broadcasterId, createdAt: { $gte: startDate } })
         .select('status totalAmount createdAt sentAt viewedAt respondedAt')
         .sort({ createdAt: -1 })
         .limit(50)
         .lean(),
       Proposal.aggregate([
-        { $match: { agencyId: agencyOid, status: { $in: ['approved', 'converted'] } } },
+        { $match: { broadcasterId: broadcasterOid, status: { $in: ['approved', 'converted'] } } },
         { $group: { _id: null, total: { $sum: '$totalAmount' }, count: { $sum: 1 } } }
       ]),
       Proposal.aggregate([
-        { $match: { agencyId: agencyOid, status: { $in: ['rejected', 'expired'] } } },
+        { $match: { broadcasterId: broadcasterOid, status: { $in: ['rejected', 'expired'] } } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } }
       ]),
       Proposal.aggregate([
-        { $match: { agencyId: agencyOid, createdAt: { $gte: startDate } } },
+        { $match: { broadcasterId: broadcasterOid, createdAt: { $gte: startDate } } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } }
       ]),
       Proposal.aggregate([
-        { $match: { agencyId: agencyOid, respondedAt: { $exists: true }, sentAt: { $exists: true } } },
+        { $match: { broadcasterId: broadcasterOid, respondedAt: { $exists: true }, sentAt: { $exists: true } } },
         { $project: { responseTime: { $subtract: ['$respondedAt', '$sentAt'] } } },
         { $group: { _id: null, avg: { $avg: '$responseTime' } } }
       ])
@@ -1443,53 +1022,19 @@ export const getAnalytics = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
-// ─── Tracking de Sessão ──────────────────────────────────────────────────
-
-/**
- * POST /api/proposals/public/:slug/session
- * Registra sessão de visualização (duração, scroll depth).
- */
-export const trackViewSession = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { slug } = req.params;
-    const { duration, scrollDepth } = req.body;
-
-    if (!duration || duration <= 0) {
-      res.json({ ok: true });
-      return;
-    }
-
-    await Proposal.updateOne(
-      { slug },
-      {
-        $push: {
-          viewSessions: {
-            $each: [{ startedAt: new Date(), duration: Math.min(duration, 3600), scrollDepth: Math.min(scrollDepth || 0, 100) }],
-            $slice: -100 // Máximo 100 sessões
-          }
-        }
-      }
-    );
-
-    res.json({ ok: true });
-  } catch {
-    res.json({ ok: true }); // Fire-and-forget
-  }
-};
-
 // ─── Proteção por PIN ────────────────────────────────────────────────────
 
 /**
- * POST /api/proposals/:id/protection
+ * POST /api/broadcaster-proposals/:id/protection
  * Ativa ou desativa proteção por PIN.
  */
 export const setProtection = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
     const { enabled, email } = req.body;
 
-    const proposal = await Proposal.findOne({ _id: req.params.id, agencyId: req.userId });
+    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: req.userId });
     if (!proposal) {
       res.status(404).json({ error: 'Proposta não encontrada' });
       return;
@@ -1528,43 +1073,6 @@ export const setProtection = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
-/**
- * POST /api/proposals/public/:slug/verify-pin
- * Verifica PIN para acessar proposta protegida.
- */
-export const verifyPin = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { slug } = req.params;
-    const { pin } = req.body;
-
-    const proposal = await Proposal.findOne({ slug }).select('protection').lean();
-    if (!proposal) {
-      res.status(404).json({ error: 'Proposta não encontrada' });
-      return;
-    }
-
-    if (!proposal.protection?.enabled) {
-      res.json({ verified: true });
-      return;
-    }
-
-    if (proposal.protection.expiresAt && new Date(proposal.protection.expiresAt) < new Date()) {
-      res.status(410).json({ error: 'Código expirado. Solicite um novo à agência.' });
-      return;
-    }
-
-    if (proposal.protection.pin !== pin) {
-      res.status(401).json({ error: 'Código incorreto' });
-      return;
-    }
-
-    res.json({ verified: true });
-  } catch (error) {
-    console.error('Erro ao verificar PIN:', error);
-    res.status(500).json({ error: 'Erro ao verificar código' });
-  }
-};
-
 // ─── Exportar Proposta XLSX ──────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
@@ -1573,9 +1081,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 /**
- * Gera workbook XLSX a partir de uma proposta (usado por rota autenticada e pública).
+ * Gera workbook XLSX a partir de uma proposta de emissora (sem comissão de agência).
  */
-async function buildProposalWorkbook(proposal: any): Promise<ExcelJS.Workbook> {
+async function buildBroadcasterProposalWorkbook(proposal: any): Promise<ExcelJS.Workbook> {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'SignalAds';
     wb.created = new Date();
@@ -1596,7 +1104,6 @@ async function buildProposalWorkbook(proposal: any): Promise<ExcelJS.Workbook> {
     };
 
     const currencyFmt = '#.##0,00;-#.##0,00';
-    const pctFmt = '0,00"%"';
 
     const fmtCurrency = (v: number) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
     const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
@@ -1651,12 +1158,7 @@ async function buildProposalWorkbook(proposal: any): Promise<ExcelJS.Workbook> {
     };
 
     row = addSectionHeader(ws1, row, 'DADOS GERAIS');
-    const client: any = proposal.clientId;
-    addKeyValue(ws1, row, 'Cliente', (client?.name || (proposal as any).clientName || '—'));
-    addKeyValue(ws1, row, 'Documento', client?.documentNumber || '—', 3);
-    row++;
-    addKeyValue(ws1, row, 'E-mail', client?.email || '—');
-    addKeyValue(ws1, row, 'Telefone', client?.phone || '—', 3);
+    addKeyValue(ws1, row, 'Cliente', (proposal as any).clientName || '—');
     row++;
     addKeyValue(ws1, row, 'Válida até', fmtDate(proposal.validUntil));
     addKeyValue(ws1, row, 'Criada em', fmtDateTime(proposal.createdAt), 3);
@@ -1692,9 +1194,8 @@ async function buildProposalWorkbook(proposal: any): Promise<ExcelJS.Workbook> {
 
     finRows.push(['Taxa de Serviço (5%)', fmtCurrency(proposal.techFee || 0)]);
 
-    if (proposal.agencyCommission > 0) {
-      finRows.push([`Comissão Agência (${proposal.agencyCommission}%)`, fmtCurrency(proposal.agencyCommissionAmount)]);
-    }
+    // NO agency commission rows for broadcaster proposals
+
     if (proposal.monitoringCost > 0) {
       finRows.push(['Radio Analytics', fmtCurrency(proposal.monitoringCost)]);
     }
@@ -1865,7 +1366,6 @@ async function buildProposalWorkbook(proposal: any): Promise<ExcelJS.Workbook> {
     tType.border = thinBorder;
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ═══════════════════════════════════════════════════════════════════════
     // ABA 3: DISTRIBUIÇÃO (Cronograma de Veiculação)
     // ═══════════════════════════════════════════════════════════════════════
     // Verifica se há schedule data
@@ -1967,15 +1467,14 @@ async function sendWorkbook(res: Response, wb: ExcelJS.Workbook, filename: strin
 }
 
 /**
- * GET /api/proposals/:id/export
- * Exporta XLSX (rota autenticada — agency).
+ * GET /api/broadcaster-proposals/:id/export
+ * Exporta XLSX (rota autenticada — broadcaster).
  */
 export const exportProposalXlsx = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!requireAgency(req, res)) return;
+    if (!requireBroadcaster(req, res)) return;
 
-    const proposal = await Proposal.findOne({ _id: req.params.id, agencyId: req.userId })
-      .populate('clientId', 'name documentNumber email phone')
+    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: req.userId })
       .lean();
 
     if (!proposal) {
@@ -1983,7 +1482,7 @@ export const exportProposalXlsx = async (req: AuthRequest, res: Response): Promi
       return;
     }
 
-    const wb = await buildProposalWorkbook(proposal);
+    const wb = await buildBroadcasterProposalWorkbook(proposal);
     await sendWorkbook(res, wb, `${proposal.proposalNumber || 'proposta'}.xlsx`);
   } catch (error) {
     console.error('Erro ao exportar proposta XLSX:', error);
@@ -1991,28 +1490,26 @@ export const exportProposalXlsx = async (req: AuthRequest, res: Response): Promi
   }
 };
 
+// ─── Produtos da Emissora ────────────────────────────────────────────────
+
 /**
- * GET /api/proposals/public/:slug/export
- * Exporta XLSX (rota pública — cliente via link).
+ * GET /api/broadcaster-proposals/my-products
+ * Retorna produtos ativos da emissora para seleção ao criar propostas.
  */
-export const exportPublicProposalXlsx = async (req: Request, res: Response): Promise<void> => {
+export const getMyProducts = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const proposal = await Proposal.findOne({
-      slug: req.params.slug,
-      status: { $in: ['sent', 'viewed', 'approved', 'rejected', 'converted'] }
+    if (!requireBroadcaster(req, res)) return;
+
+    const products = await Product.find({
+      broadcasterId: req.userId,
+      isActive: true
     })
-      .populate('clientId', 'name documentNumber email phone')
+      .populate('broadcasterId', 'companyName fantasyName address broadcasterProfile')
       .lean();
 
-    if (!proposal) {
-      res.status(404).json({ error: 'Proposta não encontrada' });
-      return;
-    }
-
-    const wb = await buildProposalWorkbook(proposal);
-    await sendWorkbook(res, wb, `${proposal.proposalNumber || 'proposta'}.xlsx`);
+    res.json({ products });
   } catch (error) {
-    console.error('Erro ao exportar proposta XLSX (público):', error);
-    res.status(500).json({ error: 'Erro ao gerar planilha' });
+    console.error('Erro ao buscar produtos:', error);
+    res.status(500).json({ error: 'Erro ao buscar produtos da emissora' });
   }
 };

@@ -33,6 +33,11 @@ export interface IProposalItem {
   band?: string;
   population?: number;
   pmm?: number;
+  // Audience snapshot
+  categories?: string[];
+  audienceGenderFemale?: number;
+  audienceAgeRange?: string;
+  audienceSocialClass?: string;
 }
 
 export interface IProposalKpi {
@@ -82,7 +87,7 @@ export interface IProposalComment {
   sectionId: string; // ex: 'header', 'table', 'custom-abc123'
   author: string; // nome
   authorEmail?: string;
-  authorType: 'client' | 'agency';
+  authorType: 'client' | 'agency' | 'broadcaster';
   text: string;
   createdAt: Date;
 }
@@ -111,6 +116,7 @@ export interface IProposalCustomization {
   titleFont: string;
   bodyFont: string;
   sectionOrder: string[];
+  layoutRows?: string[][]; // e.g. [['header'], ['kpis', 'metrics'], ['map']]
   hiddenSections: string[];
   hiddenElements: string[];
   // KPIs dinâmicos (1-8) — substitui kpi1-4 hardcoded
@@ -173,7 +179,9 @@ export interface IProposal extends Document {
   slug: string;
 
   // Ownership
-  agencyId: mongoose.Types.ObjectId;
+  ownerType: 'agency' | 'broadcaster';
+  agencyId?: mongoose.Types.ObjectId;
+  broadcasterId?: mongoose.Types.ObjectId;
   clientId?: mongoose.Types.ObjectId;
   clientName?: string;
 
@@ -234,7 +242,9 @@ const ProposalSchema = new Schema<IProposal>({
   proposalNumber: { type: String, required: true, unique: true },
   slug: { type: String, required: true, unique: true },
 
-  agencyId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  ownerType: { type: String, enum: ['agency', 'broadcaster'], default: 'agency' },
+  agencyId: { type: Schema.Types.ObjectId, ref: 'User' },
+  broadcasterId: { type: Schema.Types.ObjectId, ref: 'User' },
   clientId: { type: Schema.Types.ObjectId, ref: 'AgencyClient' },
   clientName: { type: String },
 
@@ -270,7 +280,12 @@ const ProposalSchema = new Schema<IProposal>({
     dial: { type: String },
     band: { type: String },
     population: { type: Number },
-    pmm: { type: Number }
+    pmm: { type: Number },
+    // Audience snapshot
+    categories: [{ type: String }],
+    audienceGenderFemale: { type: Number },
+    audienceAgeRange: { type: String },
+    audienceSocialClass: { type: String },
   }],
 
   // ─── Financeiro ─────────────────────────────────────────────────────────
@@ -302,6 +317,7 @@ const ProposalSchema = new Schema<IProposal>({
     titleFont: { type: String, default: 'Space Grotesk' },
     bodyFont: { type: String, default: 'Fira Sans Condensed' },
     sectionOrder: { type: [String], default: DEFAULT_SECTION_ORDER },
+    layoutRows: { type: [[String]] },
     hiddenSections: { type: [String], default: [] },
     hiddenElements: { type: [String], default: [] },
 
@@ -409,7 +425,7 @@ const ProposalSchema = new Schema<IProposal>({
     sectionId: { type: String, required: true },
     author: { type: String, required: true },
     authorEmail: { type: String },
-    authorType: { type: String, enum: ['client', 'agency'], required: true },
+    authorType: { type: String, enum: ['client', 'agency', 'broadcaster'], required: true },
     text: { type: String, required: true },
     createdAt: { type: Date, default: Date.now }
   }], default: [] },
@@ -462,5 +478,11 @@ ProposalSchema.index({ status: 1, validUntil: 1 });
 
 // Propostas de um cliente especifico
 ProposalSchema.index({ clientId: 1, createdAt: -1 });
+
+// Listagem de propostas da emissora (query principal)
+ProposalSchema.index({ broadcasterId: 1, createdAt: -1 });
+
+// Filtro por status da emissora
+ProposalSchema.index({ broadcasterId: 1, status: 1 });
 
 export default mongoose.model<IProposal>('Proposal', ProposalSchema);

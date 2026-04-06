@@ -97,12 +97,15 @@ router.post('/vitals', vitalsLimiter, (req: Request, res: Response) => {
         // Sem name/value válidos → ignora silenciosamente
         if (!name || value === undefined || typeof value !== 'number') return;
 
-        const rounded = Math.round(value);
+        // CLS é score decimal (0.001–1+), não pode arredondar para inteiro
+        const stored = name === 'CLS'
+            ? parseFloat(value.toFixed(4))
+            : Math.round(value);
 
         // Persiste no MongoDB (assíncrono, fire-and-forget)
         WebVital.create({
             name,
-            value: rounded,
+            value: stored,
             rating,
             page,
             timestamp: new Date(),

@@ -4,6 +4,7 @@ import { IProposalKpi, IProposalMetric, ICustomSection } from './Proposal';
 export interface IProposalTemplate extends Document {
   name: string;
   agencyId?: mongoose.Types.ObjectId; // null = template padrao da plataforma
+  broadcasterId?: mongoose.Types.ObjectId; // null = template padrao da plataforma
   isDefault: boolean;
   category?: string; // ex: 'varejo', 'automotivo', 'saude', 'governo', 'educacao', 'geral'
 
@@ -18,6 +19,7 @@ export interface IProposalTemplate extends Document {
     titleFont: string;
     bodyFont: string;
     sectionOrder: string[];
+    layoutRows?: string[][];
     hiddenSections: string[];
     hiddenElements: string[];
     // Templates Pro: salvam conteúdo além de visual
@@ -63,6 +65,7 @@ const DEFAULT_SECTION_ORDER = ['header', 'briefing', 'kpis', 'metrics', 'map', '
 const ProposalTemplateSchema = new Schema<IProposalTemplate>({
   name: { type: String, required: true },
   agencyId: { type: Schema.Types.ObjectId, ref: 'User' },
+  broadcasterId: { type: Schema.Types.ObjectId, ref: 'User' },
   isDefault: { type: Boolean, default: false },
   category: { type: String, enum: ['varejo', 'automotivo', 'saude', 'governo', 'educacao', 'geral', null], default: null },
 
@@ -77,6 +80,7 @@ const ProposalTemplateSchema = new Schema<IProposalTemplate>({
     titleFont: { type: String, default: 'Space Grotesk' },
     bodyFont: { type: String, default: 'Fira Sans Condensed' },
     sectionOrder: { type: [String], default: DEFAULT_SECTION_ORDER },
+    layoutRows: { type: [[String]] },
     hiddenSections: { type: [String], default: [] },
     hiddenElements: { type: [String], default: [] },
     kpis: { type: [{ value: String, label: String, color: String, visible: { type: Boolean, default: true } }], default: [] },
@@ -116,6 +120,9 @@ const ProposalTemplateSchema = new Schema<IProposalTemplate>({
 
 // Templates de uma agencia especifica
 ProposalTemplateSchema.index({ agencyId: 1 });
+
+// Templates de uma emissora especifica
+ProposalTemplateSchema.index({ broadcasterId: 1 });
 
 // Templates padrao da plataforma
 ProposalTemplateSchema.index({ isDefault: 1 });

@@ -20,6 +20,7 @@ import productRequestRoutes from './routes/productRequestRoutes';
 import profileRequestRoutes from './routes/profileRequestRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import proposalRoutes from './routes/proposalRoutes';
+import broadcasterProposalRoutes from './routes/broadcasterProposalRoutes';
 import { startBackupCron } from './cron/backupCron';
 import { startExpireProposalsCron } from './cron/expireProposals';
 import { startProposalAlertsCron } from './cron/proposalAlerts';
@@ -148,6 +149,7 @@ app.use('/api/product-requests', productRequestRoutes); // Rotas de solicitaçõ
 app.use('/api/profile-requests', profileRequestRoutes); // Rotas de solicitações de perfil (emissoras)
 app.use('/api/payment', paymentRoutes); // Checkout (criação de pedido)
 app.use('/api/proposals', proposalRoutes); // Propostas comerciais de agências
+app.use('/api/broadcaster-proposals', broadcasterProposalRoutes); // Propostas comerciais de emissoras
 
 // Rota de teste
 app.get('/', (req: Request, res: Response) => {

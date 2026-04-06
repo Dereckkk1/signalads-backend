@@ -32,15 +32,16 @@ export function startExpireProposalsCron(): void {
       const expiringProposals = await Proposal.find({
         validUntil: { $gte: today, $lte: threeDaysFromNow },
         status: { $in: ['sent', 'viewed'] }
-      }).populate('agencyId', 'email companyName').lean();
+      }).populate('agencyId', 'email companyName').populate('broadcasterId', 'email companyName').lean();
 
       if (expiringProposals.length > 0) {
         try {
           const emailSvc = (await import('../services/emailService')).default;
 
           for (const prop of expiringProposals) {
-            const agency = prop.agencyId as any;
-            if (!agency?.email) continue;
+            const owner = prop.ownerType === 'broadcaster' ? prop.broadcasterId as any : prop.agencyId as any;
+            const proposalsPath = prop.ownerType === 'broadcaster' ? 'broadcaster/proposals' : 'proposals';
+            if (!owner?.email) continue;
 
             const daysLeft = Math.ceil((new Date(prop.validUntil!).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
             const html = emailSvc.createEmailTemplate({
@@ -48,11 +49,11 @@ export function startExpireProposalsCron(): void {
               icon: '⏰',
               content: `<p>A proposta <strong>${prop.proposalNumber}</strong> — "${prop.title}" para <strong>${prop.clientName || 'cliente'}</strong> expira em <strong>${daysLeft} dia${daysLeft !== 1 ? 's' : ''}</strong>.</p><p>Status atual: <strong>${prop.status === 'viewed' ? 'Visualizada' : 'Enviada'}</strong></p>`,
               buttonText: 'Ver Proposta',
-              buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/proposals/${prop._id}`,
+              buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${proposalsPath}/${prop._id}`,
             });
 
             emailSvc.sendEmail?.({
-              to: agency.email,
+              to: owner.email,
               subject: `Proposta ${prop.proposalNumber} expira em ${daysLeft} dia${daysLeft !== 1 ? 's' : ''}`,
               html
             });

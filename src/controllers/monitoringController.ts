@@ -221,12 +221,15 @@ export const getVitals = async (req: Request, res: Response) => {
             const p75 = sorted[Math.floor(count * 0.75)] ?? 0;
             const total = v.poorCount + v.goodCount + v.needsImprovementCount;
 
+            // CLS é score decimal (0.001–1+), preserva precisão
+            const isCLS = v._id.name === 'CLS';
+
             return {
                 name: v._id.name,
                 page: v._id.page,
                 count,
-                avg: Math.round(v.avg),
-                p75: Math.round(p75),
+                avg: isCLS ? parseFloat(v.avg.toFixed(4)) : Math.round(v.avg),
+                p75: isCLS ? parseFloat(p75.toFixed(4)) : Math.round(p75),
                 goodPercent: total > 0 ? `${((v.goodCount / total) * 100).toFixed(1)}%` : '0%',
                 poorPercent: total > 0 ? `${((v.poorCount / total) * 100).toFixed(1)}%` : '0%',
                 goodCount: v.goodCount,
