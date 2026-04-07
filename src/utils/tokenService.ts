@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { Response, Request } from 'express';
 import RefreshToken from '../models/RefreshToken';
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = process.env.NODE_ENV !== 'development';
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias

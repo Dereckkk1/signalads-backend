@@ -21,6 +21,7 @@ import profileRequestRoutes from './routes/profileRequestRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import proposalRoutes from './routes/proposalRoutes';
 import broadcasterProposalRoutes from './routes/broadcasterProposalRoutes';
+import testReportRoutes from './routes/testReportRoutes';
 import { startBackupCron } from './cron/backupCron';
 import { startExpireProposalsCron } from './cron/expireProposals';
 import { startProposalAlertsCron } from './cron/proposalAlerts';
@@ -32,6 +33,7 @@ import hpp from 'hpp';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { redis } from './config/redis';
+import { createRedisStore } from './config/rateLimitStore';
 import { mongoSanitize, xssSanitize } from './middleware/security';
 import { csrfProtection } from './middleware/csrf';
 import { metricsMiddleware } from './middleware/metrics';
@@ -96,7 +98,7 @@ app.use(helmet({
   },
 }));
 
-// Rate Limit Global — 2000 req/min por IP (suporta 200+ usuarios simultaneos)
+// Rate Limit Global — 2000 req/min por IP (Redis store para persistir entre restarts #7)
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 2000,
@@ -104,6 +106,7 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.path === '/api/health' || req.path === '/health',
+  store: createRedisStore('global'),
 });
 app.use(limiter);
 
@@ -150,6 +153,7 @@ app.use('/api/profile-requests', profileRequestRoutes); // Rotas de solicitaçõ
 app.use('/api/payment', paymentRoutes); // Checkout (criação de pedido)
 app.use('/api/proposals', proposalRoutes); // Propostas comerciais de agências
 app.use('/api/broadcaster-proposals', broadcasterProposalRoutes); // Propostas comerciais de emissoras
+app.use('/api/test-reports', testReportRoutes); // Dashboard de testes (admin only)
 
 // Rota de teste
 app.get('/', (req: Request, res: Response) => {

@@ -20,6 +20,19 @@ export const validatePasswordStrength = (password: string): string | null => {
   return null;
 };
 
+/** Seta cookie de device fingerprint se nao existir (#31) */
+function ensureDeviceFingerprintCookie(req: Request, res: Response): void {
+  if (!req.cookies?.device_fp) {
+    res.cookie('device_fp', crypto.randomBytes(32).toString('hex'), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== 'development',
+      sameSite: 'lax',
+      maxAge: 365 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+  }
+}
+
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password, userType, cpfOrCnpj, companyName, fantasyName, phone, cnpj, address } = req.body;
@@ -181,20 +194,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verificar se email foi confirmado
+    // Verificar se email foi confirmado — mensagem generica para nao revelar estado da conta
     if (user.emailConfirmed === false) {
-      res.status(403).json({
+      res.status(401).json({
         error: 'email_not_confirmed',
-        message: 'Seu email ainda não foi confirmado. Verifique sua caixa de entrada.'
+        message: 'Credenciais inválidas ou email não confirmado. Verifique sua caixa de entrada.'
       });
       return;
     }
 
-    // Verificar ban: qualquer usuário com status 'rejected' está banido e não pode logar
+    // Verificar ban — mensagem generica (nao revelar status exato da conta)
     if (user.status === 'rejected') {
-      res.status(403).json({
-        error: 'account_rejected',
-        message: user.rejectionReason || 'Sua conta foi suspensa. Você pode entrar em contato com o suporte se achar que isso foi um erro.'
+      res.status(401).json({
+        error: 'Credenciais inválidas'
       });
       return;
     }
@@ -202,14 +214,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Verificar se 2FA está habilitado
     if (user.twoFactorEnabled && user.twoFactorConfirmedAt) {
 
-      // Cria ID único do dispositivo baseado em user-agent e IP
+      // Device fingerprint: cookie persistente + user-agent + IP (#31)
       const userAgent = req.headers['user-agent'] || 'unknown';
       const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
-      const deviceId = crypto.createHash('sha256').update(`${userAgent}${ipAddress}`).digest('hex');
+      const cookieFingerprint = req.cookies?.device_fp || '';
+      const deviceId = crypto.createHash('sha256').update(`${cookieFingerprint}${userAgent}${ipAddress}`).digest('hex');
 
-
-      // Verifica se dispositivo é confiável
-      const isTrustedDevice = user.trustedDevices?.some(d => d.deviceId === deviceId);
+      // Trusted device expiry: 90 dias (#32)
+      const TRUSTED_DEVICE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+      const isTrustedDevice = user.trustedDevices?.some(d => {
+        if (d.deviceId !== deviceId) return false;
+        const createdAt = d.createdAt ? new Date(d.createdAt).getTime() : 0;
+        return (Date.now() - createdAt) < TRUSTED_DEVICE_TTL_MS;
+      });
 
       if (isTrustedDevice) {
         // Atualiza lastUsed do dispositivo
@@ -222,15 +239,31 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         }
       } else {
 
+        // Cooldown por email: impede envio de multiplos codigos em menos de 60s
+        if (user.twoFactorCodeExpires && user.twoFactorCode) {
+          const codeCreatedAt = new Date(user.twoFactorCodeExpires.getTime() - 10 * 60 * 1000); // expiry - 10min = created
+          const secondsSinceLastCode = (Date.now() - codeCreatedAt.getTime()) / 1000;
+          if (secondsSinceLastCode < 60) {
+            res.json({
+              requiresTwoFactor: true,
+              message: 'Código de verificação já enviado. Verifique seu email.',
+              userId: user.twoFactorSessionToken
+            });
+            return;
+          }
+        }
+
         // Gera código de 6 dígitos
         const twoFactorCode = crypto.randomInt(100000, 999999).toString();
         const codeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
 
-        user.twoFactorCode = twoFactorCode;
+        // Hash do codigo antes de salvar no banco — protege contra leak de DB
+        const codeHash = crypto.createHash('sha256').update(twoFactorCode).digest('hex');
+        user.twoFactorCode = codeHash;
         user.twoFactorCodeExpires = codeExpires;
         await user.save();
 
-        // Envia email com código
+        // Envia email com código em plaintext (hash fica no banco)
         await sendTwoFactorCodeEmail(user.email, user.name || user.companyName || 'Usuário', twoFactorCode);
 
         // Token opaco em vez de ObjectId real — evita enumeracao de usuarios
@@ -248,14 +281,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    // Gerar tokens (access 15min + refresh 7d em cookies httpOnly)
+    // Device fingerprint + tokens (access 15min + refresh 7d em cookies httpOnly)
+    ensureDeviceFingerprintCookie(req, res);
     const accessToken = generateAccessToken(user._id.toString());
     const { rawToken: refreshTokenRaw } = await generateRefreshToken(user._id.toString(), req);
     setAuthCookies(res, accessToken, refreshTokenRaw);
 
     res.json({
       message: 'Login realizado com sucesso!',
-      token: accessToken, // compatibilidade com frontend antigo
       user: {
         id: user._id,
         email: user.email,
@@ -335,23 +368,31 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
       }
     });
 
-    // Verificar se email já está em uso por outro usuário
+    // Troca de email exige reautenticacao com senha atual
     if (filteredUpdates.email) {
-      const existingUser = await User.findOne({
-        email: filteredUpdates.email,
-        _id: { $ne: userId }
-      });
-
-      if (existingUser) {
-        res.status(400).json({ error: 'Email já está em uso' });
-        return;
-      }
-    }
-
-    // Se email mudou, resetar confirmação
-    if (filteredUpdates.email) {
-      const currentUser = await User.findById(userId).select('email');
+      const currentUser = await User.findById(userId).select('email password');
       if (currentUser && filteredUpdates.email !== currentUser.email) {
+        const { currentPassword } = updates;
+        if (!currentPassword) {
+          res.status(400).json({ error: 'Senha atual é obrigatória para alterar o email' });
+          return;
+        }
+        const isPasswordValid = await bcrypt.compare(currentPassword, currentUser.password);
+        if (!isPasswordValid) {
+          res.status(401).json({ error: 'Senha atual incorreta' });
+          return;
+        }
+
+        // Verificar se email já está em uso por outro usuário
+        const existingUser = await User.findOne({
+          email: filteredUpdates.email,
+          _id: { $ne: userId }
+        });
+        if (existingUser) {
+          res.status(400).json({ error: 'Email já está em uso' });
+          return;
+        }
+
         filteredUpdates.emailConfirmed = false;
       }
     }
@@ -419,6 +460,9 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
 
     // Invalida cache de auth
     await invalidateUserCache(user._id.toString());
+
+    // Revoga todas as sessoes ativas — impede uso de tokens roubados apos troca de senha
+    await revokeAllUserTokens(user._id.toString());
 
     res.json({ message: 'Senha alterada com sucesso' });
   } catch (error: any) {
@@ -565,14 +609,14 @@ export const validateTwoFactorLogin = async (req: Request, res: Response): Promi
     user.twoFactorPendingTokenExpires = undefined;
     await user.save();
 
-    // Gerar tokens (access 15min + refresh 7d em cookies httpOnly)
+    // Device fingerprint + tokens (access 15min + refresh 7d em cookies httpOnly)
+    ensureDeviceFingerprintCookie(req, res);
     const accessToken = generateAccessToken(user._id.toString());
     const { rawToken: refreshTokenRaw } = await generateRefreshToken(user._id.toString(), req);
     setAuthCookies(res, accessToken, refreshTokenRaw);
 
     res.json({
       message: 'Login realizado com sucesso!',
-      token: accessToken, // compatibilidade com frontend antigo
       user: {
         id: user._id,
         email: user.email,
@@ -610,8 +654,9 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Limita tentativas falhas — invalida codigo apos 5 erros
-    if (user.twoFactorCode !== code) {
+    // Compara hash do codigo informado com hash armazenado no banco
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+    if (user.twoFactorCode !== codeHash) {
       user.twoFactorAttempts = (user.twoFactorAttempts || 0) + 1;
       if (user.twoFactorAttempts >= 5) {
         user.twoFactorCode = undefined;
@@ -667,14 +712,14 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
     user.twoFactorAttempts = 0;
     await user.save();
 
-    // Gerar tokens (access 15min + refresh 7d em cookies httpOnly)
+    // Device fingerprint + tokens (access 15min + refresh 7d em cookies httpOnly)
+    ensureDeviceFingerprintCookie(req, res);
     const accessToken = generateAccessToken(user._id.toString());
     const { rawToken: refreshTokenRaw } = await generateRefreshToken(user._id.toString(), req);
     setAuthCookies(res, accessToken, refreshTokenRaw);
 
     res.json({
       message: 'Login realizado com sucesso!',
-      token: accessToken, // compatibilidade com frontend antigo
       user: {
         id: user._id,
         email: user.email,
@@ -738,8 +783,7 @@ export const refreshTokenHandler = async (req: Request, res: Response): Promise<
     setAuthCookies(res, result.accessToken, result.newRawRefresh);
 
     res.json({
-      message: 'Token renovado com sucesso',
-      token: result.accessToken // compatibilidade com frontend antigo
+      message: 'Token renovado com sucesso'
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao renovar token' });
@@ -770,6 +814,16 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       // Retorna mesma resposta genérica — não revela se email existe
       res.json(genericResponse);
       return;
+    }
+
+    // Cooldown: impede envio de multiplos emails de reset em menos de 60s
+    if (user.passwordResetTokenExpires) {
+      const tokenCreatedAt = new Date(user.passwordResetTokenExpires.getTime() - 60 * 60 * 1000); // expiry - 1h = created
+      const secondsSinceLastEmail = (Date.now() - tokenCreatedAt.getTime()) / 1000;
+      if (secondsSinceLastEmail < 60) {
+        res.json(genericResponse);
+        return;
+      }
     }
 
     // Gera token de reset
@@ -814,24 +868,26 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Busca atômica para prevenir race conditions
-    const user = await User.findOne({
-      passwordResetToken: token,
-      passwordResetTokenExpires: { $gt: new Date() }
-    });
+    // Hash da nova senha
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Operacao atomica para prevenir race conditions (#33)
+    const user = await User.findOneAndUpdate(
+      {
+        passwordResetToken: token,
+        passwordResetTokenExpires: { $gt: new Date() }
+      },
+      {
+        $set: { password: hashedPassword },
+        $unset: { passwordResetToken: '', passwordResetTokenExpires: '' }
+      },
+      { new: true }
+    );
 
     if (!user) {
       res.status(400).json({ error: 'Link inválido ou expirado. Solicite uma nova redefinição de senha.' });
       return;
     }
-
-    // Hash da nova senha
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    user.password = hashedPassword;
-    user.passwordResetToken = undefined;
-    user.passwordResetTokenExpires = undefined;
-    await user.save();
 
     // Revoga todos os refresh tokens existentes por segurança
     await revokeAllUserTokens(user._id.toString());

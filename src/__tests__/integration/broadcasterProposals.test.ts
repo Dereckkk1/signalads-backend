@@ -1,0 +1,523 @@
+/**
+ * Integration Tests — Broadcaster Proposals API
+ *
+ * Tests real HTTP endpoints end-to-end.
+ * POST   /api/broadcaster-proposals
+ * GET    /api/broadcaster-proposals
+ * GET    /api/broadcaster-proposals/:id
+ * PUT    /api/broadcaster-proposals/:id
+ * DELETE /api/broadcaster-proposals/:id
+ * POST   /api/broadcaster-proposals/:id/duplicate
+ * POST   /api/broadcaster-proposals/:id/send
+ * GET    /api/broadcaster-proposals/my-products
+ * GET    /api/broadcaster-proposals/templates
+ * POST   /api/broadcaster-proposals/templates
+ */
+
+import '../helpers/mocks';
+
+import request from 'supertest';
+import { Application } from 'express';
+import mongoose from 'mongoose';
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import hpp from 'hpp';
+
+import { mongoSanitize, xssSanitize } from '../../middleware/security';
+import { csrfProtection } from '../../middleware/csrf';
+import broadcasterProposalRoutes from '../../routes/broadcasterProposalRoutes';
+
+import { connectTestDB, clearTestDB, disconnectTestDB } from '../helpers/setup';
+import {
+  createBroadcaster,
+  createAdvertiser,
+  createAgency,
+} from '../helpers/authHelper';
+import { Product } from '../../models/Product';
+import Proposal from '../../models/Proposal';
+import ProposalTemplate from '../../models/ProposalTemplate';
+
+function createBroadcasterProposalTestApp(): Application {
+  const app = express();
+  app.use(cookieParser());
+  app.use(express.json({ limit: '5mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+  app.use(mongoSanitize);
+  app.use(xssSanitize);
+  app.use(hpp());
+  app.use(csrfProtection);
+  app.use('/api/broadcaster-proposals', broadcasterProposalRoutes);
+  app.use((_req, res) => { res.status(404).json({ error: 'Rota não encontrada' }); });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: any, _req: any, res: any, _next: any) => {
+    res.status(err.status || 500).json({ error: 'Erro interno do servidor' });
+  });
+  return app;
+}
+
+let app: Application;
+
+beforeAll(async () => {
+  process.env.JWT_SECRET = 'test-secret-key-for-testing-12345';
+  process.env.NODE_ENV = 'test';
+  await connectTestDB();
+  app = createBroadcasterProposalTestApp();
+});
+
+afterEach(async () => {
+  await clearTestDB();
+});
+
+afterAll(async () => {
+  await disconnectTestDB();
+});
+
+/**
+ * Helper: creates a broadcaster with products.
+ */
+async function createBroadcasterWithProducts() {
+  const { user: broadcaster, auth } = await createBroadcaster();
+
+  const product = await Product.create({
+    broadcasterId: broadcaster._id,
+    spotType: 'Comercial 30s',
+    duration: 30,
+    timeSlot: 'Rotativo',
+    netPrice: 100,
+    pricePerInsertion: 125,
+    isActive: true,
+  });
+
+  return { broadcaster, auth, product };
+}
+
+// ─────────────────────────────────────────────────
+// POST /api/broadcaster-proposals
+// ─────────────────────────────────────────────────
+describe('POST /api/broadcaster-proposals', () => {
+  it('should allow broadcaster to create a proposal with own products', async () => {
+    const { broadcaster, auth, product } = await createBroadcasterWithProducts();
+
+    const res = await request(app)
+      .post('/api/broadcaster-proposals')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({
+        title: 'Proposta Emissora',
+        clientName: 'Cliente Teste',
+        items: [
+          {
+            productId: product._id.toString(),
+            broadcasterId: broadcaster._id.toString(),
+            quantity: 10,
+          },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.proposal).toBeDefined();
+    expect(res.body.proposal.title).toBe('Proposta Emissora');
+    expect(res.body.proposal.ownerType).toBe('broadcaster');
+    expect(res.body.proposal.status).toBe('draft');
+    expect(res.body.proposal.items).toHaveLength(1);
+    // grossAmount = 125 * 10 = 1250 (pricePerInsertion from DB)
+    expect(res.body.proposal.grossAmount).toBe(1250);
+  });
+
+  it('should reject when items are missing', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+
+    const res = await request(app)
+      .post('/api/broadcaster-proposals')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ title: 'Proposta Vazia' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/obrigatórios/i);
+  });
+
+  it('should reject when non-broadcaster tries to create', async () => {
+    const { auth } = await createAdvertiser();
+
+    const res = await request(app)
+      .post('/api/broadcaster-proposals')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({
+        title: 'Proposta',
+        items: [{ productId: 'fake', quantity: 1 }],
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/emissoras/i);
+  });
+
+  it('should reject when product does not belong to broadcaster', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const { user: otherBroadcaster } = await createBroadcaster();
+
+    const otherProduct = await Product.create({
+      broadcasterId: otherBroadcaster._id,
+      spotType: 'Comercial 15s',
+      duration: 15,
+      timeSlot: 'Rotativo',
+      netPrice: 50,
+      pricePerInsertion: 62.5,
+      isActive: true,
+    });
+
+    const res = await request(app)
+      .post('/api/broadcaster-proposals')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({
+        title: 'Proposta Produto Alheio',
+        items: [{ productId: otherProduct._id.toString(), quantity: 5 }],
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/não pertence/i);
+  });
+
+  it('should return 401 when unauthenticated', async () => {
+    const res = await request(app)
+      .post('/api/broadcaster-proposals')
+      .send({ title: 'Sem Auth', items: [{ productId: 'fake', quantity: 1 }] });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('should support custom items', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+
+    const res = await request(app)
+      .post('/api/broadcaster-proposals')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({
+        title: 'Proposta Custom',
+        items: [
+          {
+            isCustom: true,
+            productName: 'Patrocinio Especial',
+            unitPrice: 800,
+            quantity: 1,
+          },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.proposal.items[0].isCustom).toBe(true);
+    expect(res.body.proposal.grossAmount).toBe(800);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/broadcaster-proposals
+// ─────────────────────────────────────────────────
+describe('GET /api/broadcaster-proposals', () => {
+  it('should list proposals for the authenticated broadcaster', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+
+    await Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId: broadcaster._id,
+      title: 'Proposta Listada',
+      slug: `b-list-${Date.now()}`,
+      items: [{ productName: 'Comercial 30s', quantity: 5, unitPrice: 125, totalPrice: 625, productType: 'Comercial 30s' }],
+      grossAmount: 625,
+      totalAmount: 625,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .get('/api/broadcaster-proposals')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.proposals).toHaveLength(1);
+    expect(res.body.pagination).toBeDefined();
+  });
+
+  it('should not list proposals from other broadcasters', async () => {
+    const { user: b1 } = await createBroadcaster();
+    const { auth: auth2 } = await createBroadcaster();
+
+    await Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId: b1._id,
+      title: 'Proposta Alheia',
+      slug: `b-other-${Date.now()}`,
+      items: [{ productName: 'Comercial 30s', quantity: 1, unitPrice: 100, totalPrice: 100, productType: 'Comercial 30s' }],
+      grossAmount: 100,
+      totalAmount: 100,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .get('/api/broadcaster-proposals')
+      .set('Cookie', auth2.cookieHeader)
+      .set('X-CSRF-Token', auth2.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.proposals).toHaveLength(0);
+  });
+
+  it('should reject non-broadcaster users', async () => {
+    const { auth } = await createAgency();
+
+    const res = await request(app)
+      .get('/api/broadcaster-proposals')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(403);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/broadcaster-proposals/:id
+// ─────────────────────────────────────────────────
+describe('GET /api/broadcaster-proposals/:id', () => {
+  it('should return proposal details for the owner broadcaster', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+
+    const proposal = await Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId: broadcaster._id,
+      title: 'Detalhe Emissora',
+      slug: `b-detail-${Date.now()}`,
+      items: [{ productName: 'Comercial 30s', quantity: 3, unitPrice: 125, totalPrice: 375, productType: 'Comercial 30s' }],
+      grossAmount: 375,
+      totalAmount: 375,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .get(`/api/broadcaster-proposals/${proposal._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.proposal.title).toBe('Detalhe Emissora');
+  });
+
+  it('should return 404 for non-existent proposal', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const fakeId = new mongoose.Types.ObjectId();
+
+    const res = await request(app)
+      .get(`/api/broadcaster-proposals/${fakeId}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// PUT /api/broadcaster-proposals/:id
+// ─────────────────────────────────────────────────
+describe('PUT /api/broadcaster-proposals/:id', () => {
+  it('should update proposal title', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+
+    const proposal = await Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId: broadcaster._id,
+      title: 'Titulo Antigo',
+      slug: `b-update-${Date.now()}`,
+      items: [{ productName: 'Comercial 30s', quantity: 5, unitPrice: 125, totalPrice: 625, productType: 'Comercial 30s' }],
+      grossAmount: 625,
+      totalAmount: 625,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .put(`/api/broadcaster-proposals/${proposal._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ title: 'Titulo Novo' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.proposal.title).toBe('Titulo Novo');
+  });
+});
+
+// ─────────────────────────────────────────────────
+// DELETE /api/broadcaster-proposals/:id
+// ─────────────────────────────────────────────────
+describe('DELETE /api/broadcaster-proposals/:id', () => {
+  it('should delete proposal permanently', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+
+    const proposal = await Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId: broadcaster._id,
+      title: 'Para Excluir',
+      slug: `b-delete-${Date.now()}`,
+      items: [{ productName: 'P', quantity: 1, unitPrice: 100, totalPrice: 100, productType: 'Comercial 30s' }],
+      grossAmount: 100,
+      totalAmount: 100,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .delete(`/api/broadcaster-proposals/${proposal._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/sucesso/i);
+
+    const deleted = await Proposal.findById(proposal._id);
+    expect(deleted).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/broadcaster-proposals/:id/duplicate
+// ─────────────────────────────────────────────────
+describe('POST /api/broadcaster-proposals/:id/duplicate', () => {
+  it('should duplicate a proposal as draft', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+
+    const original = await Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId: broadcaster._id,
+      title: 'Original Emissora',
+      slug: `b-orig-${Date.now()}`,
+      items: [{ productName: 'Comercial 30s', quantity: 5, unitPrice: 125, totalPrice: 625, productType: 'Comercial 30s' }],
+      grossAmount: 625,
+      totalAmount: 625,
+      status: 'sent',
+    });
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${original._id}/duplicate`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(201);
+    expect(res.body.proposal.title).toMatch(/Cópia de/);
+    expect(res.body.proposal.status).toBe('draft');
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/broadcaster-proposals/:id/send
+// ─────────────────────────────────────────────────
+describe('POST /api/broadcaster-proposals/:id/send', () => {
+  it('should mark proposal as sent', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+
+    const proposal = await Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId: broadcaster._id,
+      title: 'Para Enviar',
+      slug: `b-send-${Date.now()}`,
+      items: [{ productName: 'P', quantity: 1, unitPrice: 100, totalPrice: 100, productType: 'Comercial 30s' }],
+      grossAmount: 100,
+      totalAmount: 100,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/send`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.proposal.status).toBe('sent');
+    expect(res.body.publicUrl).toBeDefined();
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/broadcaster-proposals/my-products
+// ─────────────────────────────────────────────────
+describe('GET /api/broadcaster-proposals/my-products', () => {
+  it('should return products for the broadcaster', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+
+    const res = await request(app)
+      .get('/api/broadcaster-proposals/my-products')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.products).toBeDefined();
+    expect(res.body.products.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// Templates
+// ─────────────────────────────────────────────────
+describe('Broadcaster Proposal Templates', () => {
+  it('GET /api/broadcaster-proposals/templates should return templates', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+
+    await ProposalTemplate.create({
+      name: 'Template Emissora',
+      broadcasterId: broadcaster._id,
+      customization: {
+        primaryColor: '#000000',
+        secondaryColor: '#ffffff',
+        backgroundColor: '#f0f0f0',
+        textColor: '#333333',
+        accentColor: '#0066cc',
+        titleFont: 'Arial',
+        bodyFont: 'Helvetica',
+        sectionOrder: ['header', 'table'],
+        hiddenSections: [],
+        hiddenElements: [],
+        kpis: [],
+        metrics: [],
+        customSections: [],
+        customTexts: {},
+      },
+    });
+
+    const res = await request(app)
+      .get('/api/broadcaster-proposals/templates')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.templates.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('POST /api/broadcaster-proposals/templates should create a template', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+
+    const res = await request(app)
+      .post('/api/broadcaster-proposals/templates')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({
+        name: 'Novo Template Emissora',
+        customization: {
+          primaryColor: '#112233',
+          secondaryColor: '#445566',
+          backgroundColor: '#ffffff',
+          textColor: '#000000',
+          accentColor: '#0099ff',
+          titleFont: 'Space Grotesk',
+          bodyFont: 'Fira Sans Condensed',
+          sectionOrder: ['header', 'table', 'notes'],
+          hiddenSections: [],
+          hiddenElements: [],
+          kpis: [],
+          metrics: [],
+          customSections: [],
+          customTexts: {},
+        },
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.template.name).toBe('Novo Template Emissora');
+  });
+});

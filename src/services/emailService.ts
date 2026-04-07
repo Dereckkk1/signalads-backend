@@ -1012,18 +1012,18 @@ export const sendMaterialProducedByBroadcaster = async (data: {
     </h2>
     
     <p style="margin: 0 0 16px; color: ${colors.gray600}; font-size: 14px; line-height: 1.6;">
-      Olá <strong>${data.clientName}</strong>,
+      Olá <strong>${escapeHtml(data.clientName)}</strong>,
     </p>
-    
+
     <p style="margin: 0 0 16px; color: ${colors.gray600}; font-size: 14px; line-height: 1.6;">
-      A emissora <strong>${data.broadcasterName}</strong> produziu e gravou o comercial do seu pedido.
+      A emissora <strong>${escapeHtml(data.broadcasterName)}</strong> produziu e gravou o comercial do seu pedido.
       Ouça e aprove para liberar a veiculação.
     </p>
-    
+
     ${data.notes ? `
     <div style="background-color: ${colors.gray100}; border-radius: 6px; padding: 12px 16px; margin: 16px 0;">
       <p style="margin: 0; color: ${colors.gray800}; font-size: 13px;">
-        <strong>Observações:</strong><br>${data.notes}
+        <strong>Observações:</strong><br>${escapeHtml(data.notes)}
       </p>
     </div>
     ` : ''}
@@ -2101,9 +2101,9 @@ export const sendQuoteRequestToAdmin = async (
   // Monta detalhes dos itens
   const itemsDetails = quoteRequest.items.map((item: any, index: number) => `
     <div style="background-color: ${colors.gray50}; padding: 12px; border-radius: 6px; margin: 8px 0;">
-      <strong style="color: ${colors.tertiary};">Item ${index + 1}:</strong> ${item.productName}<br>
+      <strong style="color: ${colors.tertiary};">Item ${index + 1}:</strong> ${escapeHtml(item.productName)}<br>
       <span style="color: ${colors.gray600}; font-size: 13px;">
-        📻 ${item.broadcasterName} | 
+        📻 ${escapeHtml(item.broadcasterName)} |
         📊 ${item.quantity} inserção(ões) | 
         💰 ${formatCurrency(item.totalPrice)}
       </span><br>
@@ -2157,13 +2157,13 @@ export const sendQuoteRequestToAdmin = async (
       </h3>
       <div style="background-color: ${colors.gray100}; padding: 16px; border-radius: 6px; border-left: 4px solid ${colors.tertiary};">
         <p style="margin: 0; color: ${colors.gray700}; font-size: 14px; line-height: 1.6;">
-          ${quoteRequest.clientNotes}
+          ${escapeHtml(quoteRequest.clientNotes)}
         </p>
       </div>
       ${divider()}
     ` : ''}
-    
-    ${alertCard(`<strong>⏰ Ação Necessária:</strong><br>Entre em contato com ${buyer.name} em até 24 horas para dar andamento à negociação.`, 'error')}
+
+    ${alertCard(`<strong>⏰ Ação Necessária:</strong><br>Entre em contato com ${escapeHtml(buyer.name)} em até 24 horas para dar andamento à negociação.`, 'error')}
     
     ${paragraph('Acesse o painel administrativo para ver todos os detalhes, materiais anexados e gerenciar esta solicitação.', { center: true })}
   `;

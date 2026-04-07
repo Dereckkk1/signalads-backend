@@ -36,10 +36,8 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Dual-mode: cookie httpOnly primeiro, header Authorization como fallback
-    const tokenFromCookie = req.cookies?.access_token;
-    const tokenFromHeader = req.header('Authorization')?.replace('Bearer ', '');
-    const token = tokenFromCookie || tokenFromHeader;
+    // Cookie-only auth — Bearer removido para evitar bypass de CSRF (#3)
+    const token = req.cookies?.access_token;
 
     if (!token) {
       res.status(401).json({ error: 'Token não fornecido' });
@@ -51,7 +49,7 @@ export const authenticateToken = async (
       throw new Error('JWT_SECRET não está definido');
     }
 
-    const decoded = jwt.verify(token, jwtSecret) as { userId: string };
+    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { userId: string };
 
     // Tenta cache Redis antes de ir ao MongoDB
     const cacheKey = `auth:user:${decoded.userId}`;
@@ -97,10 +95,8 @@ export const optionalAuthenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Dual-mode: cookie httpOnly primeiro, header Authorization como fallback
-    const tokenFromCookie = req.cookies?.access_token;
-    const tokenFromHeader = req.header('Authorization')?.replace('Bearer ', '');
-    const token = tokenFromCookie || tokenFromHeader;
+    // Cookie-only auth — Bearer removido para evitar bypass de CSRF (#3)
+    const token = req.cookies?.access_token;
 
     if (!token) {
       next();
@@ -113,7 +109,7 @@ export const optionalAuthenticateToken = async (
       return;
     }
 
-    const decoded = jwt.verify(token, jwtSecret) as { userId: string };
+    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { userId: string };
 
     // Tenta cache Redis
     const cacheKey = `auth:user:${decoded.userId}`;

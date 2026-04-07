@@ -181,6 +181,8 @@ export const getMyCampaigns = async (req: AuthRequest, res: Response) => {
     }
 
     const { status, page = 1, limit = 10 } = req.query;
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(limit) || 10));
 
     // Filtro de status (opcional)
     const filter: any = { buyerId: userId };
@@ -192,12 +194,12 @@ export const getMyCampaigns = async (req: AuthRequest, res: Response) => {
       filter.isMonitoringEnabled = true;
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const skip = (pageNum - 1) * limitNum;
 
     const campaigns = await Order.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(Number(limit))
+      .limit(limitNum)
       .lean();
 
     const total = await Order.countDocuments(filter);
@@ -807,11 +809,12 @@ export const getCampaignDetails = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Campanha não encontrada' });
     }
 
-    // Verifica permissão (comprador ou emissora envolvida)
+    // Verifica permissão (comprador, emissora envolvida ou admin)
+    const isAdmin = req.user?.userType === 'admin';
     const isBuyer = order.buyerId.toString() === userId;
     const isBroadcaster = order.items.some((item: any) => item.broadcasterId === userId);
 
-    if (!isBuyer && !isBroadcaster) {
+    if (!isAdmin && !isBuyer && !isBroadcaster) {
       return res.status(403).json({ message: 'Você não tem permissão para ver esta campanha' });
     }
 

@@ -1,9 +1,15 @@
 import { Response } from 'express';
 import path from 'path';
 import multer from 'multer';
+import { fromBuffer } from 'file-type';
 import { AuthRequest } from '../middleware/auth';
 import { uploadFile } from '../config/storage';
 import { Cart } from '../models/Cart';
+
+// Magic bytes permitidos por categoria (#44)
+const ALLOWED_AUDIO_MAGIC = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/wave'];
+const ALLOWED_DOC_MAGIC = ['application/pdf'];
+// DOC/DOCX/TXT nao tem magic bytes confiáveis — validados por MIME+extensão apenas
 
 // Helper para retry em caso de VersionError do Mongoose
 const saveWithRetry = async (cart: any, itemIndex: number, material: any, maxRetries = 3): Promise<void> => {
@@ -94,6 +100,13 @@ export const uploadAudio = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
+    // Validação de magic bytes — impede upload de executáveis disfarçados (#44)
+    const fileType = await fromBuffer(req.file.buffer);
+    if (fileType && !ALLOWED_AUDIO_MAGIC.includes(fileType.mime)) {
+      res.status(400).json({ error: 'Conteúdo do arquivo não corresponde a um áudio válido' });
+      return;
+    }
+
     // Upload para Cloud Storage
     const fileUrl = await uploadFile(
       req.file.buffer,
@@ -166,6 +179,16 @@ export const uploadScript = async (req: AuthRequest, res: Response): Promise<voi
     if (!productId) {
       res.status(400).json({ error: 'ID do produto não fornecido' });
       return;
+    }
+
+    // Validação de magic bytes para PDFs (#44)
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    if (ext === '.pdf') {
+      const fileType = await fromBuffer(req.file.buffer);
+      if (!fileType || fileType.mime !== 'application/pdf') {
+        res.status(400).json({ error: 'Conteúdo do arquivo não corresponde a um PDF válido' });
+        return;
+      }
     }
 
     // Upload para Cloud Storage

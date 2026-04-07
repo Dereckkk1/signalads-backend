@@ -19,20 +19,36 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
+    // Apenas advertiser e agency podem fazer checkout
+    const userType = req.user?.userType;
+    if (!userType || !['advertiser', 'agency'].includes(userType)) {
+      res.status(403).json({ error: 'Apenas anunciantes e agências podem fazer compras' });
+      return;
+    }
+
     const { isMonitoringEnabled, agencyCommission: agencyCommPct, clientId } = req.body;
 
-    if (agencyCommPct !== undefined) {
+    // Comissao de agencia so permitida para usuarios do tipo agency
+    if (agencyCommPct !== undefined && agencyCommPct > 0) {
+      if (userType !== 'agency') {
+        res.status(403).json({ error: 'Apenas agências podem aplicar comissão' });
+        return;
+      }
       const pct = Number(agencyCommPct);
-      if (!Number.isFinite(pct) || pct < 0 || pct > 50) {
-        res.status(400).json({ error: 'Percentual de comissão da agência deve ser entre 0 e 50%' });
+      if (!Number.isFinite(pct) || pct < 0 || pct > 30) {
+        res.status(400).json({ error: 'Percentual de comissão da agência deve ser entre 0 e 30%' });
         return;
       }
     }
 
-    // 1. Buscar carrinho do banco (dados confiáveis)
-    const cart = await Cart.findOne({ userId });
+    // 1. Buscar carrinho do banco (dados confiáveis) — atomico para prevenir double checkout
+    const cart = await Cart.findOneAndUpdate(
+      { userId, items: { $not: { $size: 0 } }, checkedOut: { $ne: true } },
+      { $set: { checkedOut: true } },
+      { new: true }
+    );
     if (!cart || cart.items.length === 0) {
-      res.status(400).json({ error: 'Carrinho vazio' });
+      res.status(400).json({ error: 'Carrinho vazio ou checkout já em andamento' });
       return;
     }
 
@@ -184,8 +200,9 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
 
     await order.save();
 
-    // 8. Limpar carrinho
+    // 8. Limpar carrinho e resetar flag de checkout
     cart.items = [];
+    (cart as any).checkedOut = false;
     await cart.save();
 
     // 9. Enviar emails — fire-and-forget (nao bloqueia response do checkout)
@@ -225,6 +242,8 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
       }
     });
   } catch (error) {
+    // Reseta flag de checkout para permitir nova tentativa
+    try { await Cart.updateOne({ userId: req.userId }, { $set: { checkedOut: false } }); } catch {}
     console.error('Erro no checkout:', error);
     res.status(500).json({ error: 'Erro ao criar pedido' });
   }

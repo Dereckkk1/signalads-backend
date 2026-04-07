@@ -108,14 +108,14 @@ export const checkEmail = async (req: Request, res: Response): Promise<void> => 
 
     // Verificar lista hardcoded
     if (isFreeEmailDomain(email)) {
-      res.json({ blocked: true, reason: 'Domínio de email gratuito não permitido para cadastro empresarial' });
+      res.json({ blocked: true });
       return;
     }
 
-    // Verificar lista customizada do admin
+    // Verificar lista customizada do admin — nao expor reason (#28)
     const blockedDomain = await BlockedDomain.findOne({ domain });
     if (blockedDomain) {
-      res.json({ blocked: true, reason: blockedDomain.reason || 'Domínio bloqueado pelo administrador' });
+      res.json({ blocked: true });
       return;
     }
 

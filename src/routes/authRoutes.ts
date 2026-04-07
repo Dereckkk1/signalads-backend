@@ -12,18 +12,17 @@ import {
   enableTwoFactor,
   confirmTwoFactorEnable,
   disableTwoFactor,
-  validateTwoFactorLogin,
   verifyTwoFactorCode,
   getTwoFactorStatus,
   refreshTokenHandler,
   logoutHandler
 } from '../controllers/authController';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
+import { createRedisStore } from '../config/rateLimitStore';
 
 const router = Router();
 
-// Rate Limit para Auth — Anti Brute Force
-// 25 tentativas por 15 minutos por IP (todas contam, inclusive sucesso)
+// Rate Limit para Auth — Anti Brute Force (Redis store #7)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 25,
@@ -31,6 +30,17 @@ const authLimiter = rateLimit({
   message: 'Muitas tentativas de autenticação deste IP, por favor tente novamente em 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,
+  store: createRedisStore('auth'),
+});
+
+// Rate limit dedicado para refresh (#58) — 30 req/min por IP
+const refreshLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Muitas tentativas de refresh. Tente novamente em 1 minuto.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: createRedisStore('refresh'),
 });
 
 router.post('/register', authLimiter, register);
@@ -48,14 +58,13 @@ router.post('/reset-password/:token', authLimiter, resetPassword);
 router.post('/2fa/enable', authenticateToken, enableTwoFactor);
 router.get('/2fa/confirm/:token', confirmTwoFactorEnable);
 router.post('/2fa/disable', authenticateToken, disableTwoFactor);
-router.post('/2fa/validate', authLimiter, validateTwoFactorLogin); // Antigo (link do email)
-router.post('/2fa/verify-code', authLimiter, verifyTwoFactorCode); // Novo (código 6 dígitos)
+router.post('/2fa/verify-code', authLimiter, verifyTwoFactorCode);
 router.get('/2fa/status', authenticateToken, getTwoFactorStatus);
 
-// Refresh token — rotaciona par access+refresh
-router.post('/refresh', refreshTokenHandler);
+// Refresh token — rotaciona par access+refresh (rate limit dedicado #58)
+router.post('/refresh', refreshLimiter, refreshTokenHandler);
 
-// Logout — revoga tokens e limpa cookies
-router.post('/logout', authenticateToken, logoutHandler);
+// Logout — semi-publico: funciona mesmo com token expirado (#51)
+router.post('/logout', optionalAuthenticateToken, logoutHandler);
 
 export default router;

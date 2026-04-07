@@ -1,6 +1,8 @@
 import express from 'express';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
+import { createRedisStore } from '../config/rateLimitStore';
 import {
   createProposal,
   getProposals,
@@ -48,14 +50,21 @@ const upload = multer({
   }
 });
 
+// Rate limiters para endpoints publicos de proposta (Redis store #7)
+const publicRespondLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 3, message: 'Muitas respostas. Tente novamente em 1 hora.', store: createRedisStore('proposal:respond') });
+const publicCommentLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, message: 'Muitos comentários. Tente novamente em 1 hora.', store: createRedisStore('proposal:comment') });
+const publicPinLimiter = rateLimit({ windowMs: 60 * 1000, max: 5, message: 'Muitas tentativas. Tente novamente em 1 minuto.', store: createRedisStore('proposal:pin') });
+const publicExportLimiter = rateLimit({ windowMs: 60 * 1000, max: 5, message: 'Muitas exportações. Tente novamente em 1 minuto.', store: createRedisStore('proposal:export') });
+const publicViewLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, message: 'Muitas requisições.', store: createRedisStore('proposal:view') });
+
 // ─── Rotas Públicas (sem auth) ────────────────────────────────────────────
-router.get('/public/:slug', getPublicProposal);
-router.post('/public/:slug/view', trackProposalView);
-router.post('/public/:slug/respond', respondToProposal);
-router.post('/public/:slug/comments', addPublicComment);
-router.post('/public/:slug/session', trackViewSession);
-router.post('/public/:slug/verify-pin', verifyPin);
-router.get('/public/:slug/export', exportPublicProposalXlsx);
+router.get('/public/:slug', publicViewLimiter, getPublicProposal);
+router.post('/public/:slug/view', publicViewLimiter, trackProposalView);
+router.post('/public/:slug/respond', publicRespondLimiter, respondToProposal);
+router.post('/public/:slug/comments', publicCommentLimiter, addPublicComment);
+router.post('/public/:slug/session', publicViewLimiter, trackViewSession);
+router.post('/public/:slug/verify-pin', publicPinLimiter, verifyPin);
+router.get('/public/:slug/export', publicExportLimiter, exportPublicProposalXlsx);
 
 // ─── Rotas Autenticadas (agency only) ─────────────────────────────────────
 router.use(authenticateToken);

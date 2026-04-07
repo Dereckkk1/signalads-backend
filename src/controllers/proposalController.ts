@@ -11,6 +11,10 @@ import { sendOrderReceivedToClient, sendNewOrderToAdmin } from '../services/emai
 import ExcelJS from 'exceljs';
 import { uploadFile } from '../config/storage';
 import crypto from 'crypto';
+import { escapeRegex } from '../utils/stringUtils';
+
+const escapeHtml = (str: string): string =>
+  str.replace(/[<>&"']/g, (c: string) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#x27;' }[c] || c));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -135,7 +139,17 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
 
       const unitPrice = (product as any).pricePerInsertion;
       const netPrice = (product as any).netPrice || 0;
-      const effectivePrice = item.adjustedPrice || unitPrice;
+
+      // Validar adjustedPrice: floor minimo de 50% do preco original (previne fraude)
+      let effectivePrice = unitPrice;
+      if (item.adjustedPrice !== undefined && item.adjustedPrice !== null) {
+        const minPrice = unitPrice * 0.5;
+        if (item.adjustedPrice < minPrice) {
+          res.status(400).json({ error: `Preço ajustado para ${(product as any).spotType || 'item'} não pode ser menor que 50% do preço original (R$${minPrice.toFixed(2)})` });
+          return;
+        }
+        effectivePrice = item.adjustedPrice;
+      }
       const totalPrice = parseFloat((effectivePrice * item.quantity).toFixed(2));
       productsTotal += totalPrice;
 
@@ -195,6 +209,10 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
     // Processar itens customizados (sem vinculo com Product)
     for (const item of customItems) {
       const unitPrice = item.unitPrice || 0;
+      if (unitPrice < 0.01) {
+        res.status(400).json({ error: 'Preço de item personalizado deve ser no mínimo R$ 0,01' });
+        return;
+      }
       const totalPrice = parseFloat((unitPrice * (item.quantity || 1)).toFixed(2));
       productsTotal += totalPrice;
 
@@ -307,10 +325,11 @@ export const getProposals = async (req: AuthRequest, res: Response): Promise<voi
       filter.status = status;
     }
     if (search) {
+      const safeSearch = escapeRegex(search as string);
       filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { clientName: { $regex: search, $options: 'i' } },
-        { proposalNumber: { $regex: search, $options: 'i' } }
+        { title: { $regex: safeSearch, $options: 'i' } },
+        { clientName: { $regex: safeSearch, $options: 'i' } },
+        { proposalNumber: { $regex: safeSearch, $options: 'i' } }
       ];
     }
 
@@ -485,9 +504,21 @@ export const updateCustomization = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
+    // Whitelist de campos permitidos no customization (#42)
+    const allowedKeys = ['colors', 'fonts', 'logo', 'coverImage', 'customTexts', 'sectionOrder', 'layoutRows', 'hiddenSections', 'hiddenElements', 'enabledSections'];
+    const sanitizedCustomization: Record<string, any> = {};
+    for (const key of allowedKeys) {
+      if (customization[key] !== undefined) sanitizedCustomization[key] = customization[key];
+    }
+    // Limitar tamanho total do objeto (~500KB max)
+    if (JSON.stringify(sanitizedCustomization).length > 500 * 1024) {
+      res.status(400).json({ error: 'Dados de customização excedem o tamanho máximo permitido' });
+      return;
+    }
+
     const proposal = await Proposal.findOneAndUpdate(
       { _id: req.params.id, agencyId: req.userId },
-      { $set: { customization } },
+      { $set: { customization: sanitizedCustomization } },
       { new: true }
     );
 
@@ -723,17 +754,20 @@ export const getPublicProposal = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    // Montar resposta publica (sem dados internos sensiveis)
+    // Montar resposta publica — filtrar dados financeiros internos (#30)
+    const publicItems = (proposal.items || []).map((item: any) => {
+      const { netPrice, agencyCommission: itemComm, agencyCommissionAmount: itemCommAmt, ...safeItem } = item;
+      return safeItem;
+    });
+
     const publicData = {
       proposal: {
         proposalNumber: proposal.proposalNumber,
         title: proposal.title,
         description: proposal.description,
-        items: proposal.items,
+        items: publicItems,
         grossAmount: proposal.grossAmount,
         techFee: proposal.techFee || 0,
-        agencyCommission: proposal.agencyCommission,
-        agencyCommissionAmount: proposal.agencyCommissionAmount,
         productionCost: proposal.productionCost || 0,
         monitoringCost: proposal.monitoringCost,
         discount: proposal.discount ? { type: proposal.discount.type, value: proposal.discount.value } : undefined,
@@ -746,9 +780,9 @@ export const getPublicProposal = async (req: AuthRequest, res: Response): Promis
         responseNote: proposal.responseNote,
         createdAt: proposal.createdAt,
         ownerType: proposal.ownerType || 'agency',
-        agency: proposal.agencyId, // populated (agency proposals)
-        broadcaster: proposal.broadcasterId, // populated (broadcaster proposals)
-        client: proposal.clientId, // populated (nome apenas)
+        agency: proposal.agencyId,
+        broadcaster: proposal.broadcasterId,
+        client: proposal.clientId,
         comments: proposal.comments || [],
         approval: proposal.approval ? { name: proposal.approval.name, approvedAt: proposal.approval.approvedAt } : undefined,
       }
@@ -831,6 +865,25 @@ export const respondToProposal = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
+    // Se proposta tem proteção PIN, exigir PIN válido antes de responder (#17)
+    if ((proposal as any).protection?.enabled && (proposal as any).protection?.pin) {
+      const { pin } = req.body;
+      if (!pin) {
+        res.status(403).json({ error: 'Esta proposta requer código PIN para ser respondida' });
+        return;
+      }
+      const attempts = (proposal as any).protection?.failedAttempts || 0;
+      if (attempts >= 5) {
+        res.status(429).json({ error: 'Muitas tentativas incorretas. Solicite um novo código à agência.' });
+        return;
+      }
+      if ((proposal as any).protection.pin !== String(pin)) {
+        await Proposal.updateOne({ slug }, { $inc: { 'protection.failedAttempts': 1 } });
+        res.status(401).json({ error: 'Código PIN incorreto' });
+        return;
+      }
+    }
+
     if (proposal.status === 'approved' || proposal.status === 'rejected') {
       res.status(400).json({ error: 'Esta proposta já foi respondida' });
       return;
@@ -873,8 +926,8 @@ export const respondToProposal = async (req: AuthRequest, res: Response): Promis
           title: `Proposta ${statusText}!`,
           icon: action === 'approve' ? '✅' : '❌',
           content: `
-            <p>O cliente <strong>${proposal.clientName || 'Anônimo'}</strong> <strong>${statusText}</strong> a proposta <strong>${proposal.proposalNumber}</strong> — "${proposal.title}".</p>
-            ${note ? `<p><strong>Observação do cliente:</strong> ${note}</p>` : ''}
+            <p>O cliente <strong>${escapeHtml(proposal.clientName || 'Anônimo')}</strong> <strong>${statusText}</strong> a proposta <strong>${proposal.proposalNumber}</strong> — "${escapeHtml(proposal.title || '')}".</p>
+            ${note ? `<p><strong>Observação do cliente:</strong> ${escapeHtml(note || '')}</p>` : ''}
             <p>Valor total: <strong>R$ ${proposal.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></p>
           `,
           buttonText: 'Ver Proposta',
@@ -1248,7 +1301,7 @@ export const addPublicComment = async (req: AuthRequest, res: Response): Promise
         const html = emailSvc.createEmailTemplate({
           title: 'Novo comentário na proposta',
           icon: '💬',
-          content: `<p><strong>${author}</strong> comentou na proposta <strong>${proposal.proposalNumber}</strong>:</p><blockquote>${text}</blockquote>`,
+          content: `<p><strong>${escapeHtml(author || '')}</strong> comentou na proposta <strong>${proposal.proposalNumber}</strong>:</p><blockquote>${escapeHtml(text || '')}</blockquote>`,
           buttonText: 'Ver Proposta',
           buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${commentProposalsPath}/${proposal._id}`,
         });
@@ -1496,7 +1549,7 @@ export const setProtection = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     if (enabled) {
-      const pin = String(Math.floor(100000 + Math.random() * 900000)); // 6 dígitos
+      const pin = crypto.randomInt(100000, 999999).toString();
       proposal.protection = {
         enabled: true,
         pin,
@@ -1537,7 +1590,7 @@ export const verifyPin = async (req: AuthRequest, res: Response): Promise<void> 
     const { slug } = req.params;
     const { pin } = req.body;
 
-    const proposal = await Proposal.findOne({ slug }).select('protection').lean();
+    const proposal = await Proposal.findOne({ slug }).select('protection');
     if (!proposal) {
       res.status(404).json({ error: 'Proposta não encontrada' });
       return;
@@ -1553,10 +1606,28 @@ export const verifyPin = async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
+    // Lockout apos 5 tentativas falhas — protege contra brute force
+    const attempts = (proposal.protection as any).failedAttempts || 0;
+    if (attempts >= 5) {
+      res.status(429).json({ error: 'Muitas tentativas incorretas. Solicite um novo código à agência.' });
+      return;
+    }
+
     if (proposal.protection.pin !== pin) {
+      // Incrementa contador de tentativas falhas
+      await Proposal.updateOne(
+        { slug },
+        { $inc: { 'protection.failedAttempts': 1 } }
+      );
       res.status(401).json({ error: 'Código incorreto' });
       return;
     }
+
+    // Reset tentativas falhas no sucesso
+    await Proposal.updateOne(
+      { slug },
+      { $set: { 'protection.failedAttempts': 0 } }
+    );
 
     res.json({ verified: true });
   } catch (error) {
@@ -1566,6 +1637,13 @@ export const verifyPin = async (req: AuthRequest, res: Response): Promise<void> 
 };
 
 // ─── Exportar Proposta XLSX ──────────────────────────────────────────────
+
+// Sanitiza valores de string para prevenir formula injection em Excel (#53)
+function sanitizeExcelValue(val: any): any {
+  if (typeof val !== 'string') return val;
+  if (/^[=+\-@\t\r]/.test(val)) return `'${val}`;
+  return val;
+}
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Rascunho', sent: 'Enviada', viewed: 'Visualizada',
@@ -1798,10 +1876,10 @@ async function buildProposalWorkbook(proposal: any): Promise<ExcelJS.Workbook> {
       const rowBg = idx % 2 === 0 ? WHITE : GRAY_BG;
 
       const values = [
-        item.broadcasterName || (item.isCustom ? 'Item Manual' : '—'),
-        item.city && item.state ? `${item.city}/${item.state}` : (item.city || item.state || '—'),
-        item.dial || '—',
-        item.productName || item.customDescription || '—',
+        sanitizeExcelValue(item.broadcasterName || (item.isCustom ? 'Item Manual' : '—')),
+        sanitizeExcelValue(item.city && item.state ? `${item.city}/${item.state}` : (item.city || item.state || '—')),
+        sanitizeExcelValue(item.dial || '—'),
+        sanitizeExcelValue(item.productName || item.customDescription || '—'),
         item.duration ? `${item.duration}s` : '—',
         item.quantity || 0,
         item.unitPrice || 0,

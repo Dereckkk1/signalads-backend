@@ -371,8 +371,8 @@ export const deleteProduct = async (req: AuthRequest, res: Response): Promise<vo
 // Listar todos os produtos ativos (para o Marketplace) - COM PAGINAÇÃO POR EMISSORA
 export const getAllActiveProducts = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 25;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
     const skip = (page - 1) * limit;
     const search = (req.query.search as string) || '';
 
@@ -851,10 +851,11 @@ export const getMarketplaceBroadcasterDetails = async (req: AuthRequest, res: Re
   try {
     const { broadcasterId } = req.params;
 
-    // Busca broadcaster (catalogo ou normal)
+    // Busca broadcaster ativo e aprovado — emissoras suspensas/rejeitadas nao tem perfil publico (#46)
     const broadcaster = await User.findOne({
       _id: broadcasterId,
-      userType: 'broadcaster' // Garante que é broadcaster
+      userType: 'broadcaster',
+      status: 'approved'
     }).select('-password');
 
     if (!broadcaster) {

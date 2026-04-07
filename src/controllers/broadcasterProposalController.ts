@@ -9,6 +9,7 @@ import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import ExcelJS from 'exceljs';
 import { uploadFile } from '../config/storage';
 import crypto from 'crypto';
+import { escapeRegex } from '../utils/stringUtils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -310,10 +311,11 @@ export const getProposals = async (req: AuthRequest, res: Response): Promise<voi
       filter.status = status;
     }
     if (search) {
+      const safeSearch = escapeRegex(search as string);
       filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { clientName: { $regex: search, $options: 'i' } },
-        { proposalNumber: { $regex: search, $options: 'i' } }
+        { title: { $regex: safeSearch, $options: 'i' } },
+        { clientName: { $regex: safeSearch, $options: 'i' } },
+        { proposalNumber: { $regex: safeSearch, $options: 'i' } }
       ];
     }
 

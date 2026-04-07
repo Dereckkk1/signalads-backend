@@ -204,7 +204,8 @@ const quoteRequestSchema = new Schema({
 });
 
 // Auto-incremento para requestNumber (atomico via Counter)
-quoteRequestSchema.pre('save', async function () {
+// Usa pre-validate (não pre-save) para garantir que requestNumber existe antes do required check
+quoteRequestSchema.pre('validate', async function () {
   if (this.isNew) {
     const seq = await getNextSequence('quoteRequest');
     this.requestNumber = `REQ-${String(seq).padStart(6, '0')}`;

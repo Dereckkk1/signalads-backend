@@ -162,10 +162,17 @@ export const addItem = async (req: AuthRequest, res: Response): Promise<void> =>
       return;
     }
 
-    // Busca produto e broadcaster (select apenas campos necessarios)
-    const product = await Product.findById(productId).populate('broadcasterId', '_id companyName fantasyName broadcasterProfile address email status');
+    // Busca produto ATIVO e broadcaster ATIVO
+    const product = await Product.findOne({ _id: productId, isActive: true }).populate('broadcasterId', '_id companyName fantasyName broadcasterProfile address email status');
     if (!product || !product.broadcasterId) {
-      res.status(404).json({ error: 'Produto não encontrado' });
+      res.status(404).json({ error: 'Produto não encontrado ou indisponível' });
+      return;
+    }
+
+    // Verificar se emissora esta ativa/aprovada
+    const broadcasterData: any = product.broadcasterId;
+    if (broadcasterData.status !== 'approved') {
+      res.status(400).json({ error: 'Emissora temporariamente indisponível' });
       return;
     }
 
@@ -496,9 +503,8 @@ export const syncCart = async (req: AuthRequest, res: Response): Promise<void> =
       validatedItems.push(validatedItem);
     }
 
-    // Limpa datas expiradas dos itens validados
-    // const cleanedItems = cleanExpiredSchedules(validatedItems);
-    const cleanedItems = validatedItems;
+    // Limpa datas expiradas dos itens validados (#47)
+    const cleanedItems = cleanExpiredSchedules(validatedItems);
 
 
 

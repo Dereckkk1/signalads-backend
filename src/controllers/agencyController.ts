@@ -266,9 +266,19 @@ export const updateClient = async (req: AuthRequest, res: Response): Promise<voi
         const userId = req.userId || req.user?._id;
         const { id } = req.params;
 
+        // Allowlist de campos editaveis — previne mass assignment
+        const { name, email, phone, contactName, documentNumber, status } = req.body;
+        const allowedUpdates: Record<string, any> = {};
+        if (name !== undefined) allowedUpdates.name = name;
+        if (email !== undefined) allowedUpdates.email = email;
+        if (phone !== undefined) allowedUpdates.phone = phone;
+        if (contactName !== undefined) allowedUpdates.contactName = contactName;
+        if (documentNumber !== undefined) allowedUpdates.documentNumber = documentNumber;
+        if (status !== undefined) allowedUpdates.status = status;
+
         const updatedClient = await AgencyClient.findOneAndUpdate(
             { _id: id, agencyId: userId },
-            { $set: req.body },
+            { $set: allowedUpdates },
             { new: true }
         );
 

@@ -10,6 +10,7 @@ import { AuthRequest } from '../middleware/auth';
 import { escapeRegex } from '../utils/stringUtils';
 import { Cart } from '../models/Cart';
 import bcrypt from 'bcryptjs';
+import { revokeAllUserTokens } from '../utils/tokenService';
 import QuoteRequest from '../models/QuoteRequest';
 import { PLATFORM_COMMISSION_RATE } from '../models/Product';
 import {
@@ -517,8 +518,8 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
   try {
     const { status, startDate, endDate, search, page = 1, limit = 25 } = req.query;
 
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
+    const pageNum = Math.max(1, parseInt(page as string) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 25));
     const skip = (pageNum - 1) * limitNum;
 
     // Monta filtro base
@@ -1110,7 +1111,19 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Pedido não encontrado' });
     }
 
+    // State machine: transicoes validas (#48)
+    const validTransitions: Record<string, string[]> = {
+      pending_contact: ['pending_payment', 'cancelled'],
+      pending_payment: ['paid', 'cancelled'],
+      paid: ['cancelled'],
+      cancelled: [],
+    };
     const oldStatus = order.status;
+    const allowed = validTransitions[oldStatus] || [];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ message: `Transição inválida: ${oldStatus} → ${status}` });
+    }
+
     order.status = status;
 
     // Se marcou como pago, define data
@@ -1447,6 +1460,9 @@ export const adminResetUserPassword = async (req: AuthRequest, res: Response) =>
 
     // Invalida cache de auth
     await invalidateUserCache(user._id.toString());
+
+    // Revoga todas as sessoes ativas do usuario — impede uso de tokens roubados
+    await revokeAllUserTokens(user._id.toString());
 
     res.json({ message: 'Senha alterada com sucesso' });
 
