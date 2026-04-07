@@ -8,7 +8,9 @@ import {
   updateItemMaterial,
   removeItem,
   clearCart,
-  syncCart
+  syncCart,
+  updateSponsorshipMonth,
+  updateSponsorshipMaterial
 } from '../controllers/cartController';
 
 const router = Router();
@@ -30,6 +32,12 @@ router.put('/items/schedule', updateItemSchedule);
 
 // Atualizar material de item
 router.put('/items/material', updateItemMaterial);
+
+// Atualizar mês de patrocínio
+router.put('/items/sponsorship-month', updateSponsorshipMonth);
+
+// Atualizar material de patrocínio (por tipo de inserção)
+router.put('/items/sponsorship-material', updateSponsorshipMaterial);
 
 // Remover item do carrinho
 router.delete('/items/:productId', removeItem);

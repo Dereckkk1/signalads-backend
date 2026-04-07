@@ -5,6 +5,7 @@ import Proposal from '../models/Proposal';
 import ProposalTemplate from '../models/ProposalTemplate';
 import ProposalVersion from '../models/ProposalVersion';
 import { Product } from '../models/Product';
+import { Sponsorship } from '../models/Sponsorship';
 import Order from '../models/Order';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import { sendOrderReceivedToClient, sendNewOrderToAdmin } from '../services/emailService';
@@ -119,18 +120,29 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
     const marketplaceItems = items.filter((i: any) => !i.isCustom && i.productId);
     const customItems = items.filter((i: any) => i.isCustom);
 
+    // Separar itens de produto e patrocínio
+    const productItems = marketplaceItems.filter((i: any) => i.itemType !== 'sponsorship');
+    const sponsorshipItems = marketplaceItems.filter((i: any) => i.itemType === 'sponsorship');
+
     // Validar precos dos itens do marketplace contra o banco
-    const productIds = marketplaceItems.map((item: any) => item.productId);
+    const productIds = productItems.map((item: any) => item.productId);
     const products = productIds.length > 0
       ? await Product.find({ _id: { $in: productIds } }).populate('broadcasterId')
       : [];
     const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
+    // Buscar patrocínios
+    const sponsorshipIds = sponsorshipItems.map((item: any) => item.productId);
+    const sponsorships = sponsorshipIds.length > 0
+      ? await Sponsorship.find({ _id: { $in: sponsorshipIds } }).populate('broadcasterId')
+      : [];
+    const sponsorshipMap = new Map(sponsorships.map(s => [s._id.toString(), s]));
+
     const proposalItems: any[] = [];
     let productsTotal = 0;
 
-    // Processar itens do marketplace
-    for (const item of marketplaceItems) {
+    // Processar itens de produto do marketplace
+    for (const item of productItems) {
       const product = productMap.get(item.productId?.toString());
       if (!product) {
         res.status(400).json({ error: `Produto ${item.productId} não encontrado` });
@@ -188,6 +200,83 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
         isCustom: false,
         schedule: scheduleObj,
         // Geo snapshot para mapa/tabela na proposta
+        lat: bAddress?.latitude || undefined,
+        lng: bAddress?.longitude || undefined,
+        antennaClass: bProfile?.generalInfo?.antennaClass || undefined,
+        broadcasterLogo: bProfile?.logo || undefined,
+        dial: bProfile?.generalInfo?.dialFrequency || undefined,
+        band: bProfile?.generalInfo?.band || undefined,
+        population: bProfile?.coverage?.totalPopulation || undefined,
+        pmm: bProfile?.pmm || undefined,
+        // Audience snapshot
+        categories: bProfile?.categories || undefined,
+        audienceGenderFemale: bProfile?.audienceProfile?.gender?.female || undefined,
+        audienceAgeRange: bProfile?.audienceProfile?.ageRange || undefined,
+        audienceSocialClass: bProfile?.audienceProfile?.socialClass
+          ? `${(bProfile.audienceProfile.socialClass.classeAB || 0) + (bProfile.audienceProfile.socialClass.classeC || 0)}% ABC`
+          : undefined,
+      });
+    }
+
+    // Processar itens de patrocínio
+    for (const item of sponsorshipItems) {
+      const sponsorship = sponsorshipMap.get(item.productId?.toString());
+      if (!sponsorship) {
+        res.status(400).json({ error: `Patrocínio ${item.productId} não encontrado` });
+        return;
+      }
+
+      const unitPrice = (sponsorship as any).pricePerMonth;
+      const netPrice = (sponsorship as any).netPrice || 0;
+
+      let effectivePrice = unitPrice;
+      if (item.adjustedPrice !== undefined && item.adjustedPrice !== null) {
+        const minPrice = unitPrice * 0.5;
+        if (item.adjustedPrice < minPrice) {
+          res.status(400).json({ error: `Preço ajustado para ${(sponsorship as any).programName || 'patrocínio'} não pode ser menor que 50% do preço original (R$${minPrice.toFixed(2)})` });
+          return;
+        }
+        effectivePrice = item.adjustedPrice;
+      }
+      const totalPrice = parseFloat((effectivePrice * (item.quantity || 1)).toFixed(2));
+      productsTotal += totalPrice;
+
+      const broadcaster: any = sponsorship.broadcasterId;
+      const bProfile = broadcaster?.broadcasterProfile;
+      const bAddress = broadcaster?.address;
+
+      proposalItems.push({
+        productId: sponsorship._id.toString(),
+        productName: (sponsorship as any).programName || item.productName,
+        productType: 'Patrocínio',
+        duration: 0,
+        broadcasterId: (item.broadcasterId || broadcaster?._id)?.toString(),
+        broadcasterName: broadcaster?.companyName || broadcaster?.fantasyName || item.broadcasterName,
+        city: bAddress?.city || item.city || '',
+        state: bAddress?.state || item.state || '',
+        quantity: item.quantity || 1,
+        unitPrice,
+        netPrice,
+        totalPrice,
+        adjustedPrice: item.adjustedPrice || undefined,
+        discountReason: item.discountReason || undefined,
+        needsRecording: false,
+        isCustom: false,
+        schedule: {},
+        // Sponsorship-specific fields
+        itemType: 'sponsorship',
+        sponsorshipId: sponsorship._id.toString(),
+        programName: (sponsorship as any).programName,
+        programTimeRange: (sponsorship as any).timeRange,
+        programDaysOfWeek: (sponsorship as any).daysOfWeek,
+        selectedMonth: item.selectedMonth || undefined,
+        sponsorshipInsertions: ((sponsorship as any).insertions || []).map((ins: any) => ({
+          name: ins.name,
+          duration: ins.duration,
+          quantityPerDay: ins.quantityPerDay,
+          requiresMaterial: ins.requiresMaterial,
+        })),
+        // Geo snapshot
         lat: bAddress?.latitude || undefined,
         lng: bAddress?.longitude || undefined,
         antennaClass: bProfile?.generalInfo?.antennaClass || undefined,

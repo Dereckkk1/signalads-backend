@@ -38,6 +38,19 @@ export interface IProposalItem {
   audienceGenderFemale?: number;
   audienceAgeRange?: string;
   audienceSocialClass?: string;
+  // Campos de Patrocínio
+  itemType?: 'product' | 'sponsorship';
+  sponsorshipId?: string;
+  programName?: string;
+  programTimeRange?: { start: string; end: string };
+  programDaysOfWeek?: number[];
+  selectedMonth?: string;
+  sponsorshipInsertions?: {
+    name: string;
+    duration: number;
+    quantityPerDay: number;
+    requiresMaterial: boolean;
+  }[];
 }
 
 export interface IProposalKpi {
@@ -286,6 +299,23 @@ const ProposalSchema = new Schema<IProposal>({
     audienceGenderFemale: { type: Number },
     audienceAgeRange: { type: String },
     audienceSocialClass: { type: String },
+    // Campos de Patrocínio
+    itemType: { type: String, enum: ['product', 'sponsorship'], default: 'product' },
+    sponsorshipId: String,
+    programName: String,
+    programTimeRange: {
+      start: String,
+      end: String
+    },
+    programDaysOfWeek: [Number],
+    selectedMonth: String,
+    sponsorshipInsertions: [{
+      name: { type: String, required: true },
+      duration: { type: Number, default: 0 },
+      quantityPerDay: { type: Number, required: true },
+      requiresMaterial: { type: Boolean, default: false },
+      _id: false
+    }],
   }],
 
   // ─── Financeiro ─────────────────────────────────────────────────────────

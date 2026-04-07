@@ -21,7 +21,12 @@ import {
   restoreVersion,
   getAnalytics,
   setProtection,
-  getMyProducts
+  getMyProducts,
+  getBroadcasterClients,
+  createBroadcasterClient,
+  updateBroadcasterClient,
+  deleteBroadcasterClient,
+  uploadBroadcasterClientLogo
 } from '../controllers/broadcasterProposalController';
 
 const router = express.Router();
@@ -48,6 +53,13 @@ router.use(authenticateToken);
 
 // Produtos da emissora (para seleção ao criar proposta)
 router.get('/my-products', getMyProducts);
+
+// Clientes da emissora
+router.get('/clients', getBroadcasterClients);
+router.post('/clients', createBroadcasterClient);
+router.put('/clients/:id', updateBroadcasterClient);
+router.delete('/clients/:id', deleteBroadcasterClient);
+router.post('/clients/:id/logo', upload.single('file'), uploadBroadcasterClientLogo);
 
 // Analytics (antes de /:id para não conflitar)
 router.get('/analytics', getAnalytics);

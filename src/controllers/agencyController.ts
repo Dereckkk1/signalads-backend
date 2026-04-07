@@ -230,7 +230,7 @@ export const createClient = async (req: AuthRequest, res: Response): Promise<voi
             return;
         }
 
-        const { name, documentNumber, email, phone, contactName } = req.body;
+        const { name, documentNumber, email, phone, contactName, address } = req.body;
 
         if (!name || !documentNumber) {
             res.status(400).json({ message: 'Nome e CPF/CNPJ são obrigatórios.' });
@@ -251,6 +251,7 @@ export const createClient = async (req: AuthRequest, res: Response): Promise<voi
             email,
             phone,
             contactName,
+            address,
             status: 'active'
         });
 
@@ -267,7 +268,7 @@ export const updateClient = async (req: AuthRequest, res: Response): Promise<voi
         const { id } = req.params;
 
         // Allowlist de campos editaveis — previne mass assignment
-        const { name, email, phone, contactName, documentNumber, status } = req.body;
+        const { name, email, phone, contactName, documentNumber, status, address } = req.body;
         const allowedUpdates: Record<string, any> = {};
         if (name !== undefined) allowedUpdates.name = name;
         if (email !== undefined) allowedUpdates.email = email;
@@ -275,6 +276,7 @@ export const updateClient = async (req: AuthRequest, res: Response): Promise<voi
         if (contactName !== undefined) allowedUpdates.contactName = contactName;
         if (documentNumber !== undefined) allowedUpdates.documentNumber = documentNumber;
         if (status !== undefined) allowedUpdates.status = status;
+        if (address !== undefined) allowedUpdates.address = address;
 
         const updatedClient = await AgencyClient.findOneAndUpdate(
             { _id: id, agencyId: userId },

@@ -1,10 +1,27 @@
 import { Response } from 'express';
 import { Cart, ICartItem } from '../models/Cart';
 import { Product } from '../models/Product';
+import { Sponsorship } from '../models/Sponsorship';
 import { User } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 
 const MAX_CART_QUANTITY = 10000;
+
+// Calcula quantos dias do programa caem no mês selecionado
+function countProgramDaysInMonth(yearMonth: string, daysOfWeek: number[]): number {
+  const parts = yearMonth.split('-').map(Number);
+  const year = parts[0]!;
+  const month = parts[1]!;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let count = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month - 1, day);
+    if (daysOfWeek.includes(date.getDay())) {
+      count++;
+    }
+  }
+  return count;
+}
 
 // Valida e sanitiza quantidade: inteiro >= 1 e <= MAX_CART_QUANTITY
 const sanitizeQuantity = (qty: any): number | null => {
@@ -154,7 +171,99 @@ export const addItem = async (req: AuthRequest, res: Response): Promise<void> =>
       return;
     }
 
-    const { productId, quantity: rawQty } = req.body;
+    const { productId, quantity: rawQty, sponsorshipId, selectedMonth } = req.body;
+
+    // ─── Patrocínio ──────────────────────────────────────────────────────
+    if (sponsorshipId) {
+      // selectedMonth é opcional no addItem (pode ser definido depois via updateSponsorshipMonth)
+      if (selectedMonth && !/^\d{4}-\d{2}$/.test(selectedMonth)) {
+        res.status(400).json({ error: 'selectedMonth deve estar no formato YYYY-MM' });
+        return;
+      }
+
+      // Validar que é mês futuro (a partir do próximo mês — patrocínio é mês fechado)
+      if (selectedMonth) {
+        const now = new Date();
+        const parts = selectedMonth.split('-').map(Number);
+        const selYear = parts[0]!;
+        const selMonth = parts[1]!;
+        const currentYearMonth = now.getFullYear() * 100 + (now.getMonth() + 1);
+        const selectedYearMonth = selYear * 100 + selMonth;
+        if (selectedYearMonth <= currentYearMonth) {
+          res.status(400).json({ error: 'Patrocínio só pode ser comprado a partir do mês seguinte' });
+          return;
+        }
+      }
+
+      const sponsorship = await Sponsorship.findOne({ _id: sponsorshipId, isActive: true })
+        .populate('broadcasterId', '_id companyName fantasyName broadcasterProfile address email status');
+      if (!sponsorship || !sponsorship.broadcasterId) {
+        res.status(404).json({ error: 'Patrocínio não encontrado ou indisponível' });
+        return;
+      }
+
+      const broadcasterData: any = sponsorship.broadcasterId;
+      if (broadcasterData.status !== 'approved') {
+        res.status(400).json({ error: 'Emissora temporariamente indisponível' });
+        return;
+      }
+
+      const broadcaster: any = sponsorship.broadcasterId;
+      const programDaysInMonth = selectedMonth ? countProgramDaysInMonth(selectedMonth, sponsorship.daysOfWeek) : 0;
+
+      let cart = await Cart.findOne({ userId: req.userId });
+      if (!cart) {
+        cart = new Cart({ userId: req.userId, items: [] });
+      }
+
+      // Verifica se patrocínio já existe no carrinho (mesmo id + mesmo mês)
+      const existingIndex = cart.items.findIndex(
+        item => item.productId.toString() === sponsorshipId && item.itemType === 'sponsorship'
+      );
+
+      if (existingIndex !== -1 && cart.items[existingIndex]) {
+        // Atualiza mês
+        cart.items[existingIndex].selectedMonth = selectedMonth;
+        cart.items[existingIndex].programDaysInMonth = programDaysInMonth;
+        cart.items[existingIndex].price = sponsorship.pricePerMonth;
+      } else {
+        const timeRangeStr = `${sponsorship.timeRange.start} às ${sponsorship.timeRange.end}`;
+        const newItem: any = {
+          productId: sponsorship._id, // Reutiliza productId para sponsorshipId
+          productName: sponsorship.programName,
+          productSchedule: timeRangeStr,
+          broadcasterId: broadcaster._id,
+          broadcasterName: broadcaster.companyName || broadcaster.fantasyName || '',
+          broadcasterDial: broadcaster.broadcasterProfile?.generalInfo?.dialFrequency || '',
+          broadcasterBand: broadcaster.broadcasterProfile?.generalInfo?.band || '',
+          broadcasterLogo: broadcaster.broadcasterProfile?.logo || '',
+          broadcasterCity: broadcaster.address?.city || '',
+          price: sponsorship.pricePerMonth,
+          quantity: 1, // Patrocínio é sempre 1 (por mês)
+          duration: 0,
+          schedule: {},
+          addedAt: new Date(),
+          itemType: 'sponsorship',
+          selectedMonth,
+          selectedMonths: selectedMonth ? [selectedMonth] : [],
+          programDaysInMonth,
+          daysOfWeek: sponsorship.daysOfWeek,
+          sponsorshipInsertions: sponsorship.insertions.map(ins => ({
+            name: ins.name,
+            duration: ins.duration,
+            quantityPerDay: ins.quantityPerDay,
+            requiresMaterial: ins.requiresMaterial
+          }))
+        };
+        cart.items.push(newItem);
+      }
+
+      await cart.save();
+      res.json(cart);
+      return;
+    }
+
+    // ─── Produto normal ──────────────────────────────────────────────────
     const quantity = sanitizeQuantity(rawQty);
 
     if (!productId || quantity === null) {
@@ -189,7 +298,7 @@ export const addItem = async (req: AuthRequest, res: Response): Promise<void> =>
 
     // Verifica se item já existe
     const existingItemIndex = cart.items.findIndex(
-      item => item.productId.toString() === productId
+      item => item.productId.toString() === productId && (!item.itemType || item.itemType === 'product')
     );
 
     if (existingItemIndex !== -1 && cart.items[existingItemIndex]) {
@@ -461,30 +570,26 @@ export const syncCart = async (req: AuthRequest, res: Response): Promise<void> =
     // Validar e reconstruir itens com dados confiáveis do banco
     const validatedItems: ICartItem[] = [];
 
-    // Coletar IDs dos produtos para busca em lote
-    const productIds = items.map(item => item.productId).filter(id => id);
+    // Separar itens por tipo
+    const productItems = items.filter((item: any) => !item.itemType || item.itemType === 'product');
+    const sponsorshipItems = items.filter((item: any) => item.itemType === 'sponsorship');
 
-    // Buscar produtos e broadcasters em uma única query otimizada
+    // ─── Produtos ────────────────────────────────────────────────────────
+    const productIds = productItems.map((item: any) => item.productId).filter((id: any) => id);
     const products = await Product.find({ _id: { $in: productIds } }).populate('broadcasterId', '_id companyName fantasyName broadcasterProfile address email status');
     const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
-    for (const item of items) {
-      // Ignorar itens sem productId
+    for (const item of productItems) {
       if (!item.productId) continue;
 
       const product = productMap.get(item.productId.toString());
-
-      // Se produto não existe ou broadcaster não existe, ignora o item
-      if (!product || !product.broadcasterId) {
-        continue;
-      }
+      if (!product || !product.broadcasterId) continue;
 
       const broadcaster: any = product.broadcasterId;
 
-      // Reconstrói item com dados seguros do banco
       const validatedItem: ICartItem = {
         productId: product._id,
-        productName: product.spotType, // Garante nome atualizado
+        productName: product.spotType,
         productSchedule: product.timeSlot,
         broadcasterId: broadcaster._id,
         broadcasterName: broadcaster.companyName || broadcaster.fantasyName || '',
@@ -495,15 +600,63 @@ export const syncCart = async (req: AuthRequest, res: Response): Promise<void> =
         price: product.pricePerInsertion, // 🔒 PREÇO SEGURO DO BANCO
         quantity: sanitizeQuantity(item.quantity) || 1,
         duration: product.duration,
-        schedule: item.schedule || {}, // Schedule vem do front, mas validamos datas depois
-        material: item.material || undefined, // Mantém material se já existir
+        schedule: item.schedule || {},
+        material: item.material || undefined,
         addedAt: item.addedAt ? new Date(item.addedAt) : new Date()
       };
 
       validatedItems.push(validatedItem);
     }
 
-    // Limpa datas expiradas dos itens validados (#47)
+    // ─── Patrocínios ─────────────────────────────────────────────────────
+    const sponsorshipIds = sponsorshipItems.map((item: any) => item.productId).filter((id: any) => id);
+    const sponsorships = await Sponsorship.find({ _id: { $in: sponsorshipIds } }).populate('broadcasterId', '_id companyName fantasyName broadcasterProfile address email status');
+    const sponsorshipMap = new Map(sponsorships.map(s => [s._id.toString(), s]));
+
+    for (const item of sponsorshipItems) {
+      if (!item.productId) continue;
+
+      const sponsorship = sponsorshipMap.get(item.productId.toString());
+      if (!sponsorship || !sponsorship.broadcasterId) continue;
+
+      const broadcaster: any = sponsorship.broadcasterId;
+      const selectedMonth = item.selectedMonth || '';
+      const programDaysInMonth = selectedMonth ? countProgramDaysInMonth(selectedMonth, sponsorship.daysOfWeek) : 0;
+      const timeRangeStr = `${sponsorship.timeRange.start} às ${sponsorship.timeRange.end}`;
+
+      const validatedItem: any = {
+        productId: sponsorship._id,
+        productName: sponsorship.programName,
+        productSchedule: timeRangeStr,
+        broadcasterId: broadcaster._id,
+        broadcasterName: broadcaster.companyName || broadcaster.fantasyName || '',
+        broadcasterDial: broadcaster.broadcasterProfile?.generalInfo?.dialFrequency || '',
+        broadcasterBand: broadcaster.broadcasterProfile?.generalInfo?.band || '',
+        broadcasterLogo: broadcaster.broadcasterProfile?.logo || '',
+        broadcasterCity: broadcaster.address?.city || '',
+        price: sponsorship.pricePerMonth, // 🔒 PREÇO SEGURO DO BANCO
+        quantity: 1,
+        duration: 0,
+        schedule: {},
+        addedAt: item.addedAt ? new Date(item.addedAt) : new Date(),
+        itemType: 'sponsorship',
+        selectedMonth,
+        selectedMonths: item.selectedMonths || (selectedMonth ? [selectedMonth] : []),
+        programDaysInMonth,
+        daysOfWeek: sponsorship.daysOfWeek,
+        sponsorshipInsertions: sponsorship.insertions.map(ins => ({
+          name: ins.name,
+          duration: ins.duration,
+          quantityPerDay: ins.quantityPerDay,
+          requiresMaterial: ins.requiresMaterial
+        })),
+        sponsorshipMaterials: item.sponsorshipMaterials || undefined
+      };
+
+      validatedItems.push(validatedItem);
+    }
+
+    // Limpa datas expiradas dos itens de produto validados (#47)
     const cleanedItems = cleanExpiredSchedules(validatedItems);
 
 
@@ -520,5 +673,116 @@ export const syncCart = async (req: AuthRequest, res: Response): Promise<void> =
     res.json(cart);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao sincronizar carrinho' });
+  }
+};
+
+// Atualizar mês selecionado de um patrocínio no carrinho
+export const updateSponsorshipMonth = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ error: 'Usuário não autenticado' });
+      return;
+    }
+
+    const { productId, selectedMonth } = req.body;
+
+    if (!productId || !selectedMonth || !/^\d{4}-\d{2}$/.test(selectedMonth)) {
+      res.status(400).json({ error: 'productId e selectedMonth (YYYY-MM) são obrigatórios' });
+      return;
+    }
+
+    // Validar que não é mês passado
+    const now = new Date();
+    const [selYear, selMonth] = selectedMonth.split('-').map(Number);
+    const currentYearMonth = now.getFullYear() * 100 + (now.getMonth() + 1);
+    const selectedYearMonth = selYear * 100 + selMonth;
+    if (selectedYearMonth <= currentYearMonth) {
+      res.status(400).json({ error: 'Patrocínio só pode ser comprado a partir do mês seguinte' });
+      return;
+    }
+
+    const cart = await Cart.findOne({ userId: req.userId });
+    if (!cart) {
+      res.status(404).json({ error: 'Carrinho não encontrado' });
+      return;
+    }
+
+    const itemIndex = cart.items.findIndex(
+      item => item.productId.toString() === productId && item.itemType === 'sponsorship'
+    );
+
+    if (itemIndex === -1 || !cart.items[itemIndex]) {
+      res.status(404).json({ error: 'Patrocínio não encontrado no carrinho' });
+      return;
+    }
+
+    // Buscar patrocínio para recalcular dias
+    const sponsorship = await Sponsorship.findById(productId);
+    if (!sponsorship) {
+      res.status(404).json({ error: 'Patrocínio não encontrado' });
+      return;
+    }
+
+    const programDaysInMonth = countProgramDaysInMonth(selectedMonth, sponsorship.daysOfWeek);
+
+    cart.items[itemIndex].selectedMonth = selectedMonth;
+    cart.items[itemIndex].programDaysInMonth = programDaysInMonth;
+    cart.items[itemIndex].price = sponsorship.pricePerMonth;
+
+    await cart.save();
+
+    res.json(cart);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao atualizar mês do patrocínio' });
+  }
+};
+
+// Atualizar material de patrocínio (por tipo de inserção)
+export const updateSponsorshipMaterial = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ error: 'Usuário não autenticado' });
+      return;
+    }
+
+    const { productId, insertionName, material } = req.body;
+
+    if (!productId || !insertionName || !material) {
+      res.status(400).json({ error: 'productId, insertionName e material são obrigatórios' });
+      return;
+    }
+
+    const cart = await Cart.findOne({ userId: req.userId });
+    if (!cart) {
+      res.status(404).json({ error: 'Carrinho não encontrado' });
+      return;
+    }
+
+    const itemIndex = cart.items.findIndex(
+      item => item.productId.toString() === productId && item.itemType === 'sponsorship'
+    );
+
+    if (itemIndex === -1 || !cart.items[itemIndex]) {
+      res.status(404).json({ error: 'Patrocínio não encontrado no carrinho' });
+      return;
+    }
+
+    // Sanitiza URLs de material contra path traversal
+    if (material.audioUrl && (typeof material.audioUrl !== 'string' || !material.audioUrl.startsWith('https://'))) {
+      res.status(400).json({ error: 'URL de áudio inválida' });
+      return;
+    }
+
+    if (!cart.items[itemIndex].sponsorshipMaterials) {
+      cart.items[itemIndex].sponsorshipMaterials = {} as any;
+    }
+    (cart.items[itemIndex].sponsorshipMaterials as any)[insertionName] = material;
+
+    cart.markModified(`items.${itemIndex}.sponsorshipMaterials`);
+    await cart.save();
+
+    res.json(cart);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao atualizar material do patrocínio' });
   }
 };

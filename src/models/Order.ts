@@ -1,6 +1,13 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { getNextSequence } from './Counter';
 
+export interface IOrderSponsorshipInsertion {
+  name: string;
+  duration: number;
+  quantityPerDay: number;
+  requiresMaterial: boolean;
+}
+
 export interface IOrderItem {
   productId: string;
   productName: string;
@@ -10,6 +17,15 @@ export interface IOrderItem {
   unitPrice: number;
   totalPrice: number;
   schedule: Map<string, number>; // { 'YYYY-MM-DD': quantity }
+  // Campos de Patrocínio
+  itemType?: 'product' | 'sponsorship';
+  sponsorshipId?: string;
+  programName?: string;
+  programTimeRange?: { start: string; end: string };
+  programDaysOfWeek?: number[];
+  selectedMonth?: string;
+  sponsorshipInsertions?: IOrderSponsorshipInsertion[];
+  sponsorshipMaterials?: Record<string, any>;
   material: {
     type: 'audio' | 'script' | 'text' | 'recording';
     audioUrl?: string;
@@ -237,6 +253,27 @@ const OrderSchema = new Schema<IOrder>({
     unitPrice: { type: Number, required: true },
     totalPrice: { type: Number, required: true },
     schedule: { type: Map, of: Number, required: true },
+    // Campos de Patrocínio
+    itemType: { type: String, enum: ['product', 'sponsorship'], default: 'product' },
+    sponsorshipId: String,
+    programName: String,
+    programTimeRange: {
+      start: String,
+      end: String
+    },
+    programDaysOfWeek: [Number],
+    selectedMonth: String,
+    sponsorshipInsertions: [{
+      name: { type: String, required: true },
+      duration: { type: Number, default: 0 },
+      quantityPerDay: { type: Number, required: true },
+      requiresMaterial: { type: Boolean, default: false },
+      _id: false
+    }],
+    sponsorshipMaterials: {
+      type: Map,
+      of: Schema.Types.Mixed
+    },
     material: {
       type: { type: String, enum: ['audio', 'script', 'text', 'recording'] },
       audioUrl: String,

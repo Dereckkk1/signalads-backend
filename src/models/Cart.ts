@@ -36,6 +36,14 @@ export interface IMaterial {
   uploadedAt?: Date;
 }
 
+// Interface para inserção de patrocínio no carrinho
+export interface ICartSponsorshipInsertion {
+  name: string;
+  duration: number;
+  quantityPerDay: number;
+  requiresMaterial: boolean;
+}
+
 // Interface para item do carrinho
 export interface ICartItem {
   productId: Types.ObjectId;
@@ -53,6 +61,14 @@ export interface ICartItem {
   schedule?: ISchedule;
   material?: IMaterial;
   addedAt: Date;
+  // Campos de Patrocínio
+  itemType?: 'product' | 'sponsorship';
+  selectedMonth?: string;                        // "2026-04" (YYYY-MM) — primeiro mês selecionado
+  selectedMonths?: string[];                     // Array de meses selecionados (multi-mês)
+  programDaysInMonth?: number;                    // Dias do programa no(s) mês(es) selecionado(s)
+  daysOfWeek?: number[];                         // Dias da semana do programa [0-6]
+  sponsorshipInsertions?: ICartSponsorshipInsertion[];  // Snapshot das inserções do patrocínio
+  sponsorshipMaterials?: Record<string, IMaterial>;     // Material por tipo de inserção (key = insertion name)
 }
 
 export interface ICart extends Document {
@@ -100,11 +116,18 @@ const materialSchema = new Schema({
   }
 }, { _id: false });
 
+const sponsorshipInsertionSchema = new Schema({
+  name: { type: String, required: true },
+  duration: { type: Number, default: 0 },
+  quantityPerDay: { type: Number, required: true, min: 1 },
+  requiresMaterial: { type: Boolean, default: false }
+}, { _id: false });
+
 const cartItemSchema = new Schema({
   productId: {
     type: Schema.Types.ObjectId,
     ref: 'Product',
-    required: true
+    required: true // Armazena sponsorshipId quando itemType='sponsorship'
   },
   productName: {
     type: String,
@@ -146,6 +169,22 @@ const cartItemSchema = new Schema({
   addedAt: {
     type: Date,
     default: Date.now
+  },
+  // Campos de Patrocínio
+  itemType: {
+    type: String,
+    enum: ['product', 'sponsorship'],
+    default: 'product'
+  },
+  selectedMonth: String,           // "2026-04" (YYYY-MM) — primeiro mês
+  selectedMonths: [String],        // Array de meses selecionados
+  programDaysInMonth: Number,      // Dias do programa no(s) mês(es)
+  daysOfWeek: [Number],            // Dias da semana do programa [0-6]
+  sponsorshipInsertions: [sponsorshipInsertionSchema],
+  sponsorshipMaterials: {
+    type: Map,
+    of: materialSchema,
+    default: undefined
   }
 }, { _id: false });
 

@@ -2,9 +2,27 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { Cart } from '../models/Cart';
 import { Product } from '../models/Product';
+import { Sponsorship } from '../models/Sponsorship';
 import { User } from '../models/User';
 import Order from '../models/Order';
 import { sendOrderReceivedToClient, sendNewOrderToAdmin } from '../services/emailService';
+
+// Gera schedule automático para patrocínio: cada dia do mês que bate com daysOfWeek
+function generateSponsorshipSchedule(selectedMonth: string, daysOfWeek: number[]): Record<string, number> {
+  const parts = selectedMonth.split('-').map(Number);
+  const year = parts[0]!;
+  const month = parts[1]!;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const schedule: Record<string, number> = {};
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month - 1, day);
+    if (daysOfWeek.includes(date.getDay())) {
+      const key = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      schedule[key] = 1;
+    }
+  }
+  return schedule;
+}
 
 /**
  * POST /api/payment/checkout
@@ -59,16 +77,24 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
-    // 3. Buscar produtos do banco para validar preços
-    const productIds = cart.items.map(item => item.productId);
+    // 3. Separar itens por tipo e buscar do banco
+    const productCartItems = cart.items.filter((item: any) => !item.itemType || item.itemType === 'product');
+    const sponsorshipCartItems = cart.items.filter((item: any) => item.itemType === 'sponsorship');
+
+    const productIds = productCartItems.map(item => item.productId);
     const products = await Product.find({ _id: { $in: productIds }, isActive: true }).populate('broadcasterId');
     const productMap = new Map(products.map(p => [p._id.toString(), p]));
+
+    const sponsorshipIds = sponsorshipCartItems.map(item => item.productId);
+    const sponsorshipsDb = await Sponsorship.find({ _id: { $in: sponsorshipIds }, isActive: true }).populate('broadcasterId');
+    const sponsorshipMap = new Map(sponsorshipsDb.map(s => [s._id.toString(), s]));
 
     // 4. Construir itens do pedido com preços do banco
     const orderItems: any[] = [];
     let productsTotal = 0;
 
-    for (const cartItem of cart.items) {
+    // ─── Produtos normais ────────────────────────────────────────────────
+    for (const cartItem of productCartItems) {
       const product = productMap.get(cartItem.productId.toString());
       if (!product) {
         res.status(400).json({ error: `Produto ${cartItem.productId} não encontrado ou indisponível` });
@@ -124,6 +150,84 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
         totalPrice,
         schedule: scheduleObj,
         material: orderMaterial
+      });
+    }
+
+    // ─── Patrocínios ─────────────────────────────────────────────────────
+    for (const cartItem of sponsorshipCartItems) {
+      const sponsorship = sponsorshipMap.get(cartItem.productId.toString());
+      if (!sponsorship) {
+        res.status(400).json({ error: `Patrocínio ${cartItem.productId} não encontrado ou indisponível` });
+        return;
+      }
+
+      const selectedMonth = (cartItem as any).selectedMonth;
+      if (!selectedMonth) {
+        res.status(400).json({ error: `Mês não selecionado para patrocínio ${sponsorship.programName}` });
+        return;
+      }
+
+      const unitPrice = sponsorship.pricePerMonth;
+      const totalPrice = unitPrice; // 1 mês
+      productsTotal += totalPrice;
+
+      const broadcaster: any = sponsorship.broadcasterId;
+
+      // Gerar schedule automático
+      const scheduleObj = generateSponsorshipSchedule(selectedMonth, sponsorship.daysOfWeek);
+
+      // Montar materiais de patrocínio (por tipo de inserção)
+      const sponsorshipMaterials: Record<string, any> = {};
+      const cartMaterials: any = (cartItem as any).sponsorshipMaterials;
+
+      for (const ins of sponsorship.insertions) {
+        if (ins.requiresMaterial && cartMaterials?.[ins.name]) {
+          const mat = cartMaterials[ins.name];
+          sponsorshipMaterials[ins.name] = {
+            type: mat.type,
+            audioUrl: mat.audioUrl,
+            audioFileName: mat.audioFileName,
+            audioDuration: mat.audioDuration,
+            scriptUrl: mat.scriptUrl,
+            scriptFileName: mat.scriptFileName,
+            text: mat.text,
+            textDuration: mat.textDuration,
+            script: mat.script,
+            phonetic: mat.phonetic,
+            voiceGender: mat.voiceGender,
+            musicStyle: mat.musicStyle,
+            aiGeneration: mat.aiGeneration,
+            contentHash: mat.contentHash,
+            status: 'pending_broadcaster_review',
+            chat: []
+          };
+        }
+      }
+
+      orderItems.push({
+        productId: sponsorship._id.toString(),
+        productName: sponsorship.programName,
+        broadcasterName: broadcaster?.companyName || broadcaster?.fantasyName || cartItem.broadcasterName,
+        broadcasterId: (cartItem.broadcasterId || broadcaster?._id)?.toString(),
+        quantity: 1,
+        unitPrice,
+        totalPrice,
+        schedule: scheduleObj,
+        material: undefined, // Patrocínios usam sponsorshipMaterials
+        // Campos específicos de patrocínio
+        itemType: 'sponsorship',
+        sponsorshipId: sponsorship._id.toString(),
+        programName: sponsorship.programName,
+        programTimeRange: sponsorship.timeRange,
+        programDaysOfWeek: sponsorship.daysOfWeek,
+        selectedMonth,
+        sponsorshipInsertions: sponsorship.insertions.map(ins => ({
+          name: ins.name,
+          duration: ins.duration,
+          quantityPerDay: ins.quantityPerDay,
+          requiresMaterial: ins.requiresMaterial
+        })),
+        sponsorshipMaterials: Object.keys(sponsorshipMaterials).length > 0 ? sponsorshipMaterials : undefined
       });
     }
 

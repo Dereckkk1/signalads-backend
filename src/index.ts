@@ -22,6 +22,7 @@ import paymentRoutes from './routes/paymentRoutes';
 import proposalRoutes from './routes/proposalRoutes';
 import broadcasterProposalRoutes from './routes/broadcasterProposalRoutes';
 import testReportRoutes from './routes/testReportRoutes';
+import sponsorshipRoutes from './routes/sponsorshipRoutes';
 import { startBackupCron } from './cron/backupCron';
 import { startExpireProposalsCron } from './cron/expireProposals';
 import { startProposalAlertsCron } from './cron/proposalAlerts';
@@ -154,6 +155,7 @@ app.use('/api/payment', paymentRoutes); // Checkout (criação de pedido)
 app.use('/api/proposals', proposalRoutes); // Propostas comerciais de agências
 app.use('/api/broadcaster-proposals', broadcasterProposalRoutes); // Propostas comerciais de emissoras
 app.use('/api/test-reports', testReportRoutes); // Dashboard de testes (admin only)
+app.use('/api/sponsorships', sponsorshipRoutes); // Patrocínios de programas (emissoras)
 
 // Rota de teste
 app.get('/', (req: Request, res: Response) => {
