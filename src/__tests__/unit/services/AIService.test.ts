@@ -216,10 +216,10 @@ describe('buildMediaPlan — resposta normal', () => {
 
         expect(result.items.length).toBeGreaterThanOrEqual(1);
         // Should use REAL price from candidate, not AI hallucinated price
-        expect(result.items[0].unitPrice).toBe(150);
-        expect(result.items[0].broadcasterName).toBe('Radio Alpha');
-        expect(result.items[0].broadcasterCity).toBe('Curitiba');
-        expect(result.items[0].broadcasterState).toBe('PR');
+        expect(result.items[0]!.unitPrice).toBe(150);
+        expect(result.items[0]!.broadcasterName).toBe('Radio Alpha');
+        expect(result.items[0]!.broadcasterCity).toBe('Curitiba');
+        expect(result.items[0]!.broadcasterState).toBe('PR');
     });
 
     it('deve forcar spots como multiplo de 22 (minimo 22)', async () => {
@@ -246,8 +246,8 @@ describe('buildMediaPlan — resposta normal', () => {
         const result = await service.buildMediaPlan(createCriteria({ budget: 1100 }), [candidate]);
 
         // 15 should be rounded up to 22 (min and nearest multiple)
-        expect(result.items[0].spots).toBe(22);
-        expect(result.items[0].spots % 22).toBe(0);
+        expect(result.items[0]!.spots).toBe(22);
+        expect(result.items[0]!.spots % 22).toBe(0);
     });
 
     it('deve usar preco real do candidate, nao o retornado pela AI', async () => {
@@ -272,8 +272,8 @@ describe('buildMediaPlan — resposta normal', () => {
 
         const result = await service.buildMediaPlan(createCriteria(), [candidate]);
 
-        expect(result.items[0].unitPrice).toBe(200); // Real price
-        expect(result.items[0].totalCost).toBe(200 * 22); // Real math
+        expect(result.items[0]!.unitPrice).toBe(200); // Real price
+        expect(result.items[0]!.totalCost).toBe(200 * 22); // Real math
     });
 
     it('deve filtrar items com broadcasterId que nao existe nos candidates (anti-hallucination)', async () => {
@@ -296,7 +296,7 @@ describe('buildMediaPlan — resposta normal', () => {
         const result = await service.buildMediaPlan(createCriteria(), [candidate]);
 
         expect(result.items).toHaveLength(1);
-        expect(result.items[0].broadcasterId).toBe('real-id');
+        expect(result.items[0]!.broadcasterId).toBe('real-id');
     });
 
     it('deve deduplicar items com mesmo broadcasterId', async () => {
@@ -348,9 +348,9 @@ describe('buildMediaPlan — emergency fallback', () => {
         const result = await service.buildMediaPlan(createCriteria(), [candidate]);
 
         expect(result.items).toHaveLength(1);
-        expect(result.items[0].broadcasterId).toBe('fallback-1');
-        expect(result.items[0].spots).toBe(22);
-        expect(result.items[0].totalCost).toBe(75 * 22);
+        expect(result.items[0]!.broadcasterId).toBe('fallback-1');
+        expect(result.items[0]!.spots).toBe(22);
+        expect(result.items[0]!.totalCost).toBe(75 * 22);
     });
 });
 
@@ -445,11 +445,11 @@ describe('buildMediaPlan — enrichment', () => {
 
         const result = await service.buildMediaPlan(createCriteria(), [candidate]);
 
-        expect(result.items[0].broadcasterLatitude).toBe(-23.5505);
-        expect(result.items[0].broadcasterLongitude).toBe(-46.6333);
-        expect(result.items[0].broadcasterAntennaClass).toBe('A');
-        expect(result.items[0].broadcasterLogo).toBe('https://logo.test/img.png');
-        expect(result.items[0].broadcasterDial).toBe('101.3 FM');
+        expect(result.items[0]!.broadcasterLatitude).toBe(-23.5505);
+        expect(result.items[0]!.broadcasterLongitude).toBe(-46.6333);
+        expect(result.items[0]!.broadcasterAntennaClass).toBe('A');
+        expect(result.items[0]!.broadcasterLogo).toBe('https://logo.test/img.png');
+        expect(result.items[0]!.broadcasterDial).toBe('101.3 FM');
     });
 
     it('deve incluir broadcasterProfile com audience e coverage', async () => {
@@ -480,8 +480,8 @@ describe('buildMediaPlan — enrichment', () => {
 
         const result = await service.buildMediaPlan(createCriteria(), [candidate]);
 
-        expect(result.items[0].broadcasterProfile).toBeDefined();
-        expect(result.items[0].broadcasterProfile.pmm).toBe(45000);
-        expect(result.items[0].broadcasterProfile.cpm).toBe(2.5);
+        expect(result.items[0]!.broadcasterProfile).toBeDefined();
+        expect(result.items[0]!.broadcasterProfile.pmm).toBe(45000);
+        expect(result.items[0]!.broadcasterProfile.cpm).toBe(2.5);
     });
 });

@@ -93,9 +93,9 @@ describe('metricsMiddleware — captura metricas', () => {
         res.emit('finish');
 
         expect(metricsStore.length).toBe(1);
-        expect(metricsStore[0].method).toBe('POST');
-        expect(metricsStore[0].statusCode).toBe(201);
-        expect(metricsStore[0].path).toBe('/api/orders');
+        expect(metricsStore[0]!.method).toBe('POST');
+        expect(metricsStore[0]!.statusCode).toBe(201);
+        expect(metricsStore[0]!.path).toBe('/api/orders');
     });
 
     it('deve registrar route como "METHOD path"', () => {
@@ -110,7 +110,7 @@ describe('metricsMiddleware — captura metricas', () => {
         metricsMiddleware(req as Request, res as Response, next as NextFunction);
         res.emit('finish');
 
-        expect(metricsStore[0].route).toBe('GET /products');
+        expect(metricsStore[0]!.route).toBe('GET /products');
     });
 
     it('deve usar req.path como fallback quando route nao existe', () => {
@@ -125,7 +125,7 @@ describe('metricsMiddleware — captura metricas', () => {
         metricsMiddleware(req as Request, res as Response, next as NextFunction);
         res.emit('finish');
 
-        expect(metricsStore[0].route).toBe('GET /api/fallback');
+        expect(metricsStore[0]!.route).toBe('GET /api/fallback');
     });
 
     it('deve registrar IP do request', () => {
@@ -136,7 +136,7 @@ describe('metricsMiddleware — captura metricas', () => {
         metricsMiddleware(req as Request, res as Response, next as NextFunction);
         res.emit('finish');
 
-        expect(metricsStore[0].ip).toBe('10.0.0.1');
+        expect(metricsStore[0]!.ip).toBe('10.0.0.1');
     });
 
     it('deve registrar timestamp como Date', () => {
@@ -147,7 +147,7 @@ describe('metricsMiddleware — captura metricas', () => {
         metricsMiddleware(req as Request, res as Response, next as NextFunction);
         res.emit('finish');
 
-        expect(metricsStore[0].timestamp).toBeInstanceOf(Date);
+        expect(metricsStore[0]!.timestamp).toBeInstanceOf(Date);
     });
 
     it('deve registrar duration >= 0', () => {
@@ -158,7 +158,7 @@ describe('metricsMiddleware — captura metricas', () => {
         metricsMiddleware(req as Request, res as Response, next as NextFunction);
         res.emit('finish');
 
-        expect(metricsStore[0].duration).toBeGreaterThanOrEqual(0);
+        expect(metricsStore[0]!.duration).toBeGreaterThanOrEqual(0);
     });
 });
 
@@ -254,7 +254,7 @@ describe('getMetricsSummary', () => {
         // Default window is 1h — old metric should be excluded
         const summary = getMetricsSummary();
         expect(summary).toHaveLength(1);
-        expect(summary[0].route).toBe('GET /api/recent');
+        expect(summary[0]!.route).toBe('GET /api/recent');
     });
 
     it('deve ordenar por p95 descendente', () => {
@@ -264,8 +264,8 @@ describe('getMetricsSummary', () => {
         );
 
         const summary = getMetricsSummary();
-        expect(summary[0].route).toBe('GET /slow');
-        expect(summary[1].route).toBe('GET /fast');
+        expect(summary[0]!.route).toBe('GET /slow');
+        expect(summary[1]!.route).toBe('GET /fast');
     });
 });
 

@@ -72,10 +72,12 @@ afterAll(async () => {
   await disconnectTestDB();
 });
 
+type MaterialStatus = 'pending_broadcaster_review' | 'broadcaster_rejected' | 'broadcaster_approved' | 'broadcaster_produced' | 'client_approved' | 'client_rejected' | 'final_approved';
+
 /**
  * Helper: creates a complete order scenario with buyer, broadcaster, and material.
  */
-async function createOrderWithMaterial(materialStatus = 'pending_broadcaster_review') {
+async function createOrderWithMaterial(materialStatus: MaterialStatus = 'pending_broadcaster_review') {
   const { user: advertiser, auth: advertiserAuth } = await createAdvertiser();
   const { user: broadcaster, auth: broadcasterAuth } = await createBroadcaster();
 
@@ -270,7 +272,7 @@ describe('POST /api/materials/:orderId/item/:itemIndex/broadcaster/reject', () =
     expect(res.body.success).toBe(true);
 
     const updated = await Order.findById(order._id);
-    expect(updated!.items[0].material.status).toBe('broadcaster_rejected');
+    expect(updated!.items[0]!.material.status).toBe('broadcaster_rejected');
   });
 
   it('should reject when not the owner broadcaster', async () => {
@@ -315,7 +317,7 @@ describe('POST /api/materials/:orderId/item/:itemIndex/broadcaster/approve', () 
     expect(res.body.success).toBe(true);
 
     const updated = await Order.findById(order._id);
-    expect(updated!.items[0].material.status).toBe('final_approved');
+    expect(updated!.items[0]!.material.status).toBe('final_approved');
   });
 
   it('should reject when not the owner broadcaster', async () => {
@@ -347,7 +349,7 @@ describe('POST /api/materials/:orderId/item/:itemIndex/client/approve', () => {
     expect(res.body.success).toBe(true);
 
     const updated = await Order.findById(order._id);
-    expect(updated!.items[0].material.status).toBe('final_approved');
+    expect(updated!.items[0]!.material.status).toBe('final_approved');
   });
 
   it('should reject when broadcaster tries to use client endpoint', async () => {
@@ -391,7 +393,7 @@ describe('POST /api/materials/:orderId/item/:itemIndex/client/reject', () => {
     expect(res.body.success).toBe(true);
 
     const updated = await Order.findById(order._id);
-    expect(updated!.items[0].material.status).toBe('client_rejected');
+    expect(updated!.items[0]!.material.status).toBe('client_rejected');
   });
 
   it('should reject when broadcaster tries to use client reject endpoint', async () => {
