@@ -36,31 +36,34 @@ const createTransporter = () => {
 
 const transporter = createTransporter();
 
-// Cores da plataforma E-rádios (baseadas no variables.css)
+// Cores da plataforma E-rádios (de variables.css / design.md)
 const colors = {
-  primary: '#4A90E2',      // Azul
-  primaryDark: '#2B6CB0',
-  primaryLight: '#7CB3F0',
-  secondary: '#8B5CF6',    // Roxo
-  secondaryDark: '#7C3AED',
-  tertiary: '#EC4899',     // Rosa
-  tertiaryDark: '#DB2777',
+  primary: '#541FE4',      // Azul Digital
+  primaryDark: '#3713A0',
+  primaryLight: '#8484F9',
+  secondary: '#921FB5',    // Roxo Digital
+  secondaryDark: '#7A1A98',
+  tertiary: '#E81E75',     // Rosa Digital (cor de ação principal)
+  tertiaryDark: '#D51E83',
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
-  gray50: '#F9FAFB',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',
-  gray600: '#4B5563',
-  gray700: '#374151',
-  gray800: '#1F2937',
-  gray900: '#111827',
+  gray50: '#F8F8FD',
+  gray100: '#F0F0FB',
+  gray200: '#DDDDF5',
+  gray300: '#B8B8E8',
+  gray400: '#8D8DD4',
+  gray500: '#5D5DB8',
+  gray600: '#3D3D8F',
+  gray700: '#212166',
+  gray800: '#0F0E50',
+  gray900: '#06055B',
   white: '#FFFFFF',
   black: '#000000'
 };
+
+// Logo publica hospedada no GCS (funciona em clientes de email)
+const LOGO_URL = 'https://storage.googleapis.com/signalads-materials/logos/logomarca%20eradios.png';
 
 // ===========================================
 // SISTEMA DE TEMPLATE GENÉRICO DE EMAIL
@@ -94,12 +97,11 @@ const createEmailTemplate = (config: EmailConfig): string => {
     buttonUrl,
     buttonColor = colors.tertiary,
     preheader = '',
-    icon,
     showLogo = true
   } = config;
 
-  // Logo da plataforma
-  const logoUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/logomarca eradios.png`;
+  const logoUrl = LOGO_URL;
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
   return `
 <!DOCTYPE html>
@@ -108,73 +110,70 @@ const createEmailTemplate = (config: EmailConfig): string => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>E-rádios</title>
+  <title>${title} — E-radios</title>
   <!--[if mso]>
   <style type="text/css">
     body, table, td {font-family: Arial, Helvetica, sans-serif !important;}
   </style>
   <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; background-color: ${colors.gray50}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  
+<body style="margin: 0; padding: 0; background-color: ${colors.gray50}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+
   <!-- Preheader -->
   <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">
     ${preheader || title}
   </div>
-  
-  <!-- Container principal -->
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color: ${colors.gray50}; padding: 40px 20px;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color: ${colors.gray50}; padding: 48px 20px 32px;">
     <tr>
       <td align="center">
-        
-        <!-- Card principal -->
-        <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color: ${colors.white}; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden;">
-          
-          <!-- Header com logo -->
+
+        <!-- Card -->
+        <table width="580" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color: ${colors.white}; border-radius: 12px; overflow: hidden;">
+
+          <!-- Logo bar -->
+          ${showLogo ? `
           <tr>
-            <td style="background: ${colors.tertiary}; padding: 48px 32px; text-align: center;">
-              ${showLogo ? `
-              <!-- Logo -->
-              <div style="margin-bottom: 24px;">
-                <img src="${logoUrl}" alt="E-rádios" style="width: 180px; height: auto; display: block; margin: 0 auto;" />
-              </div>
-              ` : ''}
-              
-              ${icon ? `
-              <!-- Ícone -->
-              <div style="margin-bottom: 16px;">
-                <img src="${logoUrl}" alt="${icon}" style="width: 100px; height: auto; display: block; margin: 0 auto;" />
-              </div>
-              ` : ''}
-              
-              <!-- Título -->
-              <h1 style="margin: 0; color: ${colors.white}; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; text-shadow: 0 2px 8px rgba(0,0,0,0.15); line-height: 1.3;">
+            <td style="padding: 32px 40px 0;">
+              <img src="${logoUrl}" alt="E-radios" style="width: 120px; height: auto; display: block;" />
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 40px 0;">
+              <div style="height: 1px; background-color: ${colors.gray200};"></div>
+            </td>
+          </tr>
+          ` : ''}
+
+          <!-- Title -->
+          <tr>
+            <td style="padding: ${showLogo ? '32px' : '40px'} 40px 0;">
+              <h1 style="margin: 0; color: ${colors.gray900}; font-size: 26px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.3;">
                 ${title}
               </h1>
-              
               ${subtitle ? `
-              <p style="margin: 12px 0 0; color: rgba(255,255,255,0.9); font-size: 16px; font-weight: 500; line-height: 1.5;">
+              <p style="margin: 12px 0 0; color: ${colors.gray500}; font-size: 15px; line-height: 1.5;">
                 ${subtitle}
               </p>
               ` : ''}
             </td>
           </tr>
-          
-          <!-- Conteúdo -->
+
+          <!-- Content -->
           <tr>
-            <td style="padding: 48px 40px;">
+            <td style="padding: 24px 40px 8px;">
               ${content}
             </td>
           </tr>
-          
+
           ${buttonText && buttonUrl ? `
-          <!-- Botão de ação -->
+          <!-- CTA -->
           <tr>
-            <td style="padding: 0 40px 48px; text-align: center;">
-              <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin: 0 auto;">
+            <td style="padding: 16px 40px 40px;">
+              <table cellpadding="0" cellspacing="0" border="0" role="presentation">
                 <tr>
-                  <td style="background-color: ${buttonColor}; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);">
-                    <a href="${buttonUrl}" style="display: inline-block; padding: 16px 48px; color: ${colors.white}; text-decoration: none; font-weight: 700; font-size: 16px; letter-spacing: 0.3px;">
+                  <td style="background-color: ${buttonColor}; border-radius: 8px;">
+                    <a href="${buttonUrl}" style="display: inline-block; padding: 14px 32px; color: ${colors.white}; text-decoration: none; font-weight: 600; font-size: 15px;">
                       ${buttonText}
                     </a>
                   </td>
@@ -182,49 +181,44 @@ const createEmailTemplate = (config: EmailConfig): string => {
               </table>
             </td>
           </tr>
-          ` : ''}
-          
-          <!-- Divider -->
-          <tr>
-            <td style="padding: 0 32px;">
-              <div style="height: 1px; background: linear-gradient(90deg, transparent 0%, ${colors.gray200} 50%, transparent 100%);"></div>
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 32px; text-align: center; background-color: ${colors.gray50};">
-              <p style="margin: 0 0 12px; color: ${colors.gray500}; font-size: 13px; line-height: 1.6;">
-                Este email foi enviado automaticamente pela plataforma E-rádios.
-              </p>
-              <p style="margin: 0 0 16px; color: ${colors.gray400}; font-size: 12px;">
-                © ${new Date().getFullYear()} E-rádios - Todos os direitos reservados
-              </p>
-              
-              <!-- Links do footer -->
-              <div style="margin-top: 16px;">
-                <a href="${process.env.FRONTEND_URL}" style="color: ${colors.tertiary}; text-decoration: none; font-size: 12px; margin: 0 8px;">Central de Ajuda</a>
-                <span style="color: ${colors.gray300};">•</span>
-                <a href="${process.env.FRONTEND_URL}/terms" style="color: ${colors.tertiary}; text-decoration: none; font-size: 12px; margin: 0 8px;">Termos de Uso</a>
-                <span style="color: ${colors.gray300};">•</span>
-                <a href="${process.env.FRONTEND_URL}/privacy" style="color: ${colors.tertiary}; text-decoration: none; font-size: 12px; margin: 0 8px;">Privacidade</a>
-              </div>
-            </td>
-          </tr>
+          ` : `
+          <tr><td style="padding-bottom: 32px;"></td></tr>
+          `}
         </table>
-        
-        <!-- Texto abaixo do card -->
-        <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin-top: 24px;">
+
+        <!-- Footer -->
+        <table width="580" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin-top: 32px;">
           <tr>
-            <td style="text-align: center; padding: 0 20px;">
-              <p style="margin: 0; color: ${colors.gray400}; font-size: 11px; line-height: 1.5;">
-                Você está recebendo este email porque possui uma conta na E-rádios.<br>
-                <a href="${process.env.FRONTEND_URL}/unsubscribe" style="color: ${colors.gray500}; text-decoration: underline;">Gerenciar preferências de email</a>
+            <td style="padding: 0 40px;">
+              <!-- Logo footer -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                <tr>
+                  <td>
+                    <img src="${logoUrl}" alt="E-radios" style="width: 90px; height: auto; display: block; opacity: 0.6;" />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 40px 0;">
+              <div style="height: 1px; background-color: ${colors.gray300};"></div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 40px 0;">
+              <p style="margin: 0; color: ${colors.gray400}; font-size: 12px; line-height: 1.6;">
+                E-radios Midia Programatica para Radio
+              </p>
+              <p style="margin: 8px 0 0; color: ${colors.gray400}; font-size: 11px; line-height: 1.5;">
+                Este email foi enviado automaticamente.
+                <a href="${frontendUrl}/terms" style="color: ${colors.gray500}; text-decoration: underline;">Termos</a> ·
+                <a href="${frontendUrl}/policy" style="color: ${colors.gray500}; text-decoration: underline;">Privacidade</a>
               </p>
             </td>
           </tr>
         </table>
-        
+
       </td>
     </tr>
   </table>
@@ -239,58 +233,61 @@ const createEmailTemplate = (config: EmailConfig): string => {
 
 // Parágrafo de texto
 export const paragraph = (text: string, options?: { bold?: boolean; center?: boolean }) => `
-  <p style="margin: 0 0 16px; color: ${colors.gray700}; font-size: 15px; line-height: 1.7; ${options?.center ? 'text-align: center;' : ''} ${options?.bold ? 'font-weight: 600;' : ''}">
+  <p style="margin: 0 0 16px; color: ${colors.gray600}; font-size: 15px; line-height: 1.7; ${options?.center ? 'text-align: center;' : ''} ${options?.bold ? 'font-weight: 600; color: ' + colors.gray800 + ';' : ''}">
     ${escapeHtml(text)}
   </p>
 `;
 
 // Saudação personalizada
 export const greeting = (name: string) => `
-  <p style="margin: 0 0 24px; color: ${colors.gray700}; font-size: 15px; line-height: 1.6;">
-    Olá <strong style="color: ${colors.gray900};">${escapeHtml(name)}</strong>,
+  <p style="margin: 0 0 20px; color: ${colors.gray600}; font-size: 15px; line-height: 1.6;">
+    Ola, <strong style="color: ${colors.gray900};">${escapeHtml(name)}</strong>
   </p>
 `;
 
-// Card de informações
-export const infoCard = (title: string, items: Array<{ label: string; value: string }>, color: string = colors.tertiary) => `
-  <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="margin: 24px 0; background-color: ${colors.gray50}; border-left: 4px solid ${color}; border-radius: 8px; overflow: hidden;">
+// Card de informações — estilo feature card com icone + titulo + descricao
+export const infoCard = (title: string, items: Array<{ label: string; value: string }>, color: string = colors.gray900) => `
+  <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="margin: 20px 0;">
+    ${title ? `
     <tr>
-      <td style="padding: 20px 24px;">
-        ${title ? `<h3 style="margin: 0 0 16px; color: ${color}; font-size: 16px; font-weight: 700;">${escapeHtml(title)}</h3>` : ''}
-        <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%">
-          ${items.map(item => `
+      <td style="padding: 0 0 12px;">
+        <p style="margin: 0; color: ${colors.gray900}; font-size: 15px; font-weight: 700;">${escapeHtml(title)}</p>
+      </td>
+    </tr>
+    ` : ''}
+    ${items.map(item => `
+    <tr>
+      <td style="padding: 0;">
+        <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="background-color: ${colors.gray50}; border-radius: 8px; margin-bottom: 8px;">
           <tr>
-            <td style="padding: 6px 0; color: ${colors.gray600}; font-size: 14px; font-weight: 600;">
-              ${escapeHtml(item.label)}:
-            </td>
-            <td style="padding: 6px 0; color: ${colors.gray800}; font-size: 14px; text-align: right;">
-              ${escapeHtml(item.value)}
+            <td style="padding: 14px 18px;">
+              <p style="margin: 0 0 2px; color: ${colors.gray800}; font-size: 14px; font-weight: 600;">${escapeHtml(item.label)}</p>
+              <p style="margin: 0; color: ${colors.gray500}; font-size: 13px; line-height: 1.4;">${escapeHtml(item.value)}</p>
             </td>
           </tr>
-          `).join('')}
         </table>
       </td>
     </tr>
+    `).join('')}
   </table>
 `;
 
 // Card de alerta/warning
 export const alertCard = (text: string, type: 'success' | 'warning' | 'error' | 'info' = 'info') => {
   const colorMap = {
-    success: { bg: '#ECFDF5', border: colors.success, icon: '✅' },
-    warning: { bg: '#FEF3C7', border: colors.warning, icon: '⚠️' },
-    error: { bg: '#FEE2E2', border: colors.error, icon: '❌' },
-    info: { bg: '#FCE7F3', border: colors.tertiary, icon: 'ℹ️' }
+    success: { bg: '#ECFDF5', border: colors.success },
+    warning: { bg: '#FEF3C7', border: colors.warning },
+    error: { bg: '#FEE2E2', border: colors.error },
+    info: { bg: '#f9f7f4', border: colors.gray400 }
   };
 
   const style = colorMap[type];
 
   return `
-  <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="margin: 24px 0; background-color: ${style.bg}; border-left: 4px solid ${style.border}; border-radius: 8px;">
+  <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="margin: 20px 0; background-color: ${style.bg}; border-radius: 8px;">
     <tr>
-      <td style="padding: 16px 20px;">
-        <p style="margin: 0; color: ${colors.gray800}; font-size: 14px; line-height: 1.6;">
-          <strong style="font-size: 18px; margin-right: 8px;">${style.icon}</strong>
+      <td style="padding: 14px 18px;">
+        <p style="margin: 0; color: ${colors.gray700}; font-size: 13px; line-height: 1.6;">
           ${text}
         </p>
       </td>
@@ -1875,29 +1872,86 @@ export const sendPasswordResetEmail = async (
   const content = `
     ${greeting(name)}
 
-    ${paragraph('Recebemos uma solicitação para redefinir a senha da sua conta na <strong>E-rádios</strong>.')}
+    <p style="margin: 0 0 16px; color: ${colors.gray600}; font-size: 15px; line-height: 1.7;">
+      Recebemos uma solicitacao para redefinir a senha da sua conta na E-radios.
+    </p>
 
-    ${paragraph('Clique no botão abaixo para criar uma nova senha:')}
+    <p style="margin: 0 0 20px; color: ${colors.gray600}; font-size: 15px; line-height: 1.7;">
+      Clique no botao abaixo para criar uma nova senha:
+    </p>
 
-    ${divider()}
+    ${alertCard('Este link expira em <strong>1 hora</strong>. Apos este periodo, sera necessario solicitar uma nova redefinicao.', 'warning')}
 
-    ${alertCard('Este link expira em <strong>1 hora</strong>. Após este período, será necessário solicitar uma nova redefinição.', 'warning')}
-
-    ${paragraph('Se você não solicitou a redefinição de senha, ignore este email. Sua senha permanecerá inalterada.', { center: true })}
+    <p style="margin: 16px 0 0; color: ${colors.gray400}; font-size: 13px; line-height: 1.6; text-align: center;">
+      Se voce nao solicitou a redefinicao de senha, ignore este email.
+    </p>
   `;
 
   await sendEmail({
     to: email,
-    subject: '🔑 Redefinir Senha - E-rádios',
+    subject: 'Redefinir sua senha — E-radios',
     html: createEmailTemplate({
-      title: 'Redefinir Senha',
+      title: 'Redefinir senha',
       subtitle: 'Crie uma nova senha para sua conta',
       content,
-      buttonText: '🔑 Redefinir Minha Senha',
+      buttonText: 'Redefinir minha senha',
       buttonUrl: resetUrl,
+      buttonColor: colors.gray900,
+      preheader: 'Voce solicitou a redefinicao de senha na E-radios'
+    })
+  });
+};
+
+// ===========================================
+// CONVITE DE SUB-USUÁRIO (EQUIPE COMERCIAL)
+// ===========================================
+
+/**
+ * Email de convite para vendedor (sub-usuario de emissora).
+ * Envia link para o vendedor definir sua senha e acessar a plataforma.
+ */
+export const sendSalesTeamInvite = async (
+  email: string,
+  salesName: string,
+  broadcasterName: string,
+  inviterName: string,
+  token: string
+) => {
+  const setPasswordUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${token}`;
+
+  const content = `
+    <p style="margin: 0 0 20px; color: ${colors.gray600}; font-size: 15px; line-height: 1.7;">
+      <strong style="color: ${colors.gray900};">${escapeHtml(inviterName)}</strong> convidou voce para fazer parte da equipe comercial da
+      <strong style="color: ${colors.gray900};">${escapeHtml(broadcasterName)}</strong> na plataforma E-radios.
+    </p>
+
+    <p style="margin: 0 0 8px; color: ${colors.gray600}; font-size: 15px; line-height: 1.7;">
+      Como vendedor da equipe, voce podera:
+    </p>
+
+    ${infoCard('', [
+      { label: 'Criar propostas', value: 'Propostas comerciais em nome da emissora' },
+      { label: 'Gerenciar clientes', value: 'Cadastrar e editar a base de clientes' },
+      { label: 'Acompanhar a equipe', value: 'Visualizar todas as propostas da emissora' }
+    ])}
+
+    <p style="margin: 20px 0 0; color: ${colors.gray500}; font-size: 13px; line-height: 1.6;">
+      Clique no botao abaixo para definir sua senha e comecar. Este link expira em 7 dias.
+    </p>
+  `;
+
+  await sendEmail({
+    to: email,
+    subject: `${escapeHtml(inviterName)} convidou voce para a equipe da ${escapeHtml(broadcasterName)}`,
+    html: createEmailTemplate({
+      title: `${escapeHtml(inviterName)} convidou voce para a equipe!`,
+      subtitle: `Faca parte da equipe comercial da ${escapeHtml(broadcasterName)} na E-radios`,
+      content,
+      buttonText: 'Entrar e definir minha senha',
+      buttonUrl: setPasswordUrl,
       buttonColor: colors.tertiary,
-      preheader: 'Você solicitou a redefinição de senha na E-rádios',
-      showLogo: false
+      preheader: `${escapeHtml(inviterName)} convidou voce para a equipe comercial da ${escapeHtml(broadcasterName)}`,
+      showLogo: true
     })
   });
 };

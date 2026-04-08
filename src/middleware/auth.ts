@@ -147,4 +147,24 @@ export const requireAdmin = (
   next();
 };
 
+/**
+ * Middleware que restringe acesso a broadcasters com role 'manager'.
+ * Sub-usuarios (sales) nao passam.
+ */
+export const requireBroadcasterManager = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  if (req.user?.userType !== 'broadcaster') {
+    res.status(403).json({ error: 'Acesso restrito a emissoras' });
+    return;
+  }
+  if (req.user?.broadcasterRole === 'sales') {
+    res.status(403).json({ error: 'Acesso restrito ao gerenciador da emissora' });
+    return;
+  }
+  next();
+};
+
 export const authMiddleware = authenticateToken;

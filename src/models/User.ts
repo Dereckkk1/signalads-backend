@@ -32,6 +32,7 @@ export interface IUser extends Document {
 
   // Onboarding para broadcasters
   onboardingCompleted?: boolean;
+  completedTours?: string[];
   broadcasterProfile?: {
     // Etapa 1: Informações Gerais
     generalInfo?: {
@@ -127,6 +128,10 @@ export interface IUser extends Document {
   isCatalogOnly?: boolean; // true = emissora sem conta própria, cadastrada pelo admin
   managedByAdmin?: boolean; // true = admin gerencia produtos, aprovações e OPEC
   createdBy?: any; // ID do admin que criou a emissora catálogo
+
+  // === SUB-USUÁRIOS DE EMISSORA ===
+  broadcasterRole?: 'manager' | 'sales'; // manager = usuário principal, sales = vendedor
+  parentBroadcasterId?: any; // ref ao broadcaster pai (só para sales)
 }
 
 const userSchema = new Schema<IUser>(
@@ -207,6 +212,10 @@ const userSchema = new Schema<IUser>(
     onboardingCompleted: {
       type: Boolean,
       default: false
+    },
+    completedTours: {
+      type: [String],
+      default: []
     },
     broadcasterProfile: {
       generalInfo: {
@@ -342,6 +351,17 @@ const userSchema = new Schema<IUser>(
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User'
+    },
+
+    // === SUB-USUÁRIOS DE EMISSORA ===
+    broadcasterRole: {
+      type: String,
+      enum: ['manager', 'sales'],
+      default: undefined
+    },
+    parentBroadcasterId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
     }
   },
   {
@@ -387,5 +407,8 @@ userSchema.index({ 'broadcasterProfile.pmm': -1 });
 userSchema.index({ userType: 1, status: 1, 'address.latitude': 1, 'address.longitude': 1 });
 // Performance: sort por PMM no comparador/marketplace
 userSchema.index({ userType: 1, status: 1, 'broadcasterProfile.pmm': -1 });
+
+// Sub-usuários: busca por emissora pai
+userSchema.index({ parentBroadcasterId: 1, broadcasterRole: 1 });
 
 export const User = model<IUser>('User', userSchema);

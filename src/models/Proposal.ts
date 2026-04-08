@@ -195,6 +195,7 @@ export interface IProposal extends Document {
   ownerType: 'agency' | 'broadcaster';
   agencyId?: mongoose.Types.ObjectId;
   broadcasterId?: mongoose.Types.ObjectId;
+  createdBy?: mongoose.Types.ObjectId; // Sub-user que criou (se aplicavel)
   clientId?: mongoose.Types.ObjectId;
   clientName?: string;
 
@@ -258,6 +259,7 @@ const ProposalSchema = new Schema<IProposal>({
   ownerType: { type: String, enum: ['agency', 'broadcaster'], default: 'agency' },
   agencyId: { type: Schema.Types.ObjectId, ref: 'User' },
   broadcasterId: { type: Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User' }, // Sub-user que criou (se aplicavel)
   clientId: { type: Schema.Types.ObjectId, ref: 'AgencyClient' },
   clientName: { type: String },
 

@@ -300,7 +300,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         cpfOrCnpj: user.cpfOrCnpj,
         cnpj: user.cnpj,
         address: user.address,
-        onboardingCompleted: user.onboardingCompleted || false
+        onboardingCompleted: user.onboardingCompleted || false,
+        completedTours: user.completedTours || [],
+        broadcasterRole: user.broadcasterRole || undefined,
+        parentBroadcasterId: user.parentBroadcasterId || undefined
       }
     });
   } catch (error) {
@@ -333,7 +336,10 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       razaoSocial: user.razaoSocial,
       address: user.address,
       onboardingCompleted: user.onboardingCompleted || false,
-      broadcasterProfile: user.broadcasterProfile
+      completedTours: user.completedTours || [],
+      broadcasterProfile: user.broadcasterProfile,
+      broadcasterRole: user.broadcasterRole || undefined,
+      parentBroadcasterId: user.parentBroadcasterId || undefined
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar usuário' });
@@ -628,7 +634,9 @@ export const validateTwoFactorLogin = async (req: Request, res: Response): Promi
         cpfOrCnpj: user.cpfOrCnpj,
         cnpj: user.cnpj,
         address: user.address,
-        onboardingCompleted: user.onboardingCompleted || false
+        onboardingCompleted: user.onboardingCompleted || false,
+        broadcasterRole: user.broadcasterRole || undefined,
+        parentBroadcasterId: user.parentBroadcasterId || undefined
       }
     });
   } catch (error: any) {
@@ -731,7 +739,10 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
         cpfOrCnpj: user.cpfOrCnpj,
         cnpj: user.cnpj,
         address: user.address,
-        onboardingCompleted: user.onboardingCompleted || false
+        onboardingCompleted: user.onboardingCompleted || false,
+        completedTours: user.completedTours || [],
+        broadcasterRole: user.broadcasterRole || undefined,
+        parentBroadcasterId: user.parentBroadcasterId || undefined
       }
     });
   } catch (error: any) {
@@ -915,5 +926,31 @@ export const logoutHandler = async (req: AuthRequest, res: Response): Promise<vo
     // Limpa cookies mesmo em caso de erro no banco
     clearAuthCookies(res);
     res.json({ message: 'Logout realizado' });
+  }
+};
+
+export const updateCompletedTours = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { tourId } = req.body;
+
+    if (!tourId || typeof tourId !== 'string') {
+      res.status(400).json({ error: 'tourId é obrigatório' });
+      return;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $addToSet: { completedTours: tourId } },
+      { new: true, select: 'completedTours' }
+    );
+
+    if (!user) {
+      res.status(404).json({ error: 'Usuário não encontrado' });
+      return;
+    }
+
+    res.json({ completedTours: user.completedTours });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao atualizar tours concluídos' });
   }
 };

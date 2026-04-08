@@ -21,6 +21,7 @@ import profileRequestRoutes from './routes/profileRequestRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import proposalRoutes from './routes/proposalRoutes';
 import broadcasterProposalRoutes from './routes/broadcasterProposalRoutes';
+import broadcasterSubUserRoutes from './routes/broadcasterSubUserRoutes';
 import testReportRoutes from './routes/testReportRoutes';
 import sponsorshipRoutes from './routes/sponsorshipRoutes';
 import { startBackupCron } from './cron/backupCron';
@@ -154,6 +155,7 @@ app.use('/api/profile-requests', profileRequestRoutes); // Rotas de solicitaçõ
 app.use('/api/payment', paymentRoutes); // Checkout (criação de pedido)
 app.use('/api/proposals', proposalRoutes); // Propostas comerciais de agências
 app.use('/api/broadcaster-proposals', broadcasterProposalRoutes); // Propostas comerciais de emissoras
+app.use('/api/broadcaster', broadcasterSubUserRoutes); // Sub-usuarios de emissoras
 app.use('/api/test-reports', testReportRoutes); // Dashboard de testes (admin only)
 app.use('/api/sponsorships', sponsorshipRoutes); // Patrocínios de programas (emissoras)
 

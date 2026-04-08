@@ -15,7 +15,8 @@ import {
   verifyTwoFactorCode,
   getTwoFactorStatus,
   refreshTokenHandler,
-  logoutHandler
+  logoutHandler,
+  updateCompletedTours
 } from '../controllers/authController';
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
 import { createRedisStore } from '../config/rateLimitStore';
@@ -49,6 +50,7 @@ router.post('/login', authLimiter, login);
 router.get('/me', authenticateToken, getMe);
 router.put('/update-profile', authenticateToken, updateProfile);
 router.put('/change-password', authenticateToken, changePassword);
+router.patch('/completed-tours', authenticateToken, updateCompletedTours);
 
 // Recuperação de senha (público)
 router.post('/forgot-password', authLimiter, forgotPassword);

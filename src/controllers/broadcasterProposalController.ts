@@ -37,6 +37,18 @@ function requireBroadcaster(req: AuthRequest, res: Response): boolean {
   return true;
 }
 
+/**
+ * Retorna o broadcasterId efetivo:
+ * - Manager: req.userId
+ * - Sales (sub-user): parentBroadcasterId
+ */
+function getEffectiveBroadcasterId(req: AuthRequest): string {
+  if (req.user?.broadcasterRole === 'sales' && req.user?.parentBroadcasterId) {
+    return req.user.parentBroadcasterId.toString();
+  }
+  return req.userId!;
+}
+
 async function invalidateProposalCache(broadcasterId: string, slug?: string): Promise<void> {
   await cacheInvalidate(`proposals:broadcaster:${broadcasterId}*`);
   if (slug) {
@@ -104,7 +116,8 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
   try {
     if (!requireBroadcaster(req, res)) return;
 
-    const { items, clientName, title, description, templateId, isMonitoringEnabled, discount: discountInput, clientLogo } = req.body;
+    const { items, clientName, title, description, templateId, discount: discountInput, clientLogo } = req.body;
+    const effectiveBroadcasterId = getEffectiveBroadcasterId(req);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       res.status(400).json({ error: 'Itens da proposta são obrigatórios' });
@@ -145,13 +158,13 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
       }
 
       // Validar que o produto pertence a esta emissora
-      if (product.broadcasterId?.toString() !== req.userId && (product.broadcasterId as any)?._id?.toString() !== req.userId) {
+      if (product.broadcasterId?.toString() !== effectiveBroadcasterId && (product.broadcasterId as any)?._id?.toString() !== effectiveBroadcasterId) {
         res.status(403).json({ error: `Produto ${item.productId} não pertence a esta emissora` });
         return;
       }
 
-      const unitPrice = (product as any).pricePerInsertion;
       const netPrice = (product as any).netPrice || 0;
+      const unitPrice = netPrice; // Emissora vende direto, sem markup da plataforma
       const effectivePrice = item.adjustedPrice || unitPrice;
       const totalPrice = parseFloat((effectivePrice * item.quantity).toFixed(2));
       productsTotal += totalPrice;
@@ -218,13 +231,13 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
       }
 
       // Validar que o patrocínio pertence a esta emissora
-      if (sponsorship.broadcasterId?.toString() !== req.userId && (sponsorship.broadcasterId as any)?._id?.toString() !== req.userId) {
+      if (sponsorship.broadcasterId?.toString() !== effectiveBroadcasterId && (sponsorship.broadcasterId as any)?._id?.toString() !== effectiveBroadcasterId) {
         res.status(403).json({ error: `Patrocínio ${item.productId} não pertence a esta emissora` });
         return;
       }
 
-      const unitPrice = (sponsorship as any).pricePerMonth;
       const netPrice = (sponsorship as any).netPrice || 0;
+      const unitPrice = netPrice; // Emissora vende direto, sem markup da plataforma
       const effectivePrice = item.adjustedPrice || unitPrice;
       const totalPrice = parseFloat((effectivePrice * (item.quantity || 1)).toFixed(2));
       productsTotal += totalPrice;
@@ -302,33 +315,19 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
       });
     }
 
-    // Calcular custo de produção (R$50 por item que precisa de gravação)
-    const recordingItems = proposalItems.filter((i: any) => i.needsRecording && !i.isCustom && !i.productName?.toLowerCase().startsWith('testemunhal'));
-    const productionCost = recordingItems.length * 50;
+    // Emissora vende direto — sem taxas da plataforma (sem produção, tech fee, monitoring)
+    const productionCost = 0;
+    const techFee = 0;
+    const monitoringCost = 0;
 
-    // Calcular financeiro (snapshot) — SEM comissão de agência
-    const grossAmount = parseFloat((productsTotal + productionCost).toFixed(2));
-
-    let monitoringCost = 0;
-    if (isMonitoringEnabled) {
-      const monitorableBroadcasters = new Set<string>();
-      proposalItems.forEach((item: any) => {
-        if (!item.isCustom && !item.productName?.toLowerCase().startsWith('testemunhal') && item.broadcasterId) {
-          monitorableBroadcasters.add(item.broadcasterId);
-        }
-      });
-      monitoringCost = monitorableBroadcasters.size * 70;
-    }
-
-    // Taxa técnica (5% do grossAmount, que já inclui produção)
-    const techFee = parseFloat((grossAmount * 0.05).toFixed(2));
+    const grossAmount = parseFloat(productsTotal.toFixed(2));
 
     // Calcular desconto global
     const discountAmount = calculateDiscount(grossAmount, discountInput);
     const discount = discountInput?.value > 0 ? { type: discountInput.type, value: discountInput.value, reason: discountInput.reason } : undefined;
 
-    // totalAmount = grossAmount + techFee - discountAmount + monitoringCost (sem comissão)
-    const totalAmount = parseFloat((grossAmount + techFee - discountAmount + monitoringCost).toFixed(2));
+    // totalAmount = grossAmount - discountAmount (sem taxas)
+    const totalAmount = parseFloat((grossAmount - discountAmount).toFixed(2));
 
     // Gerar slug unico
     const slugBase = slugify(title || 'proposta-comercial');
@@ -339,7 +338,7 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
     if (templateId) {
       const template = await ProposalTemplate.findOne({
         _id: templateId,
-        $or: [{ broadcasterId: req.userId }, { isDefault: true }]
+        $or: [{ broadcasterId: getEffectiveBroadcasterId(req) }, { isDefault: true }]
       });
       if (template) {
         customization = template.customization;
@@ -348,7 +347,8 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
 
     const proposal = new Proposal({
       ownerType: 'broadcaster',
-      broadcasterId: req.userId,
+      broadcasterId: effectiveBroadcasterId,
+      createdBy: req.userId, // Quem criou (pode ser sub-user)
       clientName: clientName || undefined,
       title: title || 'Proposta Comercial',
       description: description || undefined,
@@ -369,7 +369,7 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
     });
 
     await proposal.save();
-    await invalidateProposalCache(req.userId!);
+    await invalidateProposalCache(effectiveBroadcasterId);
 
     // Criar versão inicial
     await createVersion(proposal._id.toString(), req.userId!, 'manual', proposal, 'Versão inicial');
@@ -393,7 +393,8 @@ export const getProposals = async (req: AuthRequest, res: Response): Promise<voi
     const pageNum = Math.max(1, parseInt(page as string));
     const limitNum = Math.min(50, Math.max(1, parseInt(limit as string)));
 
-    const filter: any = { broadcasterId: req.userId };
+    const effectiveBroadcasterId = getEffectiveBroadcasterId(req);
+    const filter: any = { broadcasterId: effectiveBroadcasterId };
     if (status && status !== 'all') {
       filter.status = status;
     }
@@ -438,9 +439,10 @@ export const getProposal = async (req: AuthRequest, res: Response): Promise<void
   try {
     if (!requireBroadcaster(req, res)) return;
 
+    const _effBId = getEffectiveBroadcasterId(req);
     const proposal = await Proposal.findOne({
       _id: req.params.id,
-      broadcasterId: req.userId
+      broadcasterId: _effBId
     });
 
     if (!proposal) {
@@ -463,9 +465,10 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
   try {
     if (!requireBroadcaster(req, res)) return;
 
+    const _effBId = getEffectiveBroadcasterId(req);
     const proposal = await Proposal.findOne({
       _id: req.params.id,
-      broadcasterId: req.userId
+      broadcasterId: _effBId
     });
 
     if (!proposal) {
@@ -473,7 +476,7 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const { title, description, clientName, items, customization, validUntil, isMonitoringEnabled, discount: discountInput } = req.body;
+    const { title, description, clientName, items, customization, validUntil, discount: discountInput } = req.body;
 
     // Atualizar campos basicos
     if (title !== undefined) proposal.title = title;
@@ -505,45 +508,30 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
         productsTotal += item.totalPrice || (effectivePrice * item.quantity);
       });
 
-      // Custo de produção
-      const recordingItems = items.filter((i: any) => i.needsRecording && !i.isCustom && !i.productName?.toLowerCase().startsWith('testemunhal'));
-      const prodCost = recordingItems.length * 50;
-
-      const grossAmount = parseFloat((productsTotal + prodCost).toFixed(2));
-
-      let monitoringCost = 0;
-      if (isMonitoringEnabled) {
-        const monitorable = new Set<string>();
-        items.forEach((item: any) => {
-          if (!item.isCustom && !item.productName?.toLowerCase().startsWith('testemunhal') && item.broadcasterId) {
-            monitorable.add(item.broadcasterId);
-          }
-        });
-        monitoringCost = monitorable.size * 70;
-      }
-
-      const techFee = parseFloat((grossAmount * 0.05).toFixed(2));
+      // Emissora vende direto — sem taxas da plataforma
+      const grossAmount = parseFloat(productsTotal.toFixed(2));
       const discountAmt = calculateDiscount(grossAmount, proposal.discount);
 
       proposal.grossAmount = grossAmount;
-      proposal.techFee = techFee;
-      proposal.productionCost = prodCost;
+      proposal.techFee = 0;
+      proposal.productionCost = 0;
       proposal.agencyCommission = 0;
       proposal.agencyCommissionAmount = 0;
-      proposal.monitoringCost = monitoringCost;
+      proposal.monitoringCost = 0;
       proposal.discountAmount = discountAmt;
-      proposal.totalAmount = parseFloat((grossAmount + techFee - discountAmt + monitoringCost).toFixed(2));
+      proposal.totalAmount = parseFloat((grossAmount - discountAmt).toFixed(2));
     } else if (discountInput !== undefined) {
-      // Recalcular sem alterar items
-      const techFee = parseFloat((proposal.grossAmount * 0.05).toFixed(2));
-      proposal.techFee = techFee;
+      // Recalcular sem alterar items — sem taxas
       const discountAmt = calculateDiscount(proposal.grossAmount, proposal.discount);
+      proposal.techFee = 0;
+      proposal.monitoringCost = 0;
+      proposal.productionCost = 0;
       proposal.discountAmount = discountAmt;
-      proposal.totalAmount = parseFloat((proposal.grossAmount + techFee - discountAmt + proposal.monitoringCost).toFixed(2));
+      proposal.totalAmount = parseFloat((proposal.grossAmount - discountAmt).toFixed(2));
     }
 
     await proposal.save();
-    await invalidateProposalCache(req.userId!, proposal.slug);
+    await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
 
     // Criar versão automática
     await createVersion(proposal._id.toString(), req.userId!, 'auto_update', proposal);
@@ -570,7 +558,7 @@ export const updateCustomization = async (req: AuthRequest, res: Response): Prom
     }
 
     const proposal = await Proposal.findOneAndUpdate(
-      { _id: req.params.id, broadcasterId: req.userId },
+      { _id: req.params.id, broadcasterId: getEffectiveBroadcasterId(req) },
       { $set: { customization } },
       { new: true }
     );
@@ -580,7 +568,7 @@ export const updateCustomization = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    await invalidateProposalCache(req.userId!, proposal.slug);
+    await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
 
     res.json({ proposal });
   } catch (error) {
@@ -599,7 +587,7 @@ export const deleteProposal = async (req: AuthRequest, res: Response): Promise<v
 
     const proposal = await Proposal.findOneAndDelete({
       _id: req.params.id,
-      broadcasterId: req.userId
+      broadcasterId: getEffectiveBroadcasterId(req)
     });
 
     if (!proposal) {
@@ -607,7 +595,7 @@ export const deleteProposal = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    await invalidateProposalCache(req.userId!, proposal.slug);
+    await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
 
     res.json({ message: 'Proposta excluída com sucesso' });
   } catch (error) {
@@ -626,7 +614,7 @@ export const duplicateProposal = async (req: AuthRequest, res: Response): Promis
 
     const original = await Proposal.findOne({
       _id: req.params.id,
-      broadcasterId: req.userId
+      broadcasterId: getEffectiveBroadcasterId(req)
     }).lean();
 
     if (!original) {
@@ -659,7 +647,7 @@ export const duplicateProposal = async (req: AuthRequest, res: Response): Promis
     });
 
     await duplicate.save();
-    await invalidateProposalCache(req.userId!);
+    await invalidateProposalCache(getEffectiveBroadcasterId(req));
 
     res.status(201).json({ proposal: duplicate });
   } catch (error) {
@@ -676,9 +664,10 @@ export const sendProposal = async (req: AuthRequest, res: Response): Promise<voi
   try {
     if (!requireBroadcaster(req, res)) return;
 
+    const _effBId = getEffectiveBroadcasterId(req);
     const proposal = await Proposal.findOne({
       _id: req.params.id,
-      broadcasterId: req.userId
+      broadcasterId: _effBId
     });
 
     if (!proposal) {
@@ -694,7 +683,7 @@ export const sendProposal = async (req: AuthRequest, res: Response): Promise<voi
     proposal.status = 'sent';
     proposal.sentAt = new Date();
     await proposal.save();
-    await invalidateProposalCache(req.userId!, proposal.slug);
+    await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
 
     // Criar versão ao enviar
     await createVersion(proposal._id.toString(), req.userId!, 'auto_send', proposal, 'Proposta enviada');
@@ -719,9 +708,10 @@ export const uploadProposalImage = async (req: AuthRequest, res: Response): Prom
   try {
     if (!requireBroadcaster(req, res)) return;
 
+    const _effBId = getEffectiveBroadcasterId(req);
     const proposal = await Proposal.findOne({
       _id: req.params.id,
-      broadcasterId: req.userId
+      broadcasterId: _effBId
     });
 
     if (!proposal) {
@@ -754,7 +744,7 @@ export const uploadProposalImage = async (req: AuthRequest, res: Response): Prom
     }
 
     await proposal.save();
-    await invalidateProposalCache(req.userId!, proposal.slug);
+    await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
 
     res.json({ url });
   } catch (error) {
@@ -775,7 +765,7 @@ export const getTemplates = async (req: AuthRequest, res: Response): Promise<voi
 
     const templates = await ProposalTemplate.find({
       $or: [
-        { broadcasterId: req.userId },
+        { broadcasterId: getEffectiveBroadcasterId(req) },
         { isDefault: true }
       ]
     }).sort({ isDefault: -1, createdAt: -1 }).lean();
@@ -809,7 +799,7 @@ export const createTemplate = async (req: AuthRequest, res: Response): Promise<v
 
     const template = new ProposalTemplate({
       name,
-      broadcasterId: req.userId,
+      broadcasterId: getEffectiveBroadcasterId(req),
       customization,
       ...(category && { category }),
     });
@@ -835,7 +825,7 @@ export const updateTemplate = async (req: AuthRequest, res: Response): Promise<v
 
     const template = await ProposalTemplate.findOne({
       _id: req.params.id,
-      broadcasterId: req.userId,
+      broadcasterId: getEffectiveBroadcasterId(req),
       isDefault: false // nao pode editar templates padrao
     });
 
@@ -867,7 +857,7 @@ export const deleteTemplate = async (req: AuthRequest, res: Response): Promise<v
 
     const template = await ProposalTemplate.findOneAndDelete({
       _id: req.params.id,
-      broadcasterId: req.userId,
+      broadcasterId: getEffectiveBroadcasterId(req),
       isDefault: false
     });
 
@@ -899,9 +889,10 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    const _effBId = getEffectiveBroadcasterId(req);
     const proposal = await Proposal.findOne({
       _id: req.params.id,
-      broadcasterId: req.userId
+      broadcasterId: _effBId
     });
 
     if (!proposal) {
@@ -922,7 +913,7 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
     });
 
     await proposal.save();
-    await invalidateProposalCache(req.userId!, proposal.slug);
+    await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
 
     res.json({ comments: proposal.comments });
   } catch (error) {
@@ -941,7 +932,7 @@ export const getVersions = async (req: AuthRequest, res: Response): Promise<void
   try {
     if (!requireBroadcaster(req, res)) return;
 
-    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: req.userId });
+    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: getEffectiveBroadcasterId(req) });
     if (!proposal) {
       res.status(404).json({ error: 'Proposta não encontrada' });
       return;
@@ -966,7 +957,7 @@ export const restoreVersion = async (req: AuthRequest, res: Response): Promise<v
   try {
     if (!requireBroadcaster(req, res)) return;
 
-    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: req.userId });
+    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: getEffectiveBroadcasterId(req) });
     if (!proposal) {
       res.status(404).json({ error: 'Proposta não encontrada' });
       return;
@@ -996,7 +987,7 @@ export const restoreVersion = async (req: AuthRequest, res: Response): Promise<v
     proposal.customization = snap.customization;
 
     await proposal.save();
-    await invalidateProposalCache(req.userId!, proposal.slug);
+    await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
 
     res.json({ proposal });
   } catch (error) {
@@ -1123,7 +1114,7 @@ export const setProtection = async (req: AuthRequest, res: Response): Promise<vo
 
     const { enabled, email } = req.body;
 
-    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: req.userId });
+    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: getEffectiveBroadcasterId(req) });
     if (!proposal) {
       res.status(404).json({ error: 'Proposta não encontrada' });
       return;
@@ -1563,7 +1554,7 @@ export const exportProposalXlsx = async (req: AuthRequest, res: Response): Promi
   try {
     if (!requireBroadcaster(req, res)) return;
 
-    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: req.userId })
+    const proposal = await Proposal.findOne({ _id: req.params.id, broadcasterId: getEffectiveBroadcasterId(req) })
       .lean();
 
     if (!proposal) {
@@ -1590,7 +1581,7 @@ export const getMyProducts = async (req: AuthRequest, res: Response): Promise<vo
     if (!requireBroadcaster(req, res)) return;
 
     const products = await Product.find({
-      broadcasterId: req.userId,
+      broadcasterId: getEffectiveBroadcasterId(req),
       isActive: true
     })
       .populate('broadcasterId', 'companyName fantasyName address broadcasterProfile')
@@ -1610,7 +1601,7 @@ export const getMyProducts = async (req: AuthRequest, res: Response): Promise<vo
 export const getBroadcasterClients = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!requireBroadcaster(req, res)) return;
-    const clients = await AgencyClient.find({ broadcasterId: req.userId }).sort({ name: 1 });
+    const clients = await AgencyClient.find({ broadcasterId: getEffectiveBroadcasterId(req) }).sort({ name: 1 });
     res.json(clients);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar clientes' });
@@ -1627,14 +1618,14 @@ export const createBroadcasterClient = async (req: AuthRequest, res: Response): 
       return;
     }
 
-    const existing = await AgencyClient.findOne({ broadcasterId: req.userId, documentNumber });
+    const existing = await AgencyClient.findOne({ broadcasterId: getEffectiveBroadcasterId(req), documentNumber });
     if (existing) {
       res.status(400).json({ error: 'Já existe um cliente com este documento' });
       return;
     }
 
     const client = new AgencyClient({
-      broadcasterId: req.userId,
+      broadcasterId: getEffectiveBroadcasterId(req),
       name,
       documentNumber,
       email,
@@ -1669,7 +1660,7 @@ export const updateBroadcasterClient = async (req: AuthRequest, res: Response): 
     if (address !== undefined) allowedUpdates.address = address;
 
     const client = await AgencyClient.findOneAndUpdate(
-      { _id: id, broadcasterId: req.userId },
+      { _id: id, broadcasterId: getEffectiveBroadcasterId(req) },
       { $set: allowedUpdates },
       { new: true }
     );
@@ -1690,7 +1681,7 @@ export const deleteBroadcasterClient = async (req: AuthRequest, res: Response): 
     if (!requireBroadcaster(req, res)) return;
     const { id } = req.params;
 
-    const client = await AgencyClient.findOneAndDelete({ _id: id, broadcasterId: req.userId });
+    const client = await AgencyClient.findOneAndDelete({ _id: id, broadcasterId: getEffectiveBroadcasterId(req) });
     if (!client) {
       res.status(404).json({ error: 'Cliente não encontrado' });
       return;
@@ -1712,7 +1703,7 @@ export const uploadBroadcasterClientLogo = async (req: AuthRequest, res: Respons
       return;
     }
 
-    const client = await AgencyClient.findOne({ _id: id, broadcasterId: req.userId });
+    const client = await AgencyClient.findOne({ _id: id, broadcasterId: getEffectiveBroadcasterId(req) });
     if (!client) {
       res.status(404).json({ error: 'Cliente não encontrado' });
       return;
