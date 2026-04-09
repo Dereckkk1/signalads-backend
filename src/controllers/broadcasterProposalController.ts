@@ -1611,7 +1611,7 @@ export const getBroadcasterClients = async (req: AuthRequest, res: Response): Pr
 export const createBroadcasterClient = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!requireBroadcaster(req, res)) return;
-    const { name, documentNumber, email, phone, contactName, logo, address } = req.body;
+    const { name, documentNumber, email, phone, contactName, logo, address, notes } = req.body;
 
     if (!name || !documentNumber) {
       res.status(400).json({ error: 'Nome e CPF/CNPJ são obrigatórios' });
@@ -1633,6 +1633,7 @@ export const createBroadcasterClient = async (req: AuthRequest, res: Response): 
       contactName,
       logo,
       address,
+      notes,
       status: 'active'
     });
 
@@ -1647,7 +1648,7 @@ export const updateBroadcasterClient = async (req: AuthRequest, res: Response): 
   try {
     if (!requireBroadcaster(req, res)) return;
     const { id } = req.params;
-    const { name, email, phone, contactName, documentNumber, status, logo, address } = req.body;
+    const { name, email, phone, contactName, documentNumber, status, logo, address, notes } = req.body;
 
     const allowedUpdates: Record<string, any> = {};
     if (name !== undefined) allowedUpdates.name = name;
@@ -1658,6 +1659,7 @@ export const updateBroadcasterClient = async (req: AuthRequest, res: Response): 
     if (status !== undefined) allowedUpdates.status = status;
     if (logo !== undefined) allowedUpdates.logo = logo;
     if (address !== undefined) allowedUpdates.address = address;
+    if (notes !== undefined) allowedUpdates.notes = notes;
 
     const client = await AgencyClient.findOneAndUpdate(
       { _id: id, broadcasterId: getEffectiveBroadcasterId(req) },

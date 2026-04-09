@@ -20,6 +20,7 @@ export interface IAgencyClient extends Document {
   contactName?: string;
   logo?: string;
   address?: IClientAddress;
+  notes?: string;
   status: 'active' | 'inactive';
   createdAt: Date;
   updatedAt: Date;
@@ -44,6 +45,7 @@ const AgencyClientSchema: Schema = new Schema(
       city: String,
       state: String
     },
+    notes: { type: String },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   },
   { timestamps: true }

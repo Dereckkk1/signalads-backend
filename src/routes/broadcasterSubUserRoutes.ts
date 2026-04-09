@@ -5,7 +5,8 @@ import {
   createSubUser,
   updateSubUser,
   deleteSubUser,
-  resendInvite
+  resendInvite,
+  getSubUserStats
 } from '../controllers/broadcasterSubUserController';
 
 const router = Router();
@@ -14,6 +15,7 @@ const router = Router();
 router.use(authenticateToken);
 
 router.get('/sub-users', listSubUsers);
+router.get('/sub-users/stats', getSubUserStats);
 router.post('/sub-users', createSubUser);
 router.put('/sub-users/:id', updateSubUser);
 router.delete('/sub-users/:id', deleteSubUser);

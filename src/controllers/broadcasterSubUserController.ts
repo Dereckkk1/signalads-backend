@@ -1,10 +1,12 @@
 import { Response } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
 import { User } from '../models/User';
 import { invalidateUserCache } from '../middleware/auth';
 import { sendSalesTeamInvite } from '../services/emailService';
+import Proposal from '../models/Proposal';
 
 const MAX_SUB_USERS = 3;
 
@@ -270,6 +272,150 @@ export const resendInvite = async (req: AuthRequest, res: Response): Promise<voi
   } catch (error) {
     console.error('Erro ao reenviar convite:', error);
     res.status(500).json({ error: 'Erro ao reenviar convite' });
+  }
+};
+
+/**
+ * GET /api/broadcaster/sub-users/stats
+ * Retorna estatisticas detalhadas de propostas por sub-usuario.
+ */
+export const getSubUserStats = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireManager(req, res)) return;
+
+    const subUsers = await User.find({
+      parentBroadcasterId: req.userId,
+      broadcasterRole: 'sales'
+    })
+      .select('name email phone cpfOrCnpj status createdAt emailConfirmed')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (subUsers.length === 0) {
+      res.json({ subUsers: [], teamTotals: { totalProposals: 0, totalSent: 0, totalApproved: 0, totalValue: 0, approvedValue: 0, conversionRate: 0 }, maxSubUsers: MAX_SUB_USERS });
+      return;
+    }
+
+    const subUserIds = subUsers.map(u => u._id);
+
+    // Aggregate proposal stats per sub-user
+    const proposalStats = await Proposal.aggregate([
+      {
+        $match: {
+          createdBy: { $in: subUserIds.map(id => new mongoose.Types.ObjectId(id.toString())) }
+        }
+      },
+      {
+        $group: {
+          _id: '$createdBy',
+          total: { $sum: 1 },
+          draft: { $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] } },
+          sent: { $sum: { $cond: [{ $eq: ['$status', 'sent'] }, 1, 0] } },
+          viewed: { $sum: { $cond: [{ $eq: ['$status', 'viewed'] }, 1, 0] } },
+          approved: { $sum: { $cond: [{ $in: ['$status', ['approved', 'converted']] }, 1, 0] } },
+          rejected: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } },
+          expired: { $sum: { $cond: [{ $eq: ['$status', 'expired'] }, 1, 0] } },
+          totalValue: { $sum: { $ifNull: ['$totalAmount', 0] } },
+          approvedValue: {
+            $sum: {
+              $cond: [
+                { $in: ['$status', ['approved', 'converted']] },
+                { $ifNull: ['$totalAmount', 0] },
+                0
+              ]
+            }
+          },
+          lastProposalDate: { $max: '$createdAt' }
+        }
+      }
+    ]);
+
+    // Recent proposals per sub-user (last 5 each)
+    const recentProposals = await Proposal.aggregate([
+      {
+        $match: {
+          createdBy: { $in: subUserIds.map(id => new mongoose.Types.ObjectId(id.toString())) }
+        }
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: '$createdBy',
+          proposals: {
+            $push: {
+              _id: '$_id',
+              title: '$title',
+              clientName: '$clientName',
+              status: '$status',
+              totalAmount: '$totalAmount',
+              createdAt: '$createdAt',
+              sentAt: '$sentAt',
+              respondedAt: '$respondedAt'
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          proposals: { $slice: ['$proposals', 5] }
+        }
+      }
+    ]);
+
+    // Build stats map
+    const statsMap = new Map<string, any>();
+    for (const stat of proposalStats) {
+      statsMap.set(stat._id.toString(), stat);
+    }
+
+    const recentMap = new Map<string, any[]>();
+    for (const r of recentProposals) {
+      recentMap.set(r._id.toString(), r.proposals);
+    }
+
+    // Merge sub-user data with stats
+    const enrichedSubUsers = subUsers.map(user => {
+      const userId = user._id.toString();
+      const stats = statsMap.get(userId) || {};
+      const sent = (stats.sent || 0) + (stats.viewed || 0) + (stats.approved || 0) + (stats.rejected || 0) + (stats.expired || 0);
+      const approved = stats.approved || 0;
+
+      return {
+        ...user,
+        stats: {
+          total: stats.total || 0,
+          draft: stats.draft || 0,
+          sent,
+          approved,
+          rejected: stats.rejected || 0,
+          expired: stats.expired || 0,
+          totalValue: stats.totalValue || 0,
+          approvedValue: stats.approvedValue || 0,
+          conversionRate: sent > 0 ? Math.round((approved / sent) * 100) : 0,
+          lastProposalDate: stats.lastProposalDate || null
+        },
+        recentProposals: recentMap.get(userId) || []
+      };
+    });
+
+    // Team totals
+    const teamTotals = enrichedSubUsers.reduce((acc, u) => {
+      acc.totalProposals += u.stats.total;
+      acc.totalSent += u.stats.sent;
+      acc.totalApproved += u.stats.approved;
+      acc.totalValue += u.stats.totalValue;
+      acc.approvedValue += u.stats.approvedValue;
+      return acc;
+    }, { totalProposals: 0, totalSent: 0, totalApproved: 0, totalValue: 0, approvedValue: 0, conversionRate: 0 });
+
+    teamTotals.conversionRate = teamTotals.totalSent > 0
+      ? Math.round((teamTotals.totalApproved / teamTotals.totalSent) * 100)
+      : 0;
+
+    res.json({ subUsers: enrichedSubUsers, teamTotals, maxSubUsers: MAX_SUB_USERS });
+  } catch (error) {
+    console.error('Erro ao buscar stats de sub-usuarios:', error);
+    res.status(500).json({ error: 'Erro ao buscar estatisticas da equipe' });
   }
 };
 
