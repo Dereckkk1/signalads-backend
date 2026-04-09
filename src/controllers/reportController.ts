@@ -167,23 +167,28 @@ export const updateDirectoryReportRecord = async (req: AuthRequest, res: Respons
             return;
         }
 
-        // Só permite editar produtos de 30s
-        if (product.duration !== 30) {
-            res.status(400).json({ error: 'Apenas produtos de 30s podem ser editados' });
+        // Só permite editar produtos de 30s (Comercial/Testemunhal) ou Testemunhal 60s
+        const isTestemunhal = product.spotType.startsWith('Testemunhal');
+        if (product.duration !== 30 && !(isTestemunhal && product.duration === 60)) {
+            res.status(400).json({ error: 'Apenas produtos de 30s ou Testemunhal 60s podem ser editados' });
             return;
         }
 
-        // Atualiza preço do produto 30s e recalcula os demais
+        // Atualiza preço do produto e recalcula os demais
         if (typeof precoPlataforma === 'number' && precoPlataforma >= 0) {
-            const basePrice = precoPlataforma; // preço do 30s
-            product.pricePerInsertion = basePrice;
-            product.manuallyEdited = true;
-            await product.save();
-
             const isComercial = product.spotType.startsWith('Comercial');
-            const isTestemunhal = product.spotType.startsWith('Testemunhal');
+
+            // Se editando Testemunhal 60s, o base (30s) é metade do preço informado
+            const basePrice = (isTestemunhal && product.duration === 60)
+                ? precoPlataforma / 2
+                : precoPlataforma;
 
             if (isComercial) {
+                // Atualiza 30s com basePrice
+                product.pricePerInsertion = basePrice;
+                product.manuallyEdited = true;
+                await product.save();
+
                 // Atualiza 15s, 45s e 60s
                 await Product.findOneAndUpdate(
                     { broadcasterId: product.broadcasterId, spotType: 'Comercial 15s' },
@@ -198,11 +203,22 @@ export const updateDirectoryReportRecord = async (req: AuthRequest, res: Respons
                     { pricePerInsertion: basePrice * 2, manuallyEdited: true }
                 );
             } else if (isTestemunhal) {
-                // Atualiza 60s
+                // Atualiza 30s e 60s do Testemunhal
+                await Product.findOneAndUpdate(
+                    { broadcasterId: product.broadcasterId, spotType: 'Testemunhal 30s' },
+                    { pricePerInsertion: basePrice, manuallyEdited: true },
+                    { upsert: false }
+                );
                 await Product.findOneAndUpdate(
                     { broadcasterId: product.broadcasterId, spotType: 'Testemunhal 60s' },
-                    { pricePerInsertion: basePrice * 2, manuallyEdited: true }
+                    { pricePerInsertion: basePrice * 2, manuallyEdited: true },
+                    { upsert: false }
                 );
+
+                // Atualiza o produto atual (pode ser 30s ou 60s)
+                product.pricePerInsertion = (product.duration === 60) ? basePrice * 2 : basePrice;
+                product.manuallyEdited = true;
+                await product.save();
             }
         }
 
