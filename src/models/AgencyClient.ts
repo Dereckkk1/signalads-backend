@@ -13,6 +13,7 @@ export interface IClientAddress {
 export interface IAgencyClient extends Document {
   agencyId?: mongoose.Types.ObjectId;
   broadcasterId?: mongoose.Types.ObjectId;
+  clientTypeId?: mongoose.Types.ObjectId;
   name: string;
   documentNumber: string; // CNPJ ou CPF
   email?: string;
@@ -30,6 +31,7 @@ const AgencyClientSchema: Schema = new Schema(
   {
     agencyId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     broadcasterId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+    clientTypeId: { type: Schema.Types.ObjectId, ref: 'ClientType', index: true },
     name: { type: String, required: true },
     documentNumber: { type: String, required: true },
     email: { type: String },

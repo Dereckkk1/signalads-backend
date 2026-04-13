@@ -26,7 +26,11 @@ import {
   createBroadcasterClient,
   updateBroadcasterClient,
   deleteBroadcasterClient,
-  uploadBroadcasterClientLogo
+  uploadBroadcasterClientLogo,
+  getBroadcasterClientTypes,
+  createBroadcasterClientType,
+  updateBroadcasterClientType,
+  deleteBroadcasterClientType
 } from '../controllers/broadcasterProposalController';
 
 const router = express.Router();
@@ -60,6 +64,12 @@ router.post('/clients', createBroadcasterClient);
 router.put('/clients/:id', updateBroadcasterClient);
 router.delete('/clients/:id', deleteBroadcasterClient);
 router.post('/clients/:id/logo', upload.single('file'), uploadBroadcasterClientLogo);
+
+// Tipos de cliente da emissora
+router.get('/client-types', getBroadcasterClientTypes);
+router.post('/client-types', createBroadcasterClientType);
+router.put('/client-types/:id', updateBroadcasterClientType);
+router.delete('/client-types/:id', deleteBroadcasterClientType);
 
 // Analytics (antes de /:id para não conflitar)
 router.get('/analytics', getAnalytics);

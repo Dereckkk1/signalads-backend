@@ -5,6 +5,7 @@ import Proposal from '../models/Proposal';
 import ProposalTemplate from '../models/ProposalTemplate';
 import ProposalVersion from '../models/ProposalVersion';
 import AgencyClient from '../models/AgencyClient';
+import ClientType from '../models/ClientType';
 import { Product } from '../models/Product';
 import { Sponsorship } from '../models/Sponsorship';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
@@ -165,7 +166,7 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
 
       const netPrice = (product as any).netPrice || 0;
       const unitPrice = netPrice; // Emissora vende direto, sem markup da plataforma
-      const effectivePrice = item.adjustedPrice || unitPrice;
+      const effectivePrice = item.adjustedPrice != null ? item.adjustedPrice : unitPrice;
       const totalPrice = parseFloat((effectivePrice * item.quantity).toFixed(2));
       productsTotal += totalPrice;
 
@@ -238,7 +239,7 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
 
       const netPrice = (sponsorship as any).netPrice || 0;
       const unitPrice = netPrice; // Emissora vende direto, sem markup da plataforma
-      const effectivePrice = item.adjustedPrice || unitPrice;
+      const effectivePrice = item.adjustedPrice != null ? item.adjustedPrice : unitPrice;
       const totalPrice = parseFloat((effectivePrice * (item.quantity || 1)).toFixed(2));
       productsTotal += totalPrice;
 
@@ -1611,7 +1612,7 @@ export const getBroadcasterClients = async (req: AuthRequest, res: Response): Pr
 export const createBroadcasterClient = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!requireBroadcaster(req, res)) return;
-    const { name, documentNumber, email, phone, contactName, logo, address, notes } = req.body;
+    const { name, documentNumber, email, phone, contactName, logo, address, notes, clientTypeId } = req.body;
 
     if (!name || !documentNumber) {
       res.status(400).json({ error: 'Nome e CPF/CNPJ são obrigatórios' });
@@ -1634,6 +1635,7 @@ export const createBroadcasterClient = async (req: AuthRequest, res: Response): 
       logo,
       address,
       notes,
+      clientTypeId: clientTypeId || undefined,
       status: 'active'
     });
 
@@ -1648,7 +1650,7 @@ export const updateBroadcasterClient = async (req: AuthRequest, res: Response): 
   try {
     if (!requireBroadcaster(req, res)) return;
     const { id } = req.params;
-    const { name, email, phone, contactName, documentNumber, status, logo, address, notes } = req.body;
+    const { name, email, phone, contactName, documentNumber, status, logo, address, notes, clientTypeId } = req.body;
 
     const allowedUpdates: Record<string, any> = {};
     if (name !== undefined) allowedUpdates.name = name;
@@ -1660,6 +1662,7 @@ export const updateBroadcasterClient = async (req: AuthRequest, res: Response): 
     if (logo !== undefined) allowedUpdates.logo = logo;
     if (address !== undefined) allowedUpdates.address = address;
     if (notes !== undefined) allowedUpdates.notes = notes;
+    if (clientTypeId !== undefined) allowedUpdates.clientTypeId = clientTypeId || null;
 
     const client = await AgencyClient.findOneAndUpdate(
       { _id: id, broadcasterId: getEffectiveBroadcasterId(req) },
@@ -1721,5 +1724,81 @@ export const uploadBroadcasterClientLogo = async (req: AuthRequest, res: Respons
     res.json({ logo: logoUrl, client });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao fazer upload da logo' });
+  }
+};
+
+// ─── Client Types ──────────────────────────────────────────────────────────
+
+export const getBroadcasterClientTypes = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const types = await ClientType.find({ broadcasterId: getEffectiveBroadcasterId(req) }).sort({ name: 1 });
+    res.json(types);
+  } catch {
+    res.status(500).json({ error: 'Erro ao buscar tipos de cliente' });
+  }
+};
+
+export const createBroadcasterClientType = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const { name, color } = req.body;
+    if (!name?.trim()) {
+      res.status(400).json({ error: 'Nome é obrigatório' });
+      return;
+    }
+    const broadcasterId = getEffectiveBroadcasterId(req);
+    const existing = await ClientType.findOne({ broadcasterId, name: name.trim() });
+    if (existing) {
+      res.status(400).json({ error: 'Já existe um tipo com este nome' });
+      return;
+    }
+    const type = await ClientType.create({ broadcasterId, name: name.trim(), color: color || '#6366f1' });
+    res.status(201).json(type);
+  } catch {
+    res.status(500).json({ error: 'Erro ao criar tipo de cliente' });
+  }
+};
+
+export const updateBroadcasterClientType = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const { id } = req.params;
+    const { name, color } = req.body;
+    const updates: Record<string, any> = {};
+    if (name !== undefined) updates.name = name.trim();
+    if (color !== undefined) updates.color = color;
+    const type = await ClientType.findOneAndUpdate(
+      { _id: id, broadcasterId: getEffectiveBroadcasterId(req) },
+      { $set: updates },
+      { new: true }
+    );
+    if (!type) {
+      res.status(404).json({ error: 'Tipo não encontrado' });
+      return;
+    }
+    res.json(type);
+  } catch {
+    res.status(500).json({ error: 'Erro ao atualizar tipo de cliente' });
+  }
+};
+
+export const deleteBroadcasterClientType = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const { id } = req.params;
+    const broadcasterId = getEffectiveBroadcasterId(req);
+    const type = await ClientType.findOneAndDelete({ _id: id, broadcasterId });
+    if (!type) {
+      res.status(404).json({ error: 'Tipo não encontrado' });
+      return;
+    }
+    await AgencyClient.updateMany(
+      { clientTypeId: id, broadcasterId },
+      { $unset: { clientTypeId: '' } }
+    );
+    res.json({ message: 'Tipo removido com sucesso' });
+  } catch {
+    res.status(500).json({ error: 'Erro ao deletar tipo de cliente' });
   }
 };

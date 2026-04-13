@@ -24,6 +24,7 @@ import broadcasterProposalRoutes from './routes/broadcasterProposalRoutes';
 import broadcasterSubUserRoutes from './routes/broadcasterSubUserRoutes';
 import testReportRoutes from './routes/testReportRoutes';
 import sponsorshipRoutes from './routes/sponsorshipRoutes';
+import insertionTimeSlotRoutes from './routes/insertionTimeSlotRoutes';
 import { startBackupCron } from './cron/backupCron';
 import { startExpireProposalsCron } from './cron/expireProposals';
 import { startProposalAlertsCron } from './cron/proposalAlerts';
@@ -158,6 +159,7 @@ app.use('/api/broadcaster-proposals', broadcasterProposalRoutes); // Propostas c
 app.use('/api/broadcaster', broadcasterSubUserRoutes); // Sub-usuarios de emissoras
 app.use('/api/test-reports', testReportRoutes); // Dashboard de testes (admin only)
 app.use('/api/sponsorships', sponsorshipRoutes); // Patrocínios de programas (emissoras)
+app.use('/api/insertion-time-slots', insertionTimeSlotRoutes); // Faixas horárias reutilizáveis (emissoras)
 
 // Rota de teste
 app.get('/', (req: Request, res: Response) => {

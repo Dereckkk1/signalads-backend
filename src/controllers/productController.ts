@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { Product, PLATFORM_COMMISSION_RATE } from '../models/Product';
 import { User } from '../models/User';
+import ExcelJS from 'exceljs';
 import { AuthRequest } from '../middleware/auth';
 import { toAccentInsensitiveRegex } from '../utils/stringUtils';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
@@ -131,7 +132,12 @@ function getCompanionProducts(spotType: string, basePrice: number, timeSlot: str
 // Criar novo produto (Broadcaster ou Admin)
 export const createProduct = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { spotType, timeSlot, pricePerInsertion, netPrice, broadcasterId } = req.body;
+    const {
+      // Campos legados
+      spotType, timeSlot, pricePerInsertion,
+      // Campos novos e compartilhados
+      name, duration, timeRange, daysOfWeek, netPrice, broadcasterId
+    } = req.body;
 
     const user = await User.findById(req.userId);
 
@@ -145,14 +151,12 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
     let targetBroadcasterId: string;
 
     if (user.userType === 'broadcaster') {
-      // Broadcaster cria para si mesmo
       if (!req.userId) {
         res.status(401).json({ error: 'Usuário não autenticado' });
         return;
       }
       targetBroadcasterId = req.userId;
     } else {
-      // Admin precisa informar a emissora
       if (!broadcasterId) {
         res.status(400).json({ error: 'ID da emissora é obrigatório para administradores' });
         return;
@@ -171,30 +175,68 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
     const inputNetPrice = netPrice ? parseFloat(netPrice) : null;
     const inputPrice = pricePerInsertion ? parseFloat(pricePerInsertion) : null;
 
-    if (!spotType || !timeSlot || (!inputNetPrice && !inputPrice)) {
-      res.status(400).json({ error: 'spotType, timeSlot e netPrice (ou pricePerInsertion) são obrigatórios' });
+    if (!inputNetPrice && !inputPrice) {
+      res.status(400).json({ error: 'netPrice (ou pricePerInsertion) é obrigatório' });
       return;
     }
 
-    // Se veio netPrice, calcula pricePerInsertion. Se veio apenas pricePerInsertion (admin/legado), calcula netPrice.
+    // ── Fluxo novo: name + duration + timeRange ──────────────────────────────
+    // ── Fluxo legado: spotType + timeSlot ────────────────────────────────────
+
+    const isNewFlow = !!(name && duration);
+    const isLegacyFlow = !!(spotType && timeSlot);
+
+    if (!isNewFlow && !isLegacyFlow) {
+      res.status(400).json({ error: 'Informe name + duration (novo) ou spotType + timeSlot (legado)' });
+      return;
+    }
+
+    // Resolve spotType e timeSlot para ambos os fluxos
+    let resolvedSpotType: string;
+    let resolvedTimeSlot: string;
+    let resolvedDuration: number;
+
+    if (isNewFlow) {
+      resolvedDuration = parseInt(duration, 10);
+      resolvedSpotType = spotType || `${name} ${resolvedDuration}s`;
+
+      if (timeRange?.start && timeRange?.end) {
+        resolvedTimeSlot = `${timeRange.start}-${timeRange.end}`;
+      } else if (timeSlot) {
+        resolvedTimeSlot = timeSlot;
+      } else {
+        res.status(400).json({ error: 'Informe timeRange (faixa horária) para o produto' });
+        return;
+      }
+    } else {
+      // Fluxo legado
+      const durationMatch = spotType.match(/(\d+)s/);
+      resolvedDuration = durationMatch ? parseInt(durationMatch[1]) : (duration ? parseInt(duration) : 30);
+      resolvedSpotType = spotType;
+      resolvedTimeSlot = timeSlot;
+    }
+
     const finalNetPrice = inputNetPrice || Math.round((inputPrice! / (1 + PLATFORM_COMMISSION_RATE)) * 100) / 100;
     const finalPrice = inputNetPrice
       ? Math.round(inputNetPrice * (1 + PLATFORM_COMMISSION_RATE) * 100) / 100
       : inputPrice!;
 
-    // Extrai a duração do spotType (ex: "Comercial 30s" -> 30)
-    const durationMatch = spotType.match(/(\d+)s/);
-    const duration = durationMatch ? parseInt(durationMatch[1]) : 30;
-
-    const product = new Product({
+    const productData: any = {
       broadcasterId: targetBroadcasterId,
-      spotType,
-      duration,
-      timeSlot,
+      spotType: resolvedSpotType,
+      duration: resolvedDuration,
+      timeSlot: resolvedTimeSlot,
       netPrice: finalNetPrice,
       pricePerInsertion: finalPrice
-    });
+    };
 
+    if (name) productData.name = name;
+    if (timeRange?.start && timeRange?.end) productData.timeRange = timeRange;
+    if (Array.isArray(daysOfWeek) && daysOfWeek.length > 0) {
+      productData.daysOfWeek = daysOfWeek.map(Number);
+    }
+
+    const product = new Product(productData);
     await product.save();
 
     // Cria produtos companheiros automaticamente (ex: Comercial 30s → 15s, 45s, 60s)
@@ -268,7 +310,7 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
       query.broadcasterId = req.userId;
     }
 
-    const { spotType, timeSlot, pricePerInsertion, netPrice, isActive } = req.body;
+    const { name, spotType, timeSlot, timeRange, daysOfWeek, pricePerInsertion, netPrice, isActive, duration } = req.body;
 
     const product = await Product.findOne(query);
 
@@ -277,17 +319,41 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    // Atualiza nome customizado
+    if (name !== undefined) product.name = name;
+
+    // Atualiza spotType / duration (legado ou novo)
     if (spotType) {
       product.spotType = spotType;
       const durationMatch = spotType.match(/(\d+)s/);
-      product.duration = durationMatch && durationMatch[1] ? parseInt(durationMatch[1], 10) : 30;
-    } else {
-      if (!product.duration) {
-        const durationMatch = product.spotType.match(/(\d+)s/);
-        product.duration = durationMatch && durationMatch[1] ? parseInt(durationMatch[1], 10) : 30;
+      product.duration = durationMatch && durationMatch[1] ? parseInt(durationMatch[1], 10) : (product.duration || 30);
+    }
+    if (duration !== undefined) {
+      product.duration = parseInt(duration, 10);
+      // Recalcula spotType se não foi enviado explicitamente
+      if (!spotType && product.name) {
+        product.spotType = `${product.name} ${product.duration}s`;
       }
     }
-    if (timeSlot) product.timeSlot = timeSlot;
+
+    // Atualiza faixa horária
+    if (timeRange === null) {
+      // Limpa timeRange explicitamente (ex: mudança para Rotativo/Indeterminado)
+      product.set('timeRange', undefined);
+    } else if (timeRange?.start && timeRange?.end) {
+      product.timeRange = timeRange;
+      product.timeSlot = `${timeRange.start}-${timeRange.end}`;
+    }
+    if (timeSlot) {
+      product.timeSlot = timeSlot;
+    }
+
+    // Atualiza dias da semana
+    if (daysOfWeek !== undefined) {
+      product.daysOfWeek = Array.isArray(daysOfWeek) && daysOfWeek.length > 0
+        ? daysOfWeek.map(Number)
+        : undefined;
+    }
 
     // Prioridade: netPrice (emissora) → pricePerInsertion (admin/legado)
     if (netPrice !== undefined) {
@@ -365,6 +431,119 @@ export const deleteProduct = async (req: AuthRequest, res: Response): Promise<vo
     res.json({ message: 'Produto deletado com sucesso!' });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao deletar produto' });
+  }
+};
+
+// Exportar produtos da emissora como XLSX
+export const exportProducts = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ error: 'Usuário não autenticado' });
+      return;
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user || (user.userType !== 'broadcaster' && user.userType !== 'admin')) {
+      res.status(403).json({ error: 'Acesso negado' });
+      return;
+    }
+
+    const { broadcasterId: queryBroadcasterId } = req.query;
+    const targetId = user.userType === 'admin' && queryBroadcasterId
+      ? (queryBroadcasterId as string)
+      : req.userId;
+
+    const products = await Product.find({ broadcasterId: targetId, isActive: true })
+      .sort({ createdAt: -1 });
+
+    const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'E-rádios';
+    workbook.created = new Date();
+
+    const sheet = workbook.addWorksheet('Inserções', {
+      pageSetup: { paperSize: 9, orientation: 'landscape' }
+    });
+
+    // Cabeçalho
+    sheet.columns = [
+      { header: 'Nome', key: 'name', width: 22 },
+      { header: 'Tipo/SpotType', key: 'spotType', width: 22 },
+      { header: 'Duração (s)', key: 'duration', width: 14 },
+      { header: 'Faixa Horária', key: 'timeSlot', width: 18 },
+      { header: 'Dias da Semana', key: 'daysOfWeek', width: 28 },
+      { header: 'Preço Líquido (R$)', key: 'netPrice', width: 20 },
+      { header: 'Preço Marketplace (R$)', key: 'pricePerInsertion', width: 24 },
+      { header: 'Cadastrado em', key: 'createdAt', width: 18 },
+    ];
+
+    // Estilo do cabeçalho
+    sheet.getRow(1).eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF06055B' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        bottom: { style: 'thin', color: { argb: 'FFE81E75' } }
+      };
+    });
+    sheet.getRow(1).height = 24;
+
+    // Dados
+    products.forEach((p, idx) => {
+      const row = sheet.addRow({
+        name: p.name || '-',
+        spotType: p.spotType,
+        duration: p.duration,
+        timeSlot: p.timeRange
+          ? `${p.timeRange.start} – ${p.timeRange.end}`
+          : p.timeSlot,
+        daysOfWeek: p.daysOfWeek && p.daysOfWeek.length > 0
+          ? p.daysOfWeek.map((d: number) => DAY_NAMES[d]).join(', ')
+          : 'Todos os dias',
+        netPrice: p.netPrice,
+        pricePerInsertion: p.pricePerInsertion,
+        createdAt: p.createdAt
+          ? new Date(p.createdAt).toLocaleDateString('pt-BR')
+          : '-',
+      });
+
+      // Zebra stripes
+      if (idx % 2 === 1) {
+        row.eachCell(cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0FB' } };
+        });
+      }
+
+      // Formato monetário
+      ['netPrice', 'pricePerInsertion'].forEach(key => {
+        const cell = row.getCell(key);
+        cell.numFmt = '"R$"#,##0.00';
+        cell.alignment = { horizontal: 'right' };
+      });
+    });
+
+    // Freeze header
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    // Auto filter
+    sheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: sheet.columns.length }
+    };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    const companyName = (user.userType === 'broadcaster'
+      ? (user as any).companyName || 'emissora'
+      : 'exportacao'
+    ).replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="insercoes_${companyName}.xlsx"`);
+    res.send(Buffer.from(buffer as ArrayBuffer));
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao exportar produtos' });
   }
 };
 

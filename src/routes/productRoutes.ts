@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getMyProducts,
+  exportProducts,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -17,6 +18,7 @@ const router = Router();
 
 // Rotas protegidas - broadcaster
 router.get('/my-products', authenticateToken, getMyProducts);
+router.get('/my-products/export', authenticateToken, exportProducts);
 router.post('/', authenticateToken, createProduct);
 router.put('/:productId', authenticateToken, updateProduct);
 router.delete('/:productId', authenticateToken, deleteProduct);
