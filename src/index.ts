@@ -22,6 +22,8 @@ import paymentRoutes from './routes/paymentRoutes';
 import proposalRoutes from './routes/proposalRoutes';
 import broadcasterProposalRoutes from './routes/broadcasterProposalRoutes';
 import broadcasterSubUserRoutes from './routes/broadcasterSubUserRoutes';
+import broadcasterGoalsRoutes from './routes/broadcasterGoalsRoutes';
+import broadcasterReportsRoutes from './routes/broadcasterReportsRoutes';
 import testReportRoutes from './routes/testReportRoutes';
 import sponsorshipRoutes from './routes/sponsorshipRoutes';
 import insertionTimeSlotRoutes from './routes/insertionTimeSlotRoutes';
@@ -157,6 +159,8 @@ app.use('/api/payment', paymentRoutes); // Checkout (criação de pedido)
 app.use('/api/proposals', proposalRoutes); // Propostas comerciais de agências
 app.use('/api/broadcaster-proposals', broadcasterProposalRoutes); // Propostas comerciais de emissoras
 app.use('/api/broadcaster', broadcasterSubUserRoutes); // Sub-usuarios de emissoras
+app.use('/api/broadcaster', broadcasterGoalsRoutes);  // Metas comerciais de emissoras
+app.use('/api/broadcaster', broadcasterReportsRoutes); // Central de relatórios de emissoras
 app.use('/api/test-reports', testReportRoutes); // Dashboard de testes (admin only)
 app.use('/api/sponsorships', sponsorshipRoutes); // Patrocínios de programas (emissoras)
 app.use('/api/insertion-time-slots', insertionTimeSlotRoutes); // Faixas horárias reutilizáveis (emissoras)

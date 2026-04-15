@@ -6,8 +6,10 @@ import ProposalTemplate from '../models/ProposalTemplate';
 import ProposalVersion from '../models/ProposalVersion';
 import AgencyClient from '../models/AgencyClient';
 import ClientType from '../models/ClientType';
+import ClientOrigin from '../models/ClientOrigin';
 import { Product } from '../models/Product';
 import { Sponsorship } from '../models/Sponsorship';
+import { User } from '../models/User';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import ExcelJS from 'exceljs';
 import { uploadFile } from '../config/storage';
@@ -67,6 +69,18 @@ function calculateDiscount(grossAmount: number, discount?: { type: string; value
   return parseFloat(Math.min(discount.value, grossAmount).toFixed(2));
 }
 
+/** Retorna o nome de exibicao do usuario para o historico */
+async function getActorName(userId?: string): Promise<string | undefined> {
+  if (!userId) return undefined;
+  try {
+    const user = await User.findById(userId).lean();
+    if (!user) return undefined;
+    return (user as any).name || (user as any).fantasyName || (user as any).companyName || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Cria snapshot de versão (limita a 20 por proposta) */
 async function createVersion(proposalId: string, userId: string, changeType: 'manual' | 'auto_send' | 'auto_update', proposal: any, changeNote?: string): Promise<void> {
   try {
@@ -117,7 +131,7 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
   try {
     if (!requireBroadcaster(req, res)) return;
 
-    const { items, clientName, title, description, templateId, discount: discountInput, clientLogo } = req.body;
+    const { items, clientName, clientId, title, description, templateId, discount: discountInput, clientLogo } = req.body;
     const effectiveBroadcasterId = getEffectiveBroadcasterId(req);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -351,6 +365,7 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
       broadcasterId: effectiveBroadcasterId,
       createdBy: req.userId, // Quem criou (pode ser sub-user)
       clientName: clientName || undefined,
+      clientId: clientId || undefined,
       title: title || 'Proposta Comercial',
       description: description || undefined,
       slug,
@@ -366,7 +381,13 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
       totalAmount,
       templateId: templateId || undefined,
       ...(customization ? { customization } : clientLogo ? { customization: { logo: clientLogo } } : {}),
-      status: 'draft'
+      status: 'draft',
+      statusHistory: [{
+        status: 'draft',
+        changedAt: new Date(),
+        actorName: await getActorName(req.userId),
+        actorType: 'broadcaster' as const
+      }]
     });
 
     await proposal.save();
@@ -477,12 +498,13 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const { title, description, clientName, items, customization, validUntil, discount: discountInput } = req.body;
+    const { title, description, clientName, clientId, items, customization, validUntil, discount: discountInput } = req.body;
 
     // Atualizar campos basicos
     if (title !== undefined) proposal.title = title;
     if (description !== undefined) proposal.description = description;
     if (clientName !== undefined) proposal.clientName = clientName;
+    if (clientId !== undefined) proposal.clientId = clientId || undefined;
     if (validUntil !== undefined) proposal.validUntil = validUntil ? new Date(validUntil) : undefined;
 
     // Atualizar customizacao
@@ -501,12 +523,158 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
 
     // Atualizar itens e recalcular financeiro
     if (items && Array.isArray(items) && items.length > 0) {
-      proposal.items = items;
+      // Separar por tipo e buscar snapshots do DB (igual ao createProposal)
+      const marketplaceItems = items.filter((i: any) => !i.isCustom && i.productId);
+      const customItems = items.filter((i: any) => i.isCustom);
+      const productItemsInput = marketplaceItems.filter((i: any) => i.itemType !== 'sponsorship');
+      const sponsorshipItemsInput = marketplaceItems.filter((i: any) => i.itemType === 'sponsorship');
 
+      const productIds = productItemsInput.map((i: any) => i.productId);
+      const products = productIds.length > 0
+        ? await Product.find({ _id: { $in: productIds } }).populate('broadcasterId')
+        : [];
+      const productMap = new Map(products.map(p => [p._id.toString(), p]));
+
+      const sponsorshipIds = sponsorshipItemsInput.map((i: any) => i.productId);
+      const sponsorships = sponsorshipIds.length > 0
+        ? await Sponsorship.find({ _id: { $in: sponsorshipIds } }).populate('broadcasterId')
+        : [];
+      const sponsorshipMap = new Map(sponsorships.map(s => [s._id.toString(), s]));
+
+      const proposalItems: any[] = [];
       let productsTotal = 0;
-      items.forEach((item: any) => {
-        const effectivePrice = item.adjustedPrice || item.unitPrice;
-        productsTotal += item.totalPrice || (effectivePrice * item.quantity);
+
+      for (const item of productItemsInput) {
+        const product = productMap.get(item.productId?.toString());
+        if (!product) {
+          res.status(400).json({ error: `Produto ${item.productId} não encontrado` });
+          return;
+        }
+        const netPrice = (product as any).netPrice || 0;
+        const unitPrice = netPrice;
+        const effectivePrice = item.adjustedPrice != null ? item.adjustedPrice : unitPrice;
+        const totalPrice = parseFloat((effectivePrice * item.quantity).toFixed(2));
+        productsTotal += totalPrice;
+
+        const broadcaster: any = product.broadcasterId;
+        const bProfile = broadcaster?.broadcasterProfile;
+        const bAddress = broadcaster?.address;
+        const scheduleObj: Record<string, number> = {};
+        if (item.schedule) Object.assign(scheduleObj, item.schedule);
+
+        proposalItems.push({
+          productId: product._id.toString(),
+          productName: (product as any).spotType || item.productName || '',
+          productType: (product as any).spotType || '',
+          duration: (product as any).duration || 0,
+          broadcasterId: broadcaster?._id?.toString(),
+          broadcasterName: broadcaster?.companyName || broadcaster?.fantasyName || '',
+          city: bAddress?.city || '',
+          state: bAddress?.state || '',
+          quantity: item.quantity,
+          unitPrice, netPrice, totalPrice,
+          adjustedPrice: item.adjustedPrice ?? undefined,
+          discountReason: item.discountReason || undefined,
+          needsRecording: !!item.needsRecording,
+          isCustom: false,
+          schedule: scheduleObj,
+          lat: bAddress?.latitude || undefined,
+          lng: bAddress?.longitude || undefined,
+          antennaClass: bProfile?.generalInfo?.antennaClass || undefined,
+          broadcasterLogo: bProfile?.logo || undefined,
+          dial: bProfile?.generalInfo?.dialFrequency || undefined,
+          band: bProfile?.generalInfo?.band || undefined,
+          population: bProfile?.coverage?.totalPopulation || undefined,
+          pmm: bProfile?.pmm || undefined,
+          categories: bProfile?.categories || undefined,
+          audienceGenderFemale: bProfile?.audienceProfile?.gender?.female || undefined,
+          audienceAgeRange: bProfile?.audienceProfile?.ageRange || undefined,
+          audienceSocialClass: bProfile?.audienceProfile?.socialClass
+            ? `${(bProfile.audienceProfile.socialClass.classeAB || 0) + (bProfile.audienceProfile.socialClass.classeC || 0)}% ABC`
+            : undefined,
+        });
+      }
+
+      for (const item of sponsorshipItemsInput) {
+        const sponsorship = sponsorshipMap.get(item.productId?.toString());
+        if (!sponsorship) {
+          res.status(400).json({ error: `Patrocínio ${item.productId} não encontrado` });
+          return;
+        }
+        const netPrice = (sponsorship as any).netPrice || 0;
+        const unitPrice = netPrice;
+        const effectivePrice = item.adjustedPrice != null ? item.adjustedPrice : unitPrice;
+        const totalPrice = parseFloat((effectivePrice * (item.quantity || 1)).toFixed(2));
+        productsTotal += totalPrice;
+
+        const broadcaster: any = sponsorship.broadcasterId;
+        const bProfile = broadcaster?.broadcasterProfile;
+        const bAddress = broadcaster?.address;
+
+        proposalItems.push({
+          productId: sponsorship._id.toString(),
+          productName: (sponsorship as any).programName || '',
+          productType: 'Patrocínio',
+          duration: 0,
+          broadcasterId: broadcaster?._id?.toString(),
+          broadcasterName: broadcaster?.companyName || broadcaster?.fantasyName || '',
+          city: bAddress?.city || '',
+          state: bAddress?.state || '',
+          quantity: item.quantity || 1,
+          unitPrice, netPrice, totalPrice,
+          adjustedPrice: item.adjustedPrice ?? undefined,
+          discountReason: item.discountReason || undefined,
+          needsRecording: false,
+          isCustom: false,
+          schedule: {},
+          itemType: 'sponsorship',
+          sponsorshipId: sponsorship._id.toString(),
+          programName: (sponsorship as any).programName,
+          programTimeRange: (sponsorship as any).timeRange,
+          programDaysOfWeek: (sponsorship as any).daysOfWeek,
+          selectedMonth: item.selectedMonth || undefined,
+          sponsorshipInsertions: ((sponsorship as any).insertions || []).map((ins: any) => ({
+            name: ins.name, duration: ins.duration,
+            quantityPerDay: ins.quantityPerDay, requiresMaterial: ins.requiresMaterial,
+          })),
+          lat: bAddress?.latitude || undefined,
+          lng: bAddress?.longitude || undefined,
+          antennaClass: bProfile?.generalInfo?.antennaClass || undefined,
+          broadcasterLogo: bProfile?.logo || undefined,
+          dial: bProfile?.generalInfo?.dialFrequency || undefined,
+          band: bProfile?.generalInfo?.band || undefined,
+          population: bProfile?.coverage?.totalPopulation || undefined,
+          pmm: bProfile?.pmm || undefined,
+          categories: bProfile?.categories || undefined,
+          audienceGenderFemale: bProfile?.audienceProfile?.gender?.female || undefined,
+          audienceAgeRange: bProfile?.audienceProfile?.ageRange || undefined,
+          audienceSocialClass: bProfile?.audienceProfile?.socialClass
+            ? `${(bProfile.audienceProfile.socialClass.classeAB || 0) + (bProfile.audienceProfile.socialClass.classeC || 0)}% ABC`
+            : undefined,
+        });
+      }
+
+      for (const item of customItems) {
+        const unitPrice = item.unitPrice || 0;
+        const totalPrice = parseFloat((unitPrice * (item.quantity || 1)).toFixed(2));
+        productsTotal += totalPrice;
+        proposalItems.push({
+          productName: item.productName || 'Item Personalizado',
+          productType: item.productType || 'custom',
+          duration: 0,
+          quantity: item.quantity || 1,
+          unitPrice, netPrice: 0, totalPrice,
+          isCustom: true,
+          customDescription: item.customDescription || undefined,
+        });
+      }
+
+      proposal.items = proposalItems;
+      proposal.statusHistory.push({
+        status: 'edited',
+        changedAt: new Date(),
+        actorName: await getActorName(req.userId),
+        actorType: 'broadcaster'
       });
 
       // Emissora vende direto — sem taxas da plataforma
@@ -683,6 +851,12 @@ export const sendProposal = async (req: AuthRequest, res: Response): Promise<voi
 
     proposal.status = 'sent';
     proposal.sentAt = new Date();
+    proposal.statusHistory.push({
+      status: 'sent',
+      changedAt: new Date(),
+      actorName: await getActorName(req.userId),
+      actorType: 'broadcaster'
+    });
     await proposal.save();
     await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
 
@@ -1612,7 +1786,7 @@ export const getBroadcasterClients = async (req: AuthRequest, res: Response): Pr
 export const createBroadcasterClient = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!requireBroadcaster(req, res)) return;
-    const { name, documentNumber, email, phone, contactName, logo, address, notes, clientTypeId } = req.body;
+    const { name, documentNumber, email, phone, contactName, logo, address, notes, clientTypeId, clientOriginId } = req.body;
 
     if (!name || !documentNumber) {
       res.status(400).json({ error: 'Nome e CPF/CNPJ são obrigatórios' });
@@ -1636,6 +1810,7 @@ export const createBroadcasterClient = async (req: AuthRequest, res: Response): 
       address,
       notes,
       clientTypeId: clientTypeId || undefined,
+      clientOriginId: clientOriginId || undefined,
       status: 'active'
     });
 
@@ -1650,7 +1825,7 @@ export const updateBroadcasterClient = async (req: AuthRequest, res: Response): 
   try {
     if (!requireBroadcaster(req, res)) return;
     const { id } = req.params;
-    const { name, email, phone, contactName, documentNumber, status, logo, address, notes, clientTypeId } = req.body;
+    const { name, email, phone, contactName, documentNumber, status, logo, address, notes, clientTypeId, clientOriginId } = req.body;
 
     const allowedUpdates: Record<string, any> = {};
     if (name !== undefined) allowedUpdates.name = name;
@@ -1663,6 +1838,7 @@ export const updateBroadcasterClient = async (req: AuthRequest, res: Response): 
     if (address !== undefined) allowedUpdates.address = address;
     if (notes !== undefined) allowedUpdates.notes = notes;
     if (clientTypeId !== undefined) allowedUpdates.clientTypeId = clientTypeId || null;
+    if (clientOriginId !== undefined) allowedUpdates.clientOriginId = clientOriginId || null;
 
     const client = await AgencyClient.findOneAndUpdate(
       { _id: id, broadcasterId: getEffectiveBroadcasterId(req) },
@@ -1800,5 +1976,82 @@ export const deleteBroadcasterClientType = async (req: AuthRequest, res: Respons
     res.json({ message: 'Tipo removido com sucesso' });
   } catch {
     res.status(500).json({ error: 'Erro ao deletar tipo de cliente' });
+  }
+};
+
+// ─── Client Origins ──────────────────────────────────────────────────────────
+
+export const getBroadcasterClientOrigins = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const origins = await ClientOrigin.find({ broadcasterId: getEffectiveBroadcasterId(req) }).sort({ name: 1 });
+    res.json(origins);
+  } catch {
+    res.status(500).json({ error: 'Erro ao buscar origens de cliente' });
+  }
+};
+
+export const createBroadcasterClientOrigin = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const { name } = req.body;
+    if (!name?.trim()) {
+      res.status(400).json({ error: 'Nome é obrigatório' });
+      return;
+    }
+    const broadcasterId = getEffectiveBroadcasterId(req);
+    const existing = await ClientOrigin.findOne({ broadcasterId, name: name.trim() });
+    if (existing) {
+      res.status(400).json({ error: 'Já existe uma origem com este nome' });
+      return;
+    }
+    const origin = await ClientOrigin.create({ broadcasterId, name: name.trim() });
+    res.status(201).json(origin);
+  } catch {
+    res.status(500).json({ error: 'Erro ao criar origem de cliente' });
+  }
+};
+
+export const updateBroadcasterClientOrigin = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const { id } = req.params;
+    const { name } = req.body;
+    if (!name?.trim()) {
+      res.status(400).json({ error: 'Nome é obrigatório' });
+      return;
+    }
+    const origin = await ClientOrigin.findOneAndUpdate(
+      { _id: id, broadcasterId: getEffectiveBroadcasterId(req) },
+      { $set: { name: name.trim() } },
+      { new: true }
+    );
+    if (!origin) {
+      res.status(404).json({ error: 'Origem não encontrada' });
+      return;
+    }
+    res.json(origin);
+  } catch {
+    res.status(500).json({ error: 'Erro ao atualizar origem de cliente' });
+  }
+};
+
+export const deleteBroadcasterClientOrigin = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const { id } = req.params;
+    const broadcasterId = getEffectiveBroadcasterId(req);
+    const origin = await ClientOrigin.findOneAndDelete({ _id: id, broadcasterId });
+    if (!origin) {
+      res.status(404).json({ error: 'Origem não encontrada' });
+      return;
+    }
+    await AgencyClient.updateMany(
+      { clientOriginId: id, broadcasterId },
+      { $unset: { clientOriginId: '' } }
+    );
+    res.json({ message: 'Origem removida com sucesso' });
+  } catch {
+    res.status(500).json({ error: 'Erro ao deletar origem de cliente' });
   }
 };

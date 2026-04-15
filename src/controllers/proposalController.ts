@@ -6,6 +6,7 @@ import ProposalTemplate from '../models/ProposalTemplate';
 import ProposalVersion from '../models/ProposalVersion';
 import { Product } from '../models/Product';
 import { Sponsorship } from '../models/Sponsorship';
+import { User } from '../models/User';
 import Order from '../models/Order';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import { sendOrderReceivedToClient, sendNewOrderToAdmin } from '../services/emailService';
@@ -56,6 +57,18 @@ function calculateDiscount(grossAmount: number, discount?: { type: string; value
   }
   // fixed
   return parseFloat(Math.min(discount.value, grossAmount).toFixed(2));
+}
+
+/** Retorna o nome de exibicao do usuario para o historico */
+async function getActorName(userId?: string): Promise<string | undefined> {
+  if (!userId) return undefined;
+  try {
+    const user = await User.findById(userId).lean();
+    if (!user) return undefined;
+    return (user as any).name || (user as any).fantasyName || (user as any).companyName || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Cria snapshot de versão (limita a 20 por proposta) */
@@ -727,6 +740,12 @@ export const sendProposal = async (req: AuthRequest, res: Response): Promise<voi
 
     proposal.status = 'sent';
     proposal.sentAt = new Date();
+    proposal.statusHistory.push({
+      status: 'sent',
+      changedAt: new Date(),
+      actorName: await getActorName(req.userId),
+      actorType: 'broadcaster'
+    });
     await proposal.save();
     await invalidateProposalCache(req.userId!, proposal.slug);
 
@@ -904,6 +923,14 @@ export const trackProposalView = async (req: AuthRequest, res: Response): Promis
     if (proposal && proposal.status === 'sent') {
       update.$set.status = 'viewed';
       update.$set.viewedAt = new Date();
+      update.$push = {
+        statusHistory: {
+          status: 'viewed',
+          changedAt: new Date(),
+          actorName: proposal.clientName || 'Cliente',
+          actorType: 'client'
+        }
+      };
 
       // Notificar dono (agência ou emissora) que proposta foi visualizada
       try {
@@ -986,6 +1013,13 @@ export const respondToProposal = async (req: AuthRequest, res: Response): Promis
     proposal.status = action === 'approve' ? 'approved' : 'rejected';
     proposal.respondedAt = new Date();
     proposal.responseNote = note || undefined;
+    proposal.statusHistory.push({
+      status: action === 'approve' ? 'approved' : 'rejected',
+      changedAt: new Date(),
+      note: note || undefined,
+      actorName: approvalName || proposal.clientName || 'Cliente',
+      actorType: 'client'
+    });
 
     // Capturar dados de aprovação formal (assinatura digital)
     if (action === 'approve') {
@@ -1263,6 +1297,12 @@ export const convertToOrder = async (req: AuthRequest, res: Response): Promise<v
     // Atualizar proposta
     proposal.status = 'converted';
     proposal.convertedOrderId = order._id;
+    proposal.statusHistory.push({
+      status: 'converted',
+      changedAt: new Date(),
+      actorName: await getActorName(req.userId),
+      actorType: 'broadcaster'
+    });
     await proposal.save();
     await invalidateProposalCache(req.userId!, proposal.slug);
 

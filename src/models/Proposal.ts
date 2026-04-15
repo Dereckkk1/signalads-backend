@@ -105,6 +105,14 @@ export interface IProposalComment {
   createdAt: Date;
 }
 
+export interface IStatusHistoryEntry {
+  status: string;
+  changedAt: Date;
+  note?: string;
+  actorName?: string; // snapshot do nome de quem fez a acao
+  actorType?: 'broadcaster' | 'client' | 'system'; // tipo do ator
+}
+
 export interface IViewSession {
   startedAt: Date;
   duration: number; // segundos
@@ -237,6 +245,9 @@ export interface IProposal extends Document {
 
   // Proteção por PIN
   protection?: IProtection;
+
+  // Historico de status
+  statusHistory: IStatusHistoryEntry[];
 
   // Tracking
   viewCount: number;
@@ -477,6 +488,15 @@ const ProposalSchema = new Schema<IProposal>({
     startedAt: { type: Date },
     duration: { type: Number }, // segundos
     scrollDepth: { type: Number } // 0-100
+  }], default: [] },
+
+  // Historico de mudancas de status
+  statusHistory: { type: [{
+    status: { type: String, required: true },
+    changedAt: { type: Date, default: Date.now },
+    note: { type: String },
+    actorName: { type: String },
+    actorType: { type: String, enum: ['broadcaster', 'client', 'system'] }
   }], default: [] },
 
   convertedOrderId: { type: Schema.Types.ObjectId, ref: 'Order' }

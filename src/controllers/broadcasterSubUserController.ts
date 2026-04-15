@@ -419,4 +419,151 @@ export const getSubUserStats = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
+/**
+ * Dashboard da equipe comercial.
+ * Busca todas as propostas da emissora (por broadcasterId), agrupando por criador.
+ * Inclui o proprio manager + sub-usuarios como "vendedores".
+ * Query params: startDate, endDate, sellerId
+ */
+export const getSubUserDashboard = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireManager(req, res)) return;
+
+    const broadcasterId = getEffectiveBroadcasterId(req);
+    if (!broadcasterId) { res.status(403).json({ error: 'Acesso negado' }); return; }
+
+    const { startDate, endDate, sellerId } = req.query as { startDate?: string; endDate?: string; sellerId?: string };
+
+    // Fetch manager + sub-users to build the full sellers list
+    const [manager, subUsers] = await Promise.all([
+      User.findById(broadcasterId).select('name email status createdAt').lean(),
+      User.find({ parentBroadcasterId: broadcasterId, broadcasterRole: 'sales' })
+        .select('name email status createdAt').sort({ name: 1 }).lean()
+    ]);
+
+    // Build full sellers list: manager first, then sub-users
+    const allSellers: any[] = manager
+      ? [{ ...manager, isManager: true }, ...subUsers]
+      : [...subUsers];
+
+    // Base query: all proposals for this broadcaster
+    const matchQuery: any = { broadcasterId: new mongoose.Types.ObjectId(broadcasterId) };
+
+    // Seller filter: if a specific sellerId is given, filter by createdBy
+    // Manager proposals may have createdBy = null (old) or managerId
+    if (sellerId && sellerId !== 'all') {
+      if (sellerId === broadcasterId) {
+        // Manager's proposals: createdBy is null, undefined, or the manager's own ID
+        matchQuery.$or = [
+          { createdBy: null },
+          { createdBy: { $exists: false } },
+          { createdBy: new mongoose.Types.ObjectId(broadcasterId) }
+        ];
+      } else {
+        matchQuery.createdBy = new mongoose.Types.ObjectId(sellerId);
+      }
+    }
+
+    if (startDate || endDate) {
+      matchQuery.createdAt = {};
+      if (startDate) matchQuery.createdAt.$gte = new Date(startDate);
+      if (endDate) { const e = new Date(endDate); e.setHours(23, 59, 59, 999); matchQuery.createdAt.$lte = e; }
+    }
+
+    const sentStatuses = ['sent', 'viewed', 'approved', 'rejected', 'expired', 'converted'];
+    const approvedStatuses = ['approved', 'converted'];
+
+    const [summaryAgg, bySellerAgg, monthlyAgg, proposals] = await Promise.all([
+      Proposal.aggregate([
+        { $match: matchQuery },
+        { $group: { _id: null, total: { $sum: 1 }, draft: { $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] } }, sent: { $sum: { $cond: [{ $in: ['$status', sentStatuses] }, 1, 0] } }, approved: { $sum: { $cond: [{ $in: ['$status', approvedStatuses] }, 1, 0] } }, rejected: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } }, expired: { $sum: { $cond: [{ $eq: ['$status', 'expired'] }, 1, 0] } }, totalValue: { $sum: { $ifNull: ['$totalAmount', 0] } }, approvedValue: { $sum: { $cond: [{ $in: ['$status', approvedStatuses] }, { $ifNull: ['$totalAmount', 0] }, 0] } } } }
+      ]),
+      Proposal.aggregate([
+        { $match: matchQuery },
+        { $group: { _id: '$createdBy', total: { $sum: 1 }, sent: { $sum: { $cond: [{ $in: ['$status', sentStatuses] }, 1, 0] } }, approved: { $sum: { $cond: [{ $in: ['$status', approvedStatuses] }, 1, 0] } }, rejected: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } }, expired: { $sum: { $cond: [{ $eq: ['$status', 'expired'] }, 1, 0] } }, totalValue: { $sum: { $ifNull: ['$totalAmount', 0] } }, approvedValue: { $sum: { $cond: [{ $in: ['$status', approvedStatuses] }, { $ifNull: ['$totalAmount', 0] }, 0] } }, lastActivity: { $max: '$createdAt' } } }
+      ]),
+      Proposal.aggregate([
+        { $match: matchQuery },
+        { $group: { _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' }, seller: '$createdBy' }, total: { $sum: 1 }, sent: { $sum: { $cond: [{ $in: ['$status', sentStatuses] }, 1, 0] } }, approved: { $sum: { $cond: [{ $in: ['$status', approvedStatuses] }, 1, 0] } }, totalValue: { $sum: { $ifNull: ['$totalAmount', 0] } }, approvedValue: { $sum: { $cond: [{ $in: ['$status', approvedStatuses] }, { $ifNull: ['$totalAmount', 0] }, 0] } } } },
+        { $sort: { '_id.year': 1, '_id.month': 1 } }
+      ]),
+      Proposal.find(matchQuery)
+        .select('title clientName status totalAmount createdAt sentAt respondedAt validUntil createdBy')
+        .sort({ createdAt: -1 }).limit(500).lean()
+    ]);
+
+    const raw = summaryAgg[0] || {};
+    const summary = {
+      total: raw.total || 0, draft: raw.draft || 0, sent: raw.sent || 0,
+      approved: raw.approved || 0, rejected: raw.rejected || 0, expired: raw.expired || 0,
+      totalValue: raw.totalValue || 0, approvedValue: raw.approvedValue || 0,
+      conversionRate: (raw.sent || 0) > 0 ? Math.round(((raw.approved || 0) / raw.sent) * 100) : 0,
+      avgDealValue: (raw.approved || 0) > 0 ? Math.round((raw.approvedValue || 0) / raw.approved) : 0
+    };
+
+    // sellerNameMap: manager's proposals (null/undefined createdBy) attributed to manager
+    const sellerNameMap = new Map<string, string>();
+    sellerNameMap.set(broadcasterId, manager?.name as string || 'Manager');
+    for (const u of subUsers) sellerNameMap.set(u._id.toString(), u.name as string);
+
+    // bySellerAgg may have _id = null for manager-created proposals (no createdBy set)
+    const sellerStatsMap = new Map<string, any>();
+    for (const s of bySellerAgg) {
+      const key = s._id ? s._id.toString() : broadcasterId; // null → manager
+      const existing = sellerStatsMap.get(key);
+      if (existing) {
+        existing.total += s.total; existing.sent += s.sent; existing.approved += s.approved;
+        existing.rejected += s.rejected; existing.expired += s.expired;
+        existing.totalValue += s.totalValue; existing.approvedValue += s.approvedValue;
+      } else {
+        sellerStatsMap.set(key, { ...s, conversionRate: s.sent > 0 ? Math.round((s.approved / s.sent) * 100) : 0 });
+      }
+    }
+    // Recalculate conversionRate after merge
+    for (const [k, s] of sellerStatsMap) {
+      s.conversionRate = s.sent > 0 ? Math.round((s.approved / s.sent) * 100) : 0;
+    }
+
+    const bySeller = allSellers.map(u => {
+      const key = u._id.toString();
+      const stats = sellerStatsMap.get(key) || { total: 0, sent: 0, approved: 0, rejected: 0, expired: 0, totalValue: 0, approvedValue: 0, conversionRate: 0, lastActivity: null };
+      return { _id: u._id, name: u.name, email: u.email, status: u.isManager ? 'manager' : u.status, isManager: !!u.isManager, stats };
+    });
+
+    const monthMap = new Map<string, any>();
+    for (const item of monthlyAgg) {
+      const key = `${item._id.year}-${String(item._id.month).padStart(2, '0')}`;
+      if (!monthMap.has(key)) {
+        const d = new Date(item._id.year, item._id.month - 1, 1);
+        monthMap.set(key, { month: key, label: d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }), total: 0, sent: 0, approved: 0, totalValue: 0, approvedValue: 0, bySeller: {} as Record<string, any> });
+      }
+      const m = monthMap.get(key)!;
+      m.total += item.total; m.sent += item.sent; m.approved += item.approved;
+      m.totalValue += item.totalValue; m.approvedValue += item.approvedValue;
+      // null createdBy → attributed to manager
+      const sId = item._id.seller ? item._id.seller.toString() : broadcasterId;
+      if (!m.bySeller[sId]) m.bySeller[sId] = { total: 0, sent: 0, approved: 0, approvedValue: 0 };
+      m.bySeller[sId].total += item.total; m.bySeller[sId].sent += item.sent;
+      m.bySeller[sId].approved += item.approved; m.bySeller[sId].approvedValue += item.approvedValue;
+    }
+    const byMonth = Array.from(monthMap.values()).map(m => ({
+      ...m,
+      conversionRate: m.sent > 0 ? Math.round((m.approved / m.sent) * 100) : 0,
+      bySeller: Object.entries(m.bySeller).map(([id, s]: [string, any]) => ({ sellerId: id, sellerName: sellerNameMap.get(id) || 'Desconhecido', ...s }))
+    }));
+
+    const enrichedProposals = (proposals as any[]).map(p => {
+      const cId = p.createdBy ? p.createdBy.toString() : broadcasterId;
+      return { ...p, createdByName: sellerNameMap.get(cId) || 'Desconhecido' };
+    });
+
+    const subUsersForFilter = allSellers.map(u => ({ _id: u._id, name: u.name, status: u.isManager ? 'manager' : u.status, isManager: !!u.isManager }));
+
+    res.json({ summary, bySeller, byMonth, proposals: enrichedProposals, subUsers: subUsersForFilter });
+  } catch (error) {
+    console.error('Erro ao buscar dashboard da equipe:', error);
+    res.status(500).json({ error: 'Erro ao buscar dados do dashboard' });
+  }
+};
+
 export { getEffectiveBroadcasterId };
