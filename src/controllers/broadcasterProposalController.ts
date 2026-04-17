@@ -1181,8 +1181,8 @@ export const getAnalytics = async (req: AuthRequest, res: Response): Promise<voi
   try {
     if (!requireBroadcaster(req, res)) return;
 
-    const broadcasterId = req.userId;
-    const broadcasterOid = new mongoose.Types.ObjectId(broadcasterId);
+    const broadcasterId = getEffectiveBroadcasterId(req);
+    const broadcasterOid = new mongoose.Types.ObjectId(broadcasterId!);
     const { period = '30' } = req.query; // dias
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(period as string));

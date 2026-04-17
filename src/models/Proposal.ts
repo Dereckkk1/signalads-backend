@@ -514,6 +514,25 @@ ProposalSchema.pre('validate', async function () {
   }
 });
 
+// Ao mudar status (evento de sistema), remove placement em coluna customizada
+// do kanban para que o card volte a aparecer na coluna do novo status.
+ProposalSchema.pre('save', function () {
+  (this as any)._statusChanged = !this.isNew && this.isModified('status');
+});
+
+ProposalSchema.post('save', async function () {
+  if (!(this as any)._statusChanged) return;
+  try {
+    const { KanbanCardPlacement } = await import('./KanbanCardPlacement');
+    await KanbanCardPlacement.deleteMany({
+      cardType: 'proposal',
+      cardId: this._id,
+    });
+  } catch {
+    // Nao quebrar fluxo se a limpeza falhar
+  }
+});
+
 // ─── Índices de Performance ───────────────────────────────────────────────
 
 // Listagem de propostas da agencia (query principal)

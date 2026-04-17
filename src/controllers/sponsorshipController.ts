@@ -5,6 +5,7 @@ import { AuthRequest } from '../middleware/auth';
 import { PLATFORM_COMMISSION_RATE } from '../models/Product';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import crypto from 'crypto';
+import { getEffectiveBroadcasterId } from './broadcasterSubUserController';
 
 function buildCacheKey(prefix: string, params: Record<string, any>): string {
   const normalized: Record<string, any> = {};
@@ -41,7 +42,7 @@ export const getMySponsorships = async (req: AuthRequest, res: Response): Promis
     if (user.userType === 'admin' && broadcasterId) {
       query = { broadcasterId: broadcasterId as string };
     } else if (user.userType === 'broadcaster') {
-      query = { broadcasterId: req.userId };
+      query = { broadcasterId: getEffectiveBroadcasterId(req) };
     } else if (user.userType === 'admin' && !broadcasterId) {
       query = {};
     } else {
@@ -165,7 +166,7 @@ export const updateSponsorship = async (req: AuthRequest, res: Response): Promis
     let query: any = { _id: id };
 
     if (user.userType === 'broadcaster') {
-      query.broadcasterId = req.userId;
+      query.broadcasterId = getEffectiveBroadcasterId(req);
     }
 
     const sponsorship = await Sponsorship.findOne(query);
@@ -237,7 +238,7 @@ export const deleteSponsorship = async (req: AuthRequest, res: Response): Promis
     let query: any = { _id: id };
 
     if (user.userType === 'broadcaster') {
-      query.broadcasterId = req.userId;
+      query.broadcasterId = getEffectiveBroadcasterId(req);
     }
 
     const sponsorship = await Sponsorship.findOneAndDelete(query);

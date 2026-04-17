@@ -4,10 +4,25 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { User } from '../models/User';
 import BlockedDomain from '../models/BlockedDomain';
+import BroadcasterGroup, { DEFAULT_SALES_PERMISSIONS, PagePermission } from '../models/BroadcasterGroup';
 import { sendTwoFactorEnableEmail, sendTwoFactorLoginEmail, sendTwoFactorCodeEmail, sendEmailConfirmation, sendPasswordResetEmail } from '../services/emailService';
 import { AuthRequest, invalidateUserCache } from '../middleware/auth';
 import { isFreeEmailDomain, getEmailDomain } from '../utils/freeEmailDomains';
 import { generateAccessToken, generateRefreshToken, setAuthCookies, clearAuthCookies, rotateRefreshToken, revokeAllUserTokens } from '../utils/tokenService';
+
+/**
+ * Retorna as permissoes de pagina efetivas de um sub-usuario.
+ * Se tiver grupo, retorna as permissoes do grupo; caso contrario, DEFAULT_SALES_PERMISSIONS.
+ */
+async function getSalesPermissions(groupId?: any): Promise<PagePermission[]> {
+  if (!groupId) return DEFAULT_SALES_PERMISSIONS;
+  try {
+    const group = await BroadcasterGroup.findById(groupId).select('permissions').lean();
+    return (group?.permissions as PagePermission[]) || DEFAULT_SALES_PERMISSIONS;
+  } catch {
+    return DEFAULT_SALES_PERMISSIONS;
+  }
+}
 
 // Validacao de senha forte — consistente em todo o backend
 export const validatePasswordStrength = (password: string): string | null => {
@@ -287,6 +302,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const { rawToken: refreshTokenRaw } = await generateRefreshToken(user._id.toString(), req);
     setAuthCookies(res, accessToken, refreshTokenRaw);
 
+    // Para sub-usuarios (sales), buscar permissoes do grupo
+    let loginGroupPermissions: PagePermission[] | undefined;
+    if (user.broadcasterRole === 'sales') {
+      loginGroupPermissions = await getSalesPermissions(user.groupId);
+    }
+
     res.json({
       message: 'Login realizado com sucesso!',
       user: {
@@ -303,7 +324,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         onboardingCompleted: user.onboardingCompleted || false,
         completedTours: user.completedTours || [],
         broadcasterRole: user.broadcasterRole || undefined,
-        parentBroadcasterId: user.parentBroadcasterId || undefined
+        parentBroadcasterId: user.parentBroadcasterId || undefined,
+        groupId: user.groupId || undefined,
+        groupPermissions: loginGroupPermissions || undefined
       }
     });
   } catch (error) {
@@ -319,6 +342,12 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
     if (!user) {
       res.status(404).json({ error: 'Usuário não encontrado' });
       return;
+    }
+
+    // Para sub-usuarios (sales), buscar permissoes do grupo
+    let groupPermissions: PagePermission[] | undefined;
+    if (user.broadcasterRole === 'sales') {
+      groupPermissions = await getSalesPermissions(user.groupId);
     }
 
     res.json({
@@ -339,7 +368,9 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       completedTours: user.completedTours || [],
       broadcasterProfile: user.broadcasterProfile,
       broadcasterRole: user.broadcasterRole || undefined,
-      parentBroadcasterId: user.parentBroadcasterId || undefined
+      parentBroadcasterId: user.parentBroadcasterId || undefined,
+      groupId: user.groupId || undefined,
+      groupPermissions: groupPermissions || undefined
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar usuário' });
@@ -621,6 +652,11 @@ export const validateTwoFactorLogin = async (req: Request, res: Response): Promi
     const { rawToken: refreshTokenRaw } = await generateRefreshToken(user._id.toString(), req);
     setAuthCookies(res, accessToken, refreshTokenRaw);
 
+    let twoFaLoginPerms: PagePermission[] | undefined;
+    if (user.broadcasterRole === 'sales') {
+      twoFaLoginPerms = await getSalesPermissions(user.groupId);
+    }
+
     res.json({
       message: 'Login realizado com sucesso!',
       user: {
@@ -636,7 +672,9 @@ export const validateTwoFactorLogin = async (req: Request, res: Response): Promi
         address: user.address,
         onboardingCompleted: user.onboardingCompleted || false,
         broadcasterRole: user.broadcasterRole || undefined,
-        parentBroadcasterId: user.parentBroadcasterId || undefined
+        parentBroadcasterId: user.parentBroadcasterId || undefined,
+        groupId: user.groupId || undefined,
+        groupPermissions: twoFaLoginPerms || undefined
       }
     });
   } catch (error: any) {
@@ -726,6 +764,11 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
     const { rawToken: refreshTokenRaw } = await generateRefreshToken(user._id.toString(), req);
     setAuthCookies(res, accessToken, refreshTokenRaw);
 
+    let verifyTwoFaPerms: PagePermission[] | undefined;
+    if (user.broadcasterRole === 'sales') {
+      verifyTwoFaPerms = await getSalesPermissions(user.groupId);
+    }
+
     res.json({
       message: 'Login realizado com sucesso!',
       user: {
@@ -742,7 +785,9 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
         onboardingCompleted: user.onboardingCompleted || false,
         completedTours: user.completedTours || [],
         broadcasterRole: user.broadcasterRole || undefined,
-        parentBroadcasterId: user.parentBroadcasterId || undefined
+        parentBroadcasterId: user.parentBroadcasterId || undefined,
+        groupId: user.groupId || undefined,
+        groupPermissions: verifyTwoFaPerms || undefined
       }
     });
   } catch (error: any) {

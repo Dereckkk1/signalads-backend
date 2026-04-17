@@ -7,6 +7,7 @@ import { User } from '../models/User';
 import { invalidateUserCache } from '../middleware/auth';
 import { sendSalesTeamInvite } from '../services/emailService';
 import Proposal from '../models/Proposal';
+import BroadcasterGroup from '../models/BroadcasterGroup';
 
 const MAX_SUB_USERS = 3;
 
@@ -48,7 +49,7 @@ export const listSubUsers = async (req: AuthRequest, res: Response): Promise<voi
       parentBroadcasterId: req.userId,
       broadcasterRole: 'sales'
     })
-      .select('name email phone cpfOrCnpj status createdAt emailConfirmed')
+      .select('name email phone cpfOrCnpj status createdAt emailConfirmed groupId')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -167,7 +168,7 @@ export const updateSubUser = async (req: AuthRequest, res: Response): Promise<vo
   try {
     if (!requireManager(req, res)) return;
 
-    const { name, phone, cpfOrCnpj } = req.body;
+    const { name, phone, cpfOrCnpj, groupId } = req.body;
 
     const subUser = await User.findOne({
       _id: req.params.id,
@@ -184,6 +185,24 @@ export const updateSubUser = async (req: AuthRequest, res: Response): Promise<vo
     if (phone !== undefined) subUser.phone = phone.trim();
     if (cpfOrCnpj !== undefined) subUser.cpfOrCnpj = cpfOrCnpj.trim();
 
+    // Atribuir/remover grupo
+    if (groupId !== undefined) {
+      if (groupId === null || groupId === '') {
+        subUser.groupId = undefined;
+      } else {
+        // Validar que o grupo pertence a esta emissora
+        const group = await BroadcasterGroup.findOne({
+          _id: groupId,
+          broadcasterId: req.userId
+        });
+        if (!group) {
+          res.status(400).json({ error: 'Grupo não encontrado' });
+          return;
+        }
+        subUser.groupId = group._id;
+      }
+    }
+
     await subUser.save();
     await invalidateUserCache(subUser._id.toString());
 
@@ -195,7 +214,8 @@ export const updateSubUser = async (req: AuthRequest, res: Response): Promise<vo
         phone: subUser.phone,
         cpfOrCnpj: subUser.cpfOrCnpj,
         status: subUser.status,
-        createdAt: subUser.createdAt
+        createdAt: subUser.createdAt,
+        groupId: subUser.groupId || undefined
       }
     });
   } catch (error) {
@@ -287,7 +307,7 @@ export const getSubUserStats = async (req: AuthRequest, res: Response): Promise<
       parentBroadcasterId: req.userId,
       broadcasterRole: 'sales'
     })
-      .select('name email phone cpfOrCnpj status createdAt emailConfirmed')
+      .select('name email phone cpfOrCnpj status createdAt emailConfirmed groupId')
       .sort({ createdAt: -1 })
       .lean();
 

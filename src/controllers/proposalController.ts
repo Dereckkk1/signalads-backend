@@ -835,9 +835,9 @@ export const getPublicProposal = async (req: AuthRequest, res: Response): Promis
     }
 
     const proposal = await Proposal.findOne({ slug })
-      .populate('agencyId', 'companyName fantasyName name email phone')
-      .populate('broadcasterId', 'companyName fantasyName name email phone broadcasterProfile')
-      .populate('clientId', 'name')
+      .populate('agencyId', 'companyName fantasyName name email phone cnpj razaoSocial address')
+      .populate('broadcasterId', 'companyName fantasyName name email phone broadcasterProfile cnpj razaoSocial address')
+      .populate('clientId', 'name documentNumber address')
       .lean();
 
     if (!proposal) {
@@ -875,6 +875,7 @@ export const getPublicProposal = async (req: AuthRequest, res: Response): Promis
         description: proposal.description,
         items: publicItems,
         grossAmount: proposal.grossAmount,
+        agencyCommission: proposal.agencyCommission || 0,
         techFee: proposal.techFee || 0,
         productionCost: proposal.productionCost || 0,
         monitoringCost: proposal.monitoringCost,
@@ -962,6 +963,116 @@ export const trackProposalView = async (req: AuthRequest, res: Response): Promis
 };
 
 /**
+ * Auto-converte proposta de emissora aprovada em campanha (Order).
+ * Chamado automaticamente quando cliente aprova proposta de emissora via link público.
+ * Sem markup de plataforma: emissora vende direto ao cliente.
+ */
+async function autoConvertBroadcasterProposal(
+  proposal: any,
+  approvalName?: string,
+  approvalEmail?: string,
+): Promise<void> {
+  const orderItems = proposal.items
+    .filter((item: any) => !item.isCustom && item.productId && item.broadcasterId)
+    .map((item: any) => {
+      const effectivePrice = item.adjustedPrice ?? item.unitPrice;
+      const base: any = {
+        productId: item.productId.toString(),
+        productName: item.productName,
+        broadcasterName: item.broadcasterName,
+        broadcasterId: item.broadcasterId.toString(),
+        quantity: item.quantity,
+        unitPrice: effectivePrice,
+        totalPrice: parseFloat((effectivePrice * item.quantity).toFixed(2)),
+        schedule: item.schedule instanceof Map
+          ? item.schedule
+          : new Map(Object.entries(item.schedule || {}).map(([k, v]) => [k, Number(v)])),
+        itemType: item.itemType || 'product',
+        material: { type: 'text' as const, text: '', status: 'pending_broadcaster_review' as const, chat: [] },
+      };
+      if (item.itemType === 'sponsorship') {
+        base.sponsorshipId = item.sponsorshipId;
+        base.programName = item.programName;
+        base.programTimeRange = item.programTimeRange;
+        base.programDaysOfWeek = item.programDaysOfWeek;
+        base.selectedMonth = item.selectedMonth;
+        base.sponsorshipInsertions = item.sponsorshipInsertions;
+      }
+      return base;
+    });
+
+  if (orderItems.length === 0) {
+    console.warn(`[AutoConvert] Proposta ${proposal.proposalNumber} sem itens válidos para conversão`);
+    return;
+  }
+
+  const grossAmount = proposal.grossAmount || 0;
+  const totalAmount = proposal.totalAmount || grossAmount;
+
+  const order = new Order({
+    orderNumber: proposal.proposalNumber,      // mantém o mesmo número do PI da proposta
+    buyerId: proposal.broadcasterId,           // broadcaster é o responsável; cliente não é usuário da plataforma
+    buyerName: proposal.clientName || approvalName || 'Cliente',
+    buyerEmail: approvalEmail || '',
+    buyerPhone: '',
+    buyerDocument: '',
+    clientId: proposal.clientId || undefined,
+    items: orderItems,
+    payment: {
+      method: 'pending_contact' as const,
+      status: 'pending' as const,
+      walletAmountUsed: 0,
+      chargedAmount: totalAmount,
+      totalAmount,
+    },
+    splits: [],
+    status: 'approved',
+    isFromBroadcasterProposal: true,
+    grossAmount,
+    broadcasterAmount: totalAmount,            // emissora vende direto: recebe 100%
+    platformSplit: 0,
+    techFee: 0,
+    agencyCommission: 0,
+    monitoringCost: 0,
+    isMonitoringEnabled: false,
+    totalAmount,
+    subtotal: grossAmount,
+    platformFee: 0,
+    billingInvoices: [],
+    billingDocuments: [],
+    broadcasterInvoices: [],
+    opecs: [],
+    notifications: [],
+    webhookLogs: [],
+  });
+
+  // validateBeforeSave: false pois buyerPhone/buyerDocument não se aplicam a
+  // pedidos criados diretamente por emissora (cliente não é usuário da plataforma)
+  await order.save({ validateBeforeSave: false });
+
+  await Proposal.updateOne(
+    { _id: proposal._id },
+    {
+      $set: { status: 'converted', convertedOrderId: order._id },
+      $push: {
+        statusHistory: {
+          status: 'converted',
+          changedAt: new Date(),
+          actorName: approvalName || proposal.clientName || 'Cliente',
+          actorType: 'client',
+          note: 'Campanha gerada automaticamente após aprovação',
+        },
+      },
+    }
+  );
+
+  await cacheInvalidate(`proposals:broadcaster:${proposal.broadcasterId}*`);
+  await cacheInvalidate(`proposal:public:${proposal.slug}`);
+
+  console.log(`[AutoConvert] Proposta ${proposal.proposalNumber} → Pedido ${order.orderNumber}`);
+}
+
+/**
  * POST /api/proposals/public/:slug/respond
  * Cliente aprova ou recusa a proposta.
  */
@@ -1035,6 +1146,16 @@ export const respondToProposal = async (req: AuthRequest, res: Response): Promis
     await proposal.save();
     const ownerId = proposal.ownerType === 'broadcaster' ? proposal.broadcasterId?.toString() : proposal.agencyId?.toString();
     if (ownerId) await invalidateProposalCache(ownerId, slug);
+
+    // Auto-converter proposta de emissora em campanha quando aprovada
+    if (action === 'approve' && proposal.ownerType === 'broadcaster' && !proposal.convertedOrderId) {
+      try {
+        await autoConvertBroadcasterProposal(proposal, approvalName, approvalEmail);
+      } catch (err) {
+        console.error('[AutoConvert] Erro ao converter proposta de emissora em campanha:', err);
+        // Não falhar a resposta — aprovação já foi salva
+      }
+    }
 
     // Enviar email para dono (agência ou emissora) notificando resposta
     try {

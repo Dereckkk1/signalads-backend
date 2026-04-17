@@ -19,6 +19,7 @@ import adminRoutes from '../../routes/adminRoutes';
 import productRoutes from '../../routes/productRoutes';
 import cartRoutes from '../../routes/cartRoutes';
 import healthRoutes from '../../routes/healthRoutes';
+import kanbanRoutes from '../../routes/kanbanRoutes';
 
 export function createTestApp(): Application {
   const app = express();
@@ -40,6 +41,7 @@ export function createTestApp(): Application {
   app.use('/api/admin', adminRoutes);
   app.use('/api/products', productRoutes);
   app.use('/api/cart', cartRoutes);
+  app.use('/api/kanban', kanbanRoutes);
 
   // Root test route
   app.get('/', (_req: Request, res: Response) => {

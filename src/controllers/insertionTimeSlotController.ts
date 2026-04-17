@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { InsertionTimeSlot } from '../models/InsertionTimeSlot';
 import { User } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
+import { getEffectiveBroadcasterId } from './broadcasterSubUserController';
 
 // Listar faixas horárias da emissora
 export const getMyTimeSlots = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -19,7 +20,7 @@ export const getMyTimeSlots = async (req: AuthRequest, res: Response): Promise<v
 
     const targetId = user.userType === 'admin' && req.query.broadcasterId
       ? (req.query.broadcasterId as string)
-      : req.userId;
+      : getEffectiveBroadcasterId(req);
 
     const slots = await InsertionTimeSlot.find({ broadcasterId: targetId }).sort({ createdAt: 1 });
     res.json(slots);
@@ -54,7 +55,7 @@ export const createTimeSlot = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const targetId = user.userType === 'broadcaster' ? req.userId : req.body.broadcasterId;
+    const targetId = user.userType === 'broadcaster' ? getEffectiveBroadcasterId(req) : req.body.broadcasterId;
     if (!targetId) {
       res.status(400).json({ error: 'ID da emissora é obrigatório para administradores' });
       return;
@@ -92,7 +93,7 @@ export const updateTimeSlot = async (req: AuthRequest, res: Response): Promise<v
 
     const { id } = req.params;
     const query: any = { _id: id };
-    if (user.userType === 'broadcaster') query.broadcasterId = req.userId;
+    if (user.userType === 'broadcaster') query.broadcasterId = getEffectiveBroadcasterId(req);
 
     const slot = await InsertionTimeSlot.findOne(query);
     if (!slot) {
@@ -161,7 +162,7 @@ export const deleteTimeSlot = async (req: AuthRequest, res: Response): Promise<v
 
     const { id } = req.params;
     const query: any = { _id: id };
-    if (user.userType === 'broadcaster') query.broadcasterId = req.userId;
+    if (user.userType === 'broadcaster') query.broadcasterId = getEffectiveBroadcasterId(req);
 
     const slot = await InsertionTimeSlot.findOneAndDelete(query);
     if (!slot) {

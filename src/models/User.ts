@@ -132,6 +132,7 @@ export interface IUser extends Document {
   // === SUB-USUÁRIOS DE EMISSORA ===
   broadcasterRole?: 'manager' | 'sales'; // manager = usuário principal, sales = vendedor
   parentBroadcasterId?: any; // ref ao broadcaster pai (só para sales)
+  groupId?: any; // ref ao grupo de permissões (só para sales)
 }
 
 const userSchema = new Schema<IUser>(
@@ -362,6 +363,11 @@ const userSchema = new Schema<IUser>(
     parentBroadcasterId: {
       type: Schema.Types.ObjectId,
       ref: 'User'
+    },
+    groupId: {
+      type: Schema.Types.ObjectId,
+      ref: 'BroadcasterGroup',
+      default: undefined
     }
   },
   {

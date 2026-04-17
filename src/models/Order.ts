@@ -195,6 +195,10 @@ export interface IOrder extends Document {
 
   status: 'pending_payment' | 'paid' | 'pending_approval' | 'approved' | 'scheduled' | 'in_progress' | 'completed' | 'expired' | 'cancelled' | 'refunded' | 'pending_billing_validation' | 'billing_rejected' | 'awaiting_payment' | 'completed_billing' | 'pending_contact';
 
+  // Origem interna da emissora (proposta aprovada convertida em campanha) —
+  // fica fora do kanban do admin porque nao envolve plataforma.
+  isFromBroadcasterProposal?: boolean;
+
   // Valores financeiros
   grossAmount: number; // Valor bruto dos produtos (100%)
   broadcasterAmount: number; // 75% do gross
@@ -429,6 +433,8 @@ const OrderSchema = new Schema<IOrder>({
     default: 'pending_payment'
   },
 
+  isFromBroadcasterProposal: { type: Boolean, default: false, index: true },
+
   grossAmount: { type: Number, required: true },
   broadcasterAmount: { type: Number, required: true },
   platformSplit: { type: Number, required: true },
@@ -471,6 +477,25 @@ OrderSchema.pre('validate', async function () {
     const dateStr = date.toISOString().split('T')[0]?.replace(/-/g, '') || '';
     const seq = await getNextSequence(`order-${dateStr}`);
     this.orderNumber = `ORD-${dateStr}-${String(seq).padStart(4, '0')}`;
+  }
+});
+
+// Ao mudar status (evento de sistema), remove placement em coluna customizada
+// do kanban para que o card volte a aparecer na coluna do novo status.
+OrderSchema.pre('save', function () {
+  (this as any)._statusChanged = !this.isNew && this.isModified('status');
+});
+
+OrderSchema.post('save', async function () {
+  if (!(this as any)._statusChanged) return;
+  try {
+    const { KanbanCardPlacement } = await import('./KanbanCardPlacement');
+    await KanbanCardPlacement.deleteMany({
+      cardType: 'order',
+      cardId: this._id,
+    });
+  } catch {
+    // Nao quebrar fluxo se a limpeza falhar
   }
 });
 

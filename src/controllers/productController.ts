@@ -6,6 +6,7 @@ import { AuthRequest } from '../middleware/auth';
 import { toAccentInsensitiveRegex } from '../utils/stringUtils';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import crypto from 'crypto';
+import { getEffectiveBroadcasterId } from './broadcasterSubUserController';
 import NodeGeocoder from 'node-geocoder';
 
 /**
@@ -90,8 +91,8 @@ export const getMyProducts = async (req: AuthRequest, res: Response): Promise<vo
       // Admin listando produtos de uma emissora específica
       query = { broadcasterId: broadcasterId as string };
     } else if (user.userType === 'broadcaster') {
-      // Broadcaster listando seus próprios produtos
-      query = { broadcasterId: req.userId };
+      // Broadcaster listando seus próprios produtos (ou do manager, se for sub-user sales)
+      query = { broadcasterId: getEffectiveBroadcasterId(req) };
     } else if (user.userType === 'admin' && !broadcasterId) {
       // Admin listando todos os produtos
       query = {};
@@ -305,9 +306,9 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
 
     let query: any = { _id: productId };
 
-    // Se é broadcaster, só pode atualizar seus próprios produtos
+    // Se é broadcaster, só pode atualizar produtos da sua emissora
     if (user.userType === 'broadcaster') {
-      query.broadcasterId = req.userId;
+      query.broadcasterId = getEffectiveBroadcasterId(req);
     }
 
     const { name, spotType, timeSlot, timeRange, daysOfWeek, pricePerInsertion, netPrice, isActive, duration } = req.body;
@@ -409,9 +410,9 @@ export const deleteProduct = async (req: AuthRequest, res: Response): Promise<vo
 
     let query: any = { _id: productId };
 
-    // Se é broadcaster, só pode deletar seus próprios produtos
+    // Se é broadcaster, só pode deletar produtos da sua emissora
     if (user.userType === 'broadcaster') {
-      query.broadcasterId = req.userId;
+      query.broadcasterId = getEffectiveBroadcasterId(req);
     }
 
     const product = await Product.findOneAndDelete(query);
@@ -451,7 +452,7 @@ export const exportProducts = async (req: AuthRequest, res: Response): Promise<v
     const { broadcasterId: queryBroadcasterId } = req.query;
     const targetId = user.userType === 'admin' && queryBroadcasterId
       ? (queryBroadcasterId as string)
-      : req.userId;
+      : getEffectiveBroadcasterId(req);
 
     const products = await Product.find({ broadcasterId: targetId, isActive: true })
       .sort({ createdAt: -1 });

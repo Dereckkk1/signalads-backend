@@ -522,8 +522,9 @@ export const getFullOrdersForAdmin = async (req: Request, res: Response): Promis
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 25));
     const skip = (pageNum - 1) * limitNum;
 
-    // Monta filtro base
-    const filter: any = {};
+    // Monta filtro base — exclui pedidos internos de emissora
+    // (propostas aprovadas que viraram campanha sem envolvimento da plataforma)
+    const filter: any = { isFromBroadcasterProposal: { $ne: true } };
 
     if (status && status !== 'all') {
       filter.status = status;
