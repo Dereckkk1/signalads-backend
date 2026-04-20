@@ -9,7 +9,14 @@
 
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { requireAdmin, authenticateToken, AuthRequest } from '../../../middleware/auth';
+import {
+    requireAdmin,
+    authenticateToken,
+    optionalAuthenticateToken,
+    requireBroadcasterManager,
+    invalidateUserCache,
+    AuthRequest,
+} from '../../../middleware/auth';
 import {
     createMockRequest,
     createMockResponse,
@@ -40,10 +47,11 @@ jest.mock('../../../models/User', () => ({
 
 // Import mocked module
 import { User } from '../../../models/User';
-import { cacheGet } from '../../../config/redis';
+import { cacheGet, redis } from '../../../config/redis';
 
 const mockedUser = User as jest.Mocked<typeof User>;
 const mockedCacheGet = cacheGet as jest.MockedFunction<typeof cacheGet>;
+const mockedRedisDel = redis.del as jest.MockedFunction<typeof redis.del>;
 
 // ─── Setup ─────────────────────────────────────────────────────
 beforeEach(() => {
@@ -534,5 +542,236 @@ describe('authenticateToken — JWT_SECRET ausente', () => {
 
         // Restore
         process.env.JWT_SECRET = TEST_JWT_SECRET;
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// optionalAuthenticateToken
+// ═══════════════════════════════════════════════════════════════
+describe('optionalAuthenticateToken', () => {
+    it('deve chamar next() sem autenticar quando nao ha token', async () => {
+        const req = createMockRequest({ cookies: {} });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        await optionalAuthenticateToken(
+            req as unknown as AuthRequest,
+            res as unknown as Response,
+            next as NextFunction,
+        );
+
+        expect(next).toHaveBeenCalled();
+        expect((req as any).user).toBeUndefined();
+    });
+
+    it('deve chamar next() sem autenticar quando JWT_SECRET ausente', async () => {
+        const originalSecret = process.env.JWT_SECRET;
+        delete process.env.JWT_SECRET;
+
+        const req = createMockRequest({ cookies: { access_token: 'some-token' } });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        await optionalAuthenticateToken(
+            req as unknown as AuthRequest,
+            res as unknown as Response,
+            next as NextFunction,
+        );
+
+        expect(next).toHaveBeenCalled();
+        expect((req as any).user).toBeUndefined();
+
+        process.env.JWT_SECRET = originalSecret;
+    });
+
+    it('deve popular req.user quando cache hit', async () => {
+        const userId = randomObjectId();
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+
+        const cachedUser = { _id: userId, email: 'c@t.com', userType: 'advertiser', status: 'approved' };
+        mockedCacheGet.mockResolvedValueOnce(cachedUser);
+
+        const req = createMockRequest({ cookies: { access_token: token } });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        await optionalAuthenticateToken(
+            req as unknown as AuthRequest,
+            res as unknown as Response,
+            next as NextFunction,
+        );
+
+        expect(next).toHaveBeenCalled();
+        expect((req as any).user).toEqual(cachedUser);
+        expect((req as any).userId).toBe(userId);
+    });
+
+    it('deve popular req.user quando cache miss e user existe no DB', async () => {
+        const userId = randomObjectId();
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+
+        const dbUser = {
+            _id: userId,
+            email: 'db@t.com',
+            userType: 'admin',
+            status: 'approved',
+            toObject: () => ({ _id: userId, email: 'db@t.com', userType: 'admin', status: 'approved' }),
+        };
+
+        mockedCacheGet.mockResolvedValueOnce(null);
+        (mockedUser.findById as jest.Mock).mockReturnValueOnce({
+            select: jest.fn().mockResolvedValueOnce(dbUser),
+        });
+
+        const req = createMockRequest({ cookies: { access_token: token } });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        await optionalAuthenticateToken(
+            req as unknown as AuthRequest,
+            res as unknown as Response,
+            next as NextFunction,
+        );
+
+        expect(next).toHaveBeenCalled();
+        expect((req as any).user).toBe(dbUser);
+    });
+
+    it('deve chamar next() sem autenticar quando cache miss e user nao existe no DB', async () => {
+        const userId = randomObjectId();
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+
+        mockedCacheGet.mockResolvedValueOnce(null);
+        (mockedUser.findById as jest.Mock).mockReturnValueOnce({
+            select: jest.fn().mockResolvedValueOnce(null),
+        });
+
+        const req = createMockRequest({ cookies: { access_token: token } });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        await optionalAuthenticateToken(
+            req as unknown as AuthRequest,
+            res as unknown as Response,
+            next as NextFunction,
+        );
+
+        expect(next).toHaveBeenCalled();
+        expect((req as any).user).toBeUndefined();
+    });
+
+    it('deve chamar next() silenciosamente quando token e invalido', async () => {
+        const req = createMockRequest({ cookies: { access_token: 'invalid.jwt.token' } });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        await optionalAuthenticateToken(
+            req as unknown as AuthRequest,
+            res as unknown as Response,
+            next as NextFunction,
+        );
+
+        expect(next).toHaveBeenCalled();
+        expect((req as any).user).toBeUndefined();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// requireBroadcasterManager
+// ═══════════════════════════════════════════════════════════════
+describe('requireBroadcasterManager', () => {
+    it('deve retornar 403 quando user nao e broadcaster', () => {
+        const req = createMockRequest({
+            user: { _id: randomObjectId(), email: 'a@t.com', userType: 'advertiser' },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        requireBroadcasterManager(
+            req as unknown as AuthRequest,
+            res as unknown as Response,
+            next as NextFunction,
+        );
+
+        expect(next).not.toHaveBeenCalled();
+        expect(res.statusCode).toBe(403);
+        expect(res.jsonData.error).toMatch(/emissoras/i);
+    });
+
+    it('deve retornar 403 quando broadcasterRole e sales', () => {
+        const req = createMockRequest({
+            user: {
+                _id: randomObjectId(),
+                email: 'sales@t.com',
+                userType: 'broadcaster',
+                broadcasterRole: 'sales',
+            },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        requireBroadcasterManager(
+            req as unknown as AuthRequest,
+            res as unknown as Response,
+            next as NextFunction,
+        );
+
+        expect(next).not.toHaveBeenCalled();
+        expect(res.statusCode).toBe(403);
+        expect(res.jsonData.error).toMatch(/gerenciador/i);
+    });
+
+    it('deve chamar next() quando user e broadcaster manager', () => {
+        const req = createMockRequest({
+            user: {
+                _id: randomObjectId(),
+                email: 'manager@t.com',
+                userType: 'broadcaster',
+                broadcasterRole: 'manager',
+            },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        requireBroadcasterManager(
+            req as unknown as AuthRequest,
+            res as unknown as Response,
+            next as NextFunction,
+        );
+
+        expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve chamar next() quando broadcaster sem broadcasterRole explicito', () => {
+        const req = createMockRequest({
+            user: { _id: randomObjectId(), email: 'b@t.com', userType: 'broadcaster' },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        requireBroadcasterManager(
+            req as unknown as AuthRequest,
+            res as unknown as Response,
+            next as NextFunction,
+        );
+
+        expect(next).toHaveBeenCalledTimes(1);
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// invalidateUserCache
+// ═══════════════════════════════════════════════════════════════
+describe('invalidateUserCache', () => {
+    it('deve chamar redis.del com a chave correta', async () => {
+        const userId = randomObjectId();
+        await invalidateUserCache(userId);
+        expect(mockedRedisDel).toHaveBeenCalledWith(`auth:user:${userId}`);
+    });
+
+    it('deve engolir erros sem propagar', async () => {
+        mockedRedisDel.mockRejectedValueOnce(new Error('redis down'));
+        const userId = randomObjectId();
+        await expect(invalidateUserCache(userId)).resolves.toBeUndefined();
     });
 });

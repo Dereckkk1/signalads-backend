@@ -39,7 +39,10 @@ jest.mock('../../config/rateLimitStore', () => ({
 // ------------------------------------------------------------------
 jest.mock('../../services/emailService', () => {
   const noop = jest.fn().mockResolvedValue(undefined);
-  return {
+  const createEmailTemplate = jest.fn().mockReturnValue('<html>mock</html>');
+  const sendEmail = jest.fn().mockResolvedValue({ success: true, messageId: 'mock-id' });
+  const templateNoop = jest.fn().mockReturnValue('');
+  const namedExports = {
     sendEmailConfirmation: noop,
     sendPasswordResetEmail: noop,
     sendTwoFactorEnableEmail: noop,
@@ -71,6 +74,20 @@ jest.mock('../../services/emailService', () => {
     sendPaymentConfirmed: noop,
     sendQuoteConfirmationToClient: noop,
     sendQuoteRequestToAdmin: noop,
+    sendSalesTeamInvite: noop,
+    sendEmail,
+    createEmailTemplate,
+    greeting: templateNoop,
+    paragraph: templateNoop,
+    infoCard: templateNoop,
+    alertCard: templateNoop,
+    list: templateNoop,
+    divider: templateNoop,
+  };
+  return {
+    __esModule: true,
+    ...namedExports,
+    default: { ...namedExports },
   };
 });
 

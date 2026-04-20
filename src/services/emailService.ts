@@ -247,11 +247,11 @@ export const greeting = (name: string) => `
 
 // Card de informações — estilo feature card com icone + titulo + descricao
 export const infoCard = (title: string, items: Array<{ label: string; value: string }>, color: string = colors.gray900) => `
-  <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="margin: 20px 0;">
+  <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="margin: 20px 0; border-left: 3px solid ${color};">
     ${title ? `
     <tr>
-      <td style="padding: 0 0 12px;">
-        <p style="margin: 0; color: ${colors.gray900}; font-size: 15px; font-weight: 700;">${escapeHtml(title)}</p>
+      <td style="padding: 0 0 12px 12px;">
+        <p style="margin: 0; color: ${color}; font-size: 15px; font-weight: 700;">${escapeHtml(title)}</p>
       </td>
     </tr>
     ` : ''}

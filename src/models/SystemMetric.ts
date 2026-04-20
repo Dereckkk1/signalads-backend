@@ -9,6 +9,8 @@ export interface ISystemMetric extends Document {
   isSlow: boolean;
   timestamp: Date;
   ip?: string;
+  userId?: string;
+  userEmail?: string;
 }
 
 const systemMetricSchema = new Schema<ISystemMetric>(
@@ -42,6 +44,12 @@ const systemMetricSchema = new Schema<ISystemMetric>(
     ip: {
       type: String,
     },
+    userId: {
+      type: String,
+    },
+    userEmail: {
+      type: String,
+    },
     timestamp: {
       type: Date,
       default: Date.now,
@@ -62,5 +70,9 @@ systemMetricSchema.index({ isError: 1, timestamp: -1 });
 
 // Queries de requests lentos
 systemMetricSchema.index({ isSlow: 1, timestamp: -1 });
+
+// Queries por ator (IP + userId) para auditoria de segurança
+systemMetricSchema.index({ ip: 1, timestamp: -1 });
+systemMetricSchema.index({ userId: 1, timestamp: -1 });
 
 export default model<ISystemMetric>('SystemMetric', systemMetricSchema);

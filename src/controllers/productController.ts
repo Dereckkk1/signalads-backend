@@ -1095,7 +1095,7 @@ export const getMapProducts = async (req: AuthRequest, res: Response): Promise<v
                 }
               }
             },
-            { $project: { _id: 1, spotType: 1, timeSlot: 1, pricePerInsertion: 1 } }
+            { $project: { _id: 1, spotType: 1, timeSlot: 1, timeRange: 1, pricePerInsertion: 1 } }
           ],
           as: 'products'
         }
@@ -1207,7 +1207,7 @@ export const searchBroadcastersForCompare = async (req: AuthRequest, res: Respon
     const products = await Product.find({
       broadcasterId: { $in: bIds },
       isActive: true
-    }).select('broadcasterId spotType pricePerInsertion timeSlot').lean();
+    }).select('broadcasterId spotType pricePerInsertion timeSlot timeRange').lean();
 
     // Group products
     const productsByBroadcaster = new Map<string, any[]>();
@@ -1218,7 +1218,8 @@ export const searchBroadcastersForCompare = async (req: AuthRequest, res: Respon
         id: p._id,
         name: p.spotType,
         price: p.pricePerInsertion,
-        timeSlot: p.timeSlot
+        timeSlot: p.timeSlot,
+        timeRange: p.timeRange
       });
     });
 

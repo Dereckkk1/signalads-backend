@@ -2,17 +2,31 @@
  * Integration Tests — Monitoring API (Admin)
  *
  * Tests real HTTP endpoints end-to-end.
- * GET /api/admin/monitoring/overview
- * GET /api/admin/monitoring/routes
- * GET /api/admin/monitoring/errors
- * GET /api/admin/monitoring/vitals
- * GET /api/admin/monitoring/slow
- * GET /api/admin/monitoring/timeline
+ * GET  /api/admin/monitoring/overview
+ * GET  /api/admin/monitoring/routes
+ * GET  /api/admin/monitoring/errors
+ * GET  /api/admin/monitoring/vitals
+ * GET  /api/admin/monitoring/slow
+ * GET  /api/admin/monitoring/timeline
+ * GET  /api/admin/monitoring/top-actors
+ * GET  /api/admin/monitoring/actor-detail
+ * GET  /api/admin/monitoring/blocked-ips
+ * POST /api/admin/monitoring/block-ip
+ * DELETE /api/admin/monitoring/block-ip/:ip
+ * POST /api/admin/monitoring/block-user/:userId
+ * POST /api/admin/monitoring/unblock-user/:userId
  */
 
 import '../helpers/mocks';
 
-// Mock the metrics middleware getGlobalStats to avoid relying on runtime state
+// Mock blockedIPsSet to isolate in-memory state between tests
+const mockBlockedIPsSet = new Set<string>();
+jest.mock('../../utils/ipBlockList', () => ({
+  blockedIPsSet: mockBlockedIPsSet,
+  loadBlockedIPs: jest.fn().mockResolvedValue(undefined),
+}));
+
+// Mock the metrics middleware to avoid relying on runtime state
 jest.mock('../../middleware/metrics', () => ({
   getGlobalStats: jest.fn().mockReturnValue({
     uptime: { seconds: 3600, human: '1h 0m' },
@@ -20,6 +34,7 @@ jest.mock('../../middleware/metrics', () => ({
     memory: { heapUsed: '50MB', heapTotal: '100MB', rss: '150MB' },
   }),
   metricsMiddleware: jest.fn((_req: any, _res: any, next: any) => next()),
+  checkBlockedIP: jest.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 import request from 'supertest';
@@ -33,6 +48,7 @@ import {
 } from '../helpers/authHelper';
 import SystemMetric from '../../models/SystemMetric';
 import WebVital from '../../models/WebVital';
+import BlockedIP from '../../models/BlockedIP';
 
 let app: Application;
 
@@ -45,6 +61,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await clearTestDB();
+  mockBlockedIPsSet.clear();
 });
 
 afterAll(async () => {
@@ -64,6 +81,8 @@ async function seedMetrics() {
       isSlow: false,
       timestamp: now,
       ip: '192.168.1.1',
+      userId: 'user-abc',
+      userEmail: 'test@example.com',
     },
     {
       route: '/api/products',
@@ -74,6 +93,8 @@ async function seedMetrics() {
       isSlow: false,
       timestamp: now,
       ip: '192.168.1.1',
+      userId: 'user-abc',
+      userEmail: 'test@example.com',
     },
     {
       route: '/api/auth/login',
@@ -309,5 +330,316 @@ describe('GET /api/admin/monitoring/timeline', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.groupedBy).toBe('day');
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/admin/monitoring/top-actors
+// ─────────────────────────────────────────────────
+describe('GET /api/admin/monitoring/top-actors', () => {
+  it('should aggregate requests by ip+userId and return actors sorted by count', async () => {
+    await seedMetrics();
+    const { auth } = await createAdmin();
+
+    const res = await request(app)
+      .get('/api/admin/monitoring/top-actors')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.actors).toBeDefined();
+    expect(Array.isArray(res.body.actors)).toBe(true);
+    expect(res.body.totalActors).toBeGreaterThan(0);
+
+    // IP 192.168.1.1 has 2 requests — should appear first
+    const topActor = res.body.actors[0];
+    expect(topActor.ip).toBe('192.168.1.1');
+    expect(topActor.totalRequests).toBe(2);
+    expect(topActor.userId).toBe('user-abc');
+    expect(topActor.userEmail).toBe('test@example.com');
+    expect(topActor.riskLevel).toBe('low');
+    expect(topActor.isIPBlocked).toBe(false);
+  });
+
+  it('should mark actor as blocked when IP is in BlockedIP collection', async () => {
+    await seedMetrics();
+    await BlockedIP.create({ ip: '192.168.1.1', reason: 'test block', blockedAt: new Date() });
+    const { auth } = await createAdmin();
+
+    const res = await request(app)
+      .get('/api/admin/monitoring/top-actors')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    const actor = res.body.actors.find((a: any) => a.ip === '192.168.1.1');
+    expect(actor.isIPBlocked).toBe(true);
+  });
+
+  it('should return correct risk levels based on request count', async () => {
+    // Seed 500+ requests for a single IP to trigger critical risk
+    const now = new Date();
+    const bulkMetrics = Array.from({ length: 500 }, () => ({
+      route: '/api/products', method: 'GET', statusCode: 200,
+      duration: 100, isError: false, isSlow: false, timestamp: now, ip: '99.99.99.99',
+    }));
+    await SystemMetric.insertMany(bulkMetrics);
+    const { auth } = await createAdmin();
+
+    const res = await request(app)
+      .get('/api/admin/monitoring/top-actors')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    const criticalActor = res.body.actors.find((a: any) => a.ip === '99.99.99.99');
+    expect(criticalActor.riskLevel).toBe('critical');
+  });
+
+  it('should return 401 when unauthenticated', async () => {
+    const res = await request(app).get('/api/admin/monitoring/top-actors');
+    expect(res.status).toBe(401);
+  });
+
+  it('should return 403 for non-admin', async () => {
+    const { auth } = await createAdvertiser();
+    const res = await request(app)
+      .get('/api/admin/monitoring/top-actors')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(403);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/admin/monitoring/actor-detail
+// ─────────────────────────────────────────────────
+describe('GET /api/admin/monitoring/actor-detail', () => {
+  it('should return requests, timeline and top routes for a given IP', async () => {
+    await seedMetrics();
+    const { auth } = await createAdmin();
+
+    const res = await request(app)
+      .get('/api/admin/monitoring/actor-detail?ip=192.168.1.1')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.requests).toBeDefined();
+    expect(res.body.timeline).toBeDefined();
+    expect(res.body.topRoutes).toBeDefined();
+    expect(res.body.requests.length).toBe(2);
+    expect(res.body.topRoutes[0].route).toBe('/api/products');
+    expect(res.body.topRoutes[0].count).toBe(2);
+  });
+
+  it('should return empty arrays when no data matches the IP', async () => {
+    const { auth } = await createAdmin();
+
+    const res = await request(app)
+      .get('/api/admin/monitoring/actor-detail?ip=1.2.3.4')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.requests).toHaveLength(0);
+    expect(res.body.topRoutes).toHaveLength(0);
+  });
+
+  it('should return 401 when unauthenticated', async () => {
+    const res = await request(app).get('/api/admin/monitoring/actor-detail?ip=1.2.3.4');
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/admin/monitoring/block-ip
+// DELETE /api/admin/monitoring/block-ip/:ip
+// GET /api/admin/monitoring/blocked-ips
+// ─────────────────────────────────────────────────
+describe('IP blocking endpoints', () => {
+  it('POST /block-ip should persist the IP in DB and add to in-memory set', async () => {
+    const { auth } = await createAdmin();
+
+    const res = await request(app)
+      .post('/api/admin/monitoring/block-ip')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ ip: '1.2.3.4', reason: 'scraping attempt' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ip).toBe('1.2.3.4');
+
+    const inDb = await BlockedIP.findOne({ ip: '1.2.3.4' });
+    expect(inDb).not.toBeNull();
+    expect(inDb!.reason).toBe('scraping attempt');
+    expect(mockBlockedIPsSet.has('1.2.3.4')).toBe(true);
+  });
+
+  it('POST /block-ip should return 400 when ip is missing', async () => {
+    const { auth } = await createAdmin();
+
+    const res = await request(app)
+      .post('/api/admin/monitoring/block-ip')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+  });
+
+  it('POST /block-ip should be idempotent (upsert)', async () => {
+    const { auth } = await createAdmin();
+
+    await request(app)
+      .post('/api/admin/monitoring/block-ip')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ ip: '5.5.5.5', reason: 'first' });
+
+    await request(app)
+      .post('/api/admin/monitoring/block-ip')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ ip: '5.5.5.5', reason: 'second' });
+
+    const count = await BlockedIP.countDocuments({ ip: '5.5.5.5' });
+    expect(count).toBe(1);
+  });
+
+  it('DELETE /block-ip/:ip should remove from DB and in-memory set', async () => {
+    const { auth } = await createAdmin();
+    await BlockedIP.create({ ip: '9.9.9.9', blockedAt: new Date() });
+    mockBlockedIPsSet.add('9.9.9.9');
+
+    const res = await request(app)
+      .delete('/api/admin/monitoring/block-ip/9.9.9.9')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.ip).toBe('9.9.9.9');
+
+    const inDb = await BlockedIP.findOne({ ip: '9.9.9.9' });
+    expect(inDb).toBeNull();
+    expect(mockBlockedIPsSet.has('9.9.9.9')).toBe(false);
+  });
+
+  it('GET /blocked-ips should list all blocked IPs', async () => {
+    await BlockedIP.insertMany([
+      { ip: '10.0.0.1', reason: 'spam', blockedAt: new Date() },
+      { ip: '10.0.0.2', reason: 'scraping', blockedAt: new Date() },
+    ]);
+    const { auth } = await createAdmin();
+
+    const res = await request(app)
+      .get('/api/admin/monitoring/blocked-ips')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.blockedIPs).toHaveLength(2);
+    const ips = res.body.blockedIPs.map((b: any) => b.ip);
+    expect(ips).toContain('10.0.0.1');
+    expect(ips).toContain('10.0.0.2');
+  });
+
+  it('IP blocking endpoints should return 401 when unauthenticated', async () => {
+    const [r1, r2, r3] = await Promise.all([
+      request(app).post('/api/admin/monitoring/block-ip').send({ ip: '1.2.3.4' }),
+      request(app).delete('/api/admin/monitoring/block-ip/1.2.3.4'),
+      request(app).get('/api/admin/monitoring/blocked-ips'),
+    ]);
+    expect(r1.status).toBe(401);
+    expect(r2.status).toBe(401);
+    expect(r3.status).toBe(401);
+  });
+
+  it('IP blocking endpoints should return 403 for non-admin', async () => {
+    const { auth } = await createAdvertiser();
+
+    const res = await request(app)
+      .post('/api/admin/monitoring/block-ip')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ ip: '1.2.3.4' });
+
+    expect(res.status).toBe(403);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/admin/monitoring/block-user/:userId
+// POST /api/admin/monitoring/unblock-user/:userId
+// ─────────────────────────────────────────────────
+describe('User blocking endpoints', () => {
+  it('POST /block-user/:userId should set user status to blocked and invalidate cache', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .post(`/api/admin/monitoring/block-user/${advertiser._id}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.userId).toBe(String(advertiser._id));
+
+    // Verify user status in DB
+    const { User } = await import('../../models/User');
+    const updated = await User.findById(advertiser._id);
+    expect(updated!.status).toBe('blocked');
+  });
+
+  it('POST /block-user/:userId should return 404 for non-existent user', async () => {
+    const { auth } = await createAdmin();
+
+    const res = await request(app)
+      .post('/api/admin/monitoring/block-user/000000000000000000000000')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('POST /unblock-user/:userId should restore status to approved', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    // Block first
+    await request(app)
+      .post(`/api/admin/monitoring/block-user/${advertiser._id}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    // Then unblock
+    const res = await request(app)
+      .post(`/api/admin/monitoring/unblock-user/${advertiser._id}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+
+    const { User } = await import('../../models/User');
+    const updated = await User.findById(advertiser._id);
+    expect(updated!.status).toBe('approved');
+  });
+
+  it('POST /block-user should return 401 when unauthenticated', async () => {
+    const res = await request(app)
+      .post('/api/admin/monitoring/block-user/000000000000000000000000');
+    expect(res.status).toBe(401);
+  });
+
+  it('POST /block-user should return 403 for non-admin', async () => {
+    const { auth } = await createAdvertiser();
+
+    const res = await request(app)
+      .post('/api/admin/monitoring/block-user/000000000000000000000000')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(403);
   });
 });

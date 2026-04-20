@@ -387,3 +387,258 @@ describe('POST /api/cart/sync', () => {
     expect(res.body.error).toMatch(/inválidos/i);
   });
 });
+
+// ─────────────────────────────────────────────────
+// PUT /api/cart/items/schedule
+// ─────────────────────────────────────────────────
+describe('PUT /api/cart/items/schedule', () => {
+  it('should update item schedule', async () => {
+    const { user: advertiser, auth } = await createAdvertiser();
+    const { broadcaster, product } = await createBroadcasterWithProduct();
+
+    await Cart.create({
+      userId: advertiser._id,
+      items: [{
+        productId: product._id,
+        productName: 'Comercial 30s',
+        productSchedule: 'Rotativo',
+        broadcasterId: broadcaster._id,
+        broadcasterName: 'Radio Test FM',
+        broadcasterDial: '100.1',
+        broadcasterBand: 'FM',
+        broadcasterLogo: '',
+        broadcasterCity: 'São Paulo',
+        price: 125,
+        quantity: 5,
+        duration: 30,
+        addedAt: new Date(),
+      }],
+    });
+
+    const schedule = { '2026-05-01': 2, '2026-05-02': 3 };
+    const res = await request(app)
+      .put('/api/cart/items/schedule')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: product._id.toString(), schedule });
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toBeDefined();
+  });
+
+  it('retorna 400 quando productId esta ausente', async () => {
+    const { auth } = await createAdvertiser();
+
+    const res = await request(app)
+      .put('/api/cart/items/schedule')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ schedule: { '2026-05-01': 1 } });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 400 quando schedule nao e objeto', async () => {
+    const { auth } = await createAdvertiser();
+    const { product } = await createBroadcasterWithProduct();
+
+    const res = await request(app)
+      .put('/api/cart/items/schedule')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: product._id.toString(), schedule: 'invalido' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app).put('/api/cart/items/schedule').send({ productId: 'x', schedule: {} });
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// PUT /api/cart/items/material
+// ─────────────────────────────────────────────────
+describe('PUT /api/cart/items/material', () => {
+  it('retorna 400 quando productId ou material estao ausentes', async () => {
+    const { auth } = await createAdvertiser();
+
+    const res = await request(app)
+      .put('/api/cart/items/material')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: 'x' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 400 quando audioUrl nao começa com https://', async () => {
+    const { user: advertiser, auth } = await createAdvertiser();
+    const { broadcaster, product } = await createBroadcasterWithProduct();
+
+    await Cart.create({
+      userId: advertiser._id,
+      items: [{
+        productId: product._id,
+        productName: 'Comercial 30s',
+        productSchedule: 'Rotativo',
+        broadcasterId: broadcaster._id,
+        broadcasterName: 'Radio Test FM',
+        broadcasterDial: '100.1',
+        broadcasterBand: 'FM',
+        broadcasterLogo: '',
+        broadcasterCity: 'São Paulo',
+        price: 125,
+        quantity: 2,
+        duration: 30,
+        addedAt: new Date(),
+      }],
+    });
+
+    const res = await request(app)
+      .put('/api/cart/items/material')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: product._id.toString(), material: { audioUrl: 'http://inseguro.com/file.mp3' } });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('atualiza material com audioUrl valido', async () => {
+    const { user: advertiser, auth } = await createAdvertiser();
+    const { broadcaster, product } = await createBroadcasterWithProduct();
+
+    await Cart.create({
+      userId: advertiser._id,
+      items: [{
+        productId: product._id,
+        productName: 'Comercial 30s',
+        productSchedule: 'Rotativo',
+        broadcasterId: broadcaster._id,
+        broadcasterName: 'Radio Test FM',
+        broadcasterDial: '100.1',
+        broadcasterBand: 'FM',
+        broadcasterLogo: '',
+        broadcasterCity: 'São Paulo',
+        price: 125,
+        quantity: 2,
+        duration: 30,
+        addedAt: new Date(),
+      }],
+    });
+
+    const res = await request(app)
+      .put('/api/cart/items/material')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({
+        productId: product._id.toString(),
+        material: { type: 'audio', audioUrl: 'https://storage.googleapis.com/bucket/file.mp3', audioFileName: 'comercial.mp3' },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toBeDefined();
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app).put('/api/cart/items/material').send({});
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// PUT /api/cart/items/sponsorship-month
+// ─────────────────────────────────────────────────
+describe('PUT /api/cart/items/sponsorship-month', () => {
+  it('retorna 400 quando selectedMonth nao esta no formato YYYY-MM', async () => {
+    const { auth } = await createAdvertiser();
+    const { product } = await createBroadcasterWithProduct();
+
+    const res = await request(app)
+      .put('/api/cart/items/sponsorship-month')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: product._id.toString(), selectedMonth: '04/2026' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 400 quando selectedMonth esta ausente', async () => {
+    const { auth } = await createAdvertiser();
+    const { product } = await createBroadcasterWithProduct();
+
+    const res = await request(app)
+      .put('/api/cart/items/sponsorship-month')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: product._id.toString() });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app).put('/api/cart/items/sponsorship-month').send({});
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// PUT /api/cart/items/sponsorship-material
+// ─────────────────────────────────────────────────
+describe('PUT /api/cart/items/sponsorship-material', () => {
+  it('retorna 400 quando campos obrigatorios estao ausentes', async () => {
+    const { auth } = await createAdvertiser();
+
+    const res = await request(app)
+      .put('/api/cart/items/sponsorship-material')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: 'x' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 400 quando audioUrl e invalido', async () => {
+    const { user: advertiser, auth } = await createAdvertiser();
+    const { broadcaster, product } = await createBroadcasterWithProduct();
+
+    await Cart.create({
+      userId: advertiser._id,
+      items: [{
+        productId: product._id,
+        itemType: 'sponsorship',
+        productName: 'Show da Manhã',
+        productSchedule: 'Rotativo',
+        broadcasterId: broadcaster._id,
+        broadcasterName: 'Radio Test FM',
+        broadcasterDial: '100.1',
+        broadcasterBand: 'FM',
+        broadcasterLogo: '',
+        broadcasterCity: 'São Paulo',
+        price: 625,
+        quantity: 1,
+        duration: 0,
+        addedAt: new Date(),
+        sponsorshipMaterials: [],
+      }],
+    });
+
+    const res = await request(app)
+      .put('/api/cart/items/sponsorship-material')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({
+        productId: product._id.toString(),
+        insertionName: 'Citação',
+        material: { audioUrl: 'ftp://invalido.com/file.mp3' },
+      });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app).put('/api/cart/items/sponsorship-material').send({});
+    expect(res.status).toBe(401);
+  });
+});

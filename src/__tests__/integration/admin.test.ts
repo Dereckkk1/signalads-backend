@@ -478,3 +478,353 @@ describe('GET /api/admin/users', () => {
     expect(res.body.users[0].companyName).toBe('Empresa Buscavel');
   });
 });
+
+// ─────────────────────────────────────────────────
+// GET /api/admin/broadcasters
+// ─────────────────────────────────────────────────
+describe('GET /api/admin/broadcasters', () => {
+  it('retorna todas as emissoras', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    await createBroadcaster();
+    await createBroadcaster();
+
+    const res = await request(app)
+      .get('/api/admin/broadcasters')
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.broadcasters).toBeDefined();
+    expect(res.body.total).toBeGreaterThanOrEqual(2);
+  });
+
+  it('filtra por status', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    await createBroadcaster({ status: 'pending' });
+    await createBroadcaster({ status: 'approved' });
+
+    const res = await request(app)
+      .get('/api/admin/broadcasters?status=pending')
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    const statuses = res.body.broadcasters.map((b: any) => b.status);
+    expect(statuses.every((s: string) => s === 'pending')).toBe(true);
+  });
+
+  it('retorna 403 para advertiser', async () => {
+    const { auth } = await createAdvertiser();
+    const res = await request(app)
+      .get('/api/admin/broadcasters')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(403);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/admin/broadcasters/management
+// ─────────────────────────────────────────────────
+describe('GET /api/admin/broadcasters/management', () => {
+  it('retorna emissoras aprovadas com paginacao', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    await createBroadcaster();
+
+    const res = await request(app)
+      .get('/api/admin/broadcasters/management?page=1&limit=10')
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.broadcasters).toBeDefined();
+    expect(res.body).toHaveProperty('total');
+    expect(res.body).toHaveProperty('hasMore');
+  });
+
+  it('suporta busca por nome', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    await createBroadcaster({ companyName: 'Radio Especifica FM' });
+
+    const res = await request(app)
+      .get('/api/admin/broadcasters/management?search=Especifica')
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/admin/broadcasters/:id
+// ─────────────────────────────────────────────────
+describe('GET /api/admin/broadcasters/:id', () => {
+  it('retorna detalhes completos da emissora', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: broadcaster } = await createBroadcaster();
+
+    const res = await request(app)
+      .get(`/api/admin/broadcasters/${broadcaster._id}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.broadcaster._id).toBe(broadcaster._id.toString());
+    expect(res.body.broadcaster.password).toBeUndefined();
+  });
+
+  it('retorna 404 para ID inexistente', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const fakeId = new mongoose.Types.ObjectId();
+
+    const res = await request(app)
+      .get(`/api/admin/broadcasters/${fakeId}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('retorna 400 para usuario que nao e broadcaster', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .get(`/api/admin/broadcasters/${advertiser._id}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(400);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/admin/broadcasters/:id/campaigns
+// ─────────────────────────────────────────────────
+describe('GET /api/admin/broadcasters/:id/campaigns', () => {
+  it('retorna campanhas agrupadas por status', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: broadcaster } = await createBroadcaster();
+
+    const res = await request(app)
+      .get(`/api/admin/broadcasters/${broadcaster._id}/campaigns`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('total');
+    expect(res.body).toHaveProperty('active');
+    expect(res.body).toHaveProperty('completed');
+    expect(res.body).toHaveProperty('cancelled');
+  });
+
+  it('retorna 404 para emissora inexistente', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const fakeId = new mongoose.Types.ObjectId();
+
+    const res = await request(app)
+      .get(`/api/admin/broadcasters/${fakeId}/campaigns`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/admin/users/:userId
+// ─────────────────────────────────────────────────
+describe('GET /api/admin/users/:userId', () => {
+  it('retorna detalhes completos do usuario com pedidos e stats', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .get(`/api/admin/users/${advertiser._id}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user).toBeDefined();
+    expect(res.body.stats).toBeDefined();
+    expect(res.body.orders).toBeDefined();
+  });
+
+  it('retorna 404 para usuario inexistente', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const fakeId = new mongoose.Types.ObjectId();
+
+    const res = await request(app)
+      .get(`/api/admin/users/${fakeId}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// PUT /api/admin/users/:userId/status
+// ─────────────────────────────────────────────────
+describe('PUT /api/admin/users/:userId/status', () => {
+  it('atualiza status do usuario para rejected', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${advertiser._id}/status`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ status: 'rejected' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.status).toBe('rejected');
+  });
+
+  it('retorna 400 para status invalido', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${advertiser._id}/status`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ status: 'banido' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 404 para usuario inexistente', async () => {
+    const { auth: adminAuth } = await createAdmin();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${new mongoose.Types.ObjectId()}/status`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ status: 'approved' });
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// PUT /api/admin/users/:userId/role
+// ─────────────────────────────────────────────────
+describe('PUT /api/admin/users/:userId/role', () => {
+  it('altera role de advertiser para agency', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${advertiser._id}/role`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ role: 'agency' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.userType).toBe('agency');
+  });
+
+  it('retorna 400 para role invalido', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${advertiser._id}/role`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ role: 'superuser' });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// PUT /api/admin/users/:userId/reset-password
+// ─────────────────────────────────────────────────
+describe('PUT /api/admin/users/:userId/reset-password', () => {
+  it('redefine senha do usuario', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${advertiser._id}/reset-password`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ newPassword: 'NovaSenha123!@#' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/sucesso/i);
+  });
+
+  it('retorna 400 para senha fraca', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${advertiser._id}/reset-password`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ newPassword: 'fraca' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 404 para usuario inexistente', async () => {
+    const { auth: adminAuth } = await createAdmin();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${new mongoose.Types.ObjectId()}/reset-password`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ newPassword: 'NovaSenha123!@#' });
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// DELETE /api/admin/users/:userId
+// ─────────────────────────────────────────────────
+describe('DELETE /api/admin/users/:userId', () => {
+  it('exclui usuario e retorna summary', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .delete(`/api/admin/users/${advertiser._id}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.deletedUser).toBeDefined();
+    expect(res.body.summary).toBeDefined();
+
+    const still = await User.findById(advertiser._id);
+    expect(still).toBeNull();
+  });
+
+  it('retorna 403 ao tentar deletar admin', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: outroAdmin } = await createAdmin();
+
+    const res = await request(app)
+      .delete(`/api/admin/users/${outroAdmin._id}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('retorna 404 para usuario inexistente', async () => {
+    const { auth: adminAuth } = await createAdmin();
+
+    const res = await request(app)
+      .delete(`/api/admin/users/${new mongoose.Types.ObjectId()}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(404);
+  });
+});

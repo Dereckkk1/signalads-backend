@@ -55,7 +55,14 @@ import {
   getErrors,
   getVitals,
   getSlowRequests,
-  getTimeline
+  getTimeline,
+  getTopActors,
+  getActorDetail,
+  getBlockedIps,
+  blockIp,
+  unblockIp,
+  blockUser,
+  unblockUser,
 } from '../controllers/monitoringController';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
 import { auditLog } from '../middleware/auditLog';
@@ -202,6 +209,13 @@ router.get('/monitoring/errors', authenticateToken, requireAdmin, getErrors);
 router.get('/monitoring/vitals', authenticateToken, requireAdmin, getVitals);
 router.get('/monitoring/slow', authenticateToken, requireAdmin, getSlowRequests);
 router.get('/monitoring/timeline', authenticateToken, requireAdmin, getTimeline);
+router.get('/monitoring/top-actors', authenticateToken, requireAdmin, getTopActors);
+router.get('/monitoring/actor-detail', authenticateToken, requireAdmin, getActorDetail);
+router.get('/monitoring/blocked-ips', authenticateToken, requireAdmin, getBlockedIps);
+router.post('/monitoring/block-ip', authenticateToken, requireAdmin, blockIp);
+router.delete('/monitoring/block-ip/:ip', authenticateToken, requireAdmin, unblockIp);
+router.post('/monitoring/block-user/:userId', authenticateToken, requireAdmin, blockUser);
+router.post('/monitoring/unblock-user/:userId', authenticateToken, requireAdmin, unblockUser);
 
 // ========================
 // ROTAS DE AUDIT LOG

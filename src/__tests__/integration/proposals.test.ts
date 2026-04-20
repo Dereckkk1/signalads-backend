@@ -917,3 +917,170 @@ describe('POST /api/proposals/:id/protection', () => {
     expect(updated!.protection?.pin).toMatch(/^\d{6}$/);
   });
 });
+
+// ─────────────────────────────────────────────────
+// PUT /api/proposals/templates/:id
+// ─────────────────────────────────────────────────
+describe('PUT /api/proposals/templates/:id', () => {
+  it('atualiza nome do template', async () => {
+    const { user: agency, auth } = await createAgency();
+    const template = await ProposalTemplate.create({
+      name: 'Template Original',
+      agencyId: agency._id,
+      customization: { primaryColor: '#000000', secondaryColor: '#ffffff', backgroundColor: '#f0f0f0', textColor: '#333333', accentColor: '#0066cc', titleFont: 'Arial', bodyFont: 'Helvetica', sectionOrder: [], hiddenSections: [], hiddenElements: [], kpis: [], metrics: [], customSections: [], customTexts: {} },
+    });
+
+    const res = await request(app)
+      .put(`/api/proposals/templates/${template._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ name: 'Template Atualizado' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.template.name).toBe('Template Atualizado');
+  });
+
+  it('retorna 404 para template de outra agencia', async () => {
+    const { auth } = await createAgency();
+    const { user: outraAgencia } = await createAgency();
+    const template = await ProposalTemplate.create({
+      name: 'Template Alheio',
+      agencyId: outraAgencia._id,
+      customization: { primaryColor: '#000000', secondaryColor: '#ffffff', backgroundColor: '#f0f0f0', textColor: '#333333', accentColor: '#0066cc', titleFont: 'Arial', bodyFont: 'Helvetica', sectionOrder: [], hiddenSections: [], hiddenElements: [], kpis: [], metrics: [], customSections: [], customTexts: {} },
+    });
+
+    const res = await request(app)
+      .put(`/api/proposals/templates/${template._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ name: 'Hack' });
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// DELETE /api/proposals/templates/:id
+// ─────────────────────────────────────────────────
+describe('DELETE /api/proposals/templates/:id', () => {
+  it('deleta template da agencia', async () => {
+    const { user: agency, auth } = await createAgency();
+    const template = await ProposalTemplate.create({
+      name: 'Para Deletar',
+      agencyId: agency._id,
+      customization: { primaryColor: '#000000', secondaryColor: '#ffffff', backgroundColor: '#f0f0f0', textColor: '#333333', accentColor: '#0066cc', titleFont: 'Arial', bodyFont: 'Helvetica', sectionOrder: [], hiddenSections: [], hiddenElements: [], kpis: [], metrics: [], customSections: [], customTexts: {} },
+    });
+
+    const res = await request(app)
+      .delete(`/api/proposals/templates/${template._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/excluído/i);
+    const still = await ProposalTemplate.findById(template._id);
+    expect(still).toBeNull();
+  });
+
+  it('retorna 404 para template de outra agencia', async () => {
+    const { auth } = await createAgency();
+    const { user: outra } = await createAgency();
+    const template = await ProposalTemplate.create({
+      name: 'Alheio',
+      agencyId: outra._id,
+      customization: { primaryColor: '#000000', secondaryColor: '#ffffff', backgroundColor: '#f0f0f0', textColor: '#333333', accentColor: '#0066cc', titleFont: 'Arial', bodyFont: 'Helvetica', sectionOrder: [], hiddenSections: [], hiddenElements: [], kpis: [], metrics: [], customSections: [], customTexts: {} },
+    });
+
+    const res = await request(app)
+      .delete(`/api/proposals/templates/${template._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/proposals/analytics
+// ─────────────────────────────────────────────────
+describe('GET /api/proposals/analytics', () => {
+  it('retorna analytics com estrutura correta', async () => {
+    const { auth } = await createAgency();
+
+    const res = await request(app)
+      .get('/api/proposals/analytics')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.analytics).toHaveProperty('total');
+    expect(res.body.analytics).toHaveProperty('byStatus');
+    expect(res.body.analytics).toHaveProperty('conversionRate');
+  });
+
+  it('retorna 403 para broadcaster', async () => {
+    const { auth } = await createBroadcaster();
+
+    const res = await request(app)
+      .get('/api/proposals/analytics')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app).get('/api/proposals/analytics');
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/proposals/:id/versions
+// ─────────────────────────────────────────────────
+describe('GET /api/proposals/:id/versions', () => {
+  it('retorna lista de versoes da proposta', async () => {
+    const { user: agency, auth } = await createAgency();
+
+    const proposal = await Proposal.create({
+      agencyId: agency._id,
+      title: 'Com Versoes',
+      slug: `versions-${Date.now()}`,
+      items: [{ productName: 'P', quantity: 1, unitPrice: 100, totalPrice: 100, productType: 'Comercial 30s' }],
+      grossAmount: 100,
+      totalAmount: 100,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .get(`/api/proposals/${proposal._id}/versions`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.versions).toBeDefined();
+    expect(Array.isArray(res.body.versions)).toBe(true);
+  });
+
+  it('retorna 404 para proposta de outra agencia', async () => {
+    const { auth } = await createAgency();
+    const { user: outra } = await createAgency();
+
+    const proposal = await Proposal.create({
+      agencyId: outra._id,
+      title: 'Alheia',
+      slug: `versions-other-${Date.now()}`,
+      items: [],
+      grossAmount: 0,
+      totalAmount: 0,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .get(`/api/proposals/${proposal._id}/versions`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(404);
+  });
+});

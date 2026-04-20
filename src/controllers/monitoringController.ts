@@ -1,7 +1,11 @@
 import { Request, Response } from 'express';
 import SystemMetric from '../models/SystemMetric';
 import WebVital from '../models/WebVital';
+import BlockedIP from '../models/BlockedIP';
+import { User } from '../models/User';
 import { getGlobalStats } from '../middleware/metrics';
+import { blockedIPsSet } from '../utils/ipBlockList';
+import { invalidateUserCache, AuthRequest } from '../middleware/auth';
 
 // ─────────────────────────────────────────────────────────────
 // Helper: converte range string em ms
@@ -324,5 +328,247 @@ export const getTimeline = async (req: Request, res: Response) => {
         });
     } catch (err) {
         res.status(500).json({ error: 'Erro ao buscar timeline' });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// Helper: classifica nível de risco pelo volume de requests
+// ─────────────────────────────────────────────────────────────
+function getRiskLevel(requestCount: number): 'low' | 'medium' | 'high' | 'critical' {
+    if (requestCount >= 500) return 'critical';
+    if (requestCount >= 200) return 'high';
+    if (requestCount >= 50) return 'medium';
+    return 'low';
+}
+
+// ─────────────────────────────────────────────────────────────
+// GET /api/admin/monitoring/top-actors
+// Agrega requests por IP + userId — identifica quem fez o quê
+// ─────────────────────────────────────────────────────────────
+export const getTopActors = async (req: Request, res: Response) => {
+    try {
+        const since = sinceDate(req.query.range as string);
+        const hideLocalhost = req.query.hideLocalhost === 'true';
+        const ipFilter = localhostFilter(hideLocalhost);
+
+        const actors = await SystemMetric.aggregate([
+            { $match: { timestamp: { $gte: since }, ...ipFilter } },
+            {
+                $group: {
+                    _id: {
+                        ip: '$ip',
+                        userId: { $ifNull: ['$userId', null] },
+                    },
+                    totalRequests: { $sum: 1 },
+                    uniqueRoutes: { $addToSet: '$route' },
+                    errorCount: { $sum: { $cond: ['$isError', 1, 0] } },
+                    slowCount: { $sum: { $cond: ['$isSlow', 1, 0] } },
+                    firstSeen: { $min: '$timestamp' },
+                    lastSeen: { $max: '$timestamp' },
+                    userEmail: { $first: '$userEmail' },
+                },
+            },
+            { $sort: { totalRequests: -1 } },
+            { $limit: 300 },
+        ]);
+
+        const blockedIPsList = await BlockedIP.find().select('ip reason blockedAt').lean();
+        const blockedIPMap = new Map(blockedIPsList.map((b) => [b.ip, b]));
+
+        const result = actors.map((a) => {
+            const ip = a._id.ip || '';
+            const blockedInfo = blockedIPMap.get(ip);
+            return {
+                ip,
+                userId: a._id.userId || null,
+                userEmail: a.userEmail || null,
+                totalRequests: a.totalRequests,
+                uniqueRouteCount: a.uniqueRoutes.length,
+                errorCount: a.errorCount,
+                slowCount: a.slowCount,
+                firstSeen: a.firstSeen,
+                lastSeen: a.lastSeen,
+                riskLevel: getRiskLevel(a.totalRequests),
+                isIPBlocked: !!blockedInfo,
+                blockedReason: blockedInfo?.reason || null,
+                blockedAt: blockedInfo?.blockedAt || null,
+            };
+        });
+
+        res.json({
+            range: req.query.range || '24h',
+            totalActors: result.length,
+            actors: result,
+        });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar atores' });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// GET /api/admin/monitoring/actor-detail
+// Requests individuais de um ator (IP e/ou userId)
+// ─────────────────────────────────────────────────────────────
+export const getActorDetail = async (req: Request, res: Response) => {
+    try {
+        const { ip, userId, range } = req.query as Record<string, string>;
+        const since = sinceDate(range);
+
+        const match: Record<string, unknown> = { timestamp: { $gte: since } };
+        if (ip) match.ip = ip;
+        if (userId) match.userId = userId;
+
+        const [requests, timeline] = await Promise.all([
+            SystemMetric.find(match)
+                .sort({ timestamp: -1 })
+                .limit(300)
+                .select('route method statusCode duration timestamp ip userId userEmail')
+                .lean(),
+            SystemMetric.aggregate([
+                { $match: match },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: '%Y-%m-%dT%H:00', date: '$timestamp' } },
+                        count: { $sum: 1 },
+                        errors: { $sum: { $cond: ['$isError', 1, 0] } },
+                    },
+                },
+                { $sort: { _id: 1 } },
+            ]),
+        ]);
+
+        // Top rotas deste ator
+        const routeCount = new Map<string, number>();
+        for (const r of requests) {
+            routeCount.set(r.route, (routeCount.get(r.route) || 0) + 1);
+        }
+        const topRoutes = [...routeCount.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([route, count]) => ({ route, count }));
+
+        res.json({
+            range: range || '24h',
+            requests,
+            timeline,
+            topRoutes,
+        });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar detalhe do ator' });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// GET /api/admin/monitoring/blocked-ips
+// Lista IPs bloqueados
+// ─────────────────────────────────────────────────────────────
+export const getBlockedIps = async (req: Request, res: Response) => {
+    try {
+        const blocked = await BlockedIP.find().sort({ blockedAt: -1 }).lean();
+        res.json({ blockedIPs: blocked });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar IPs bloqueados' });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/admin/monitoring/block-ip
+// Bloqueia um IP — persiste no DB e atualiza o set em memória
+// ─────────────────────────────────────────────────────────────
+export const blockIp = async (req: AuthRequest, res: Response) => {
+    try {
+        const { ip, reason } = req.body as { ip: string; reason?: string };
+        if (!ip) {
+            res.status(400).json({ error: 'IP é obrigatório' });
+            return;
+        }
+
+        await BlockedIP.findOneAndUpdate(
+            { ip },
+            {
+                ip,
+                reason: reason || 'Bloqueado manualmente pelo admin',
+                blockedAt: new Date(),
+                blockedById: req.userId,
+                blockedByEmail: req.user?.email,
+            },
+            { upsert: true, new: true }
+        );
+
+        blockedIPsSet.add(ip);
+
+        res.json({ message: 'IP bloqueado com sucesso', ip });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao bloquear IP' });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// DELETE /api/admin/monitoring/block-ip/:ip
+// Desbloqueia um IP
+// ─────────────────────────────────────────────────────────────
+export const unblockIp = async (req: Request, res: Response) => {
+    try {
+        const ip = decodeURIComponent(req.params.ip ?? '');
+        await BlockedIP.deleteOne({ ip });
+        blockedIPsSet.delete(ip);
+        res.json({ message: 'IP desbloqueado com sucesso', ip });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao desbloquear IP' });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/admin/monitoring/block-user/:userId
+// Bloqueia uma conta de usuário (status → blocked)
+// ─────────────────────────────────────────────────────────────
+export const blockUser = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.params.userId ?? '';
+        const { reason } = req.body as { reason?: string };
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { status: 'blocked' },
+            { new: true }
+        ).select('email userType status');
+
+        if (!user) {
+            res.status(404).json({ error: 'Usuário não encontrado' });
+            return;
+        }
+
+        await invalidateUserCache(userId);
+
+        res.json({ message: 'Usuário bloqueado com sucesso', userId, email: user.email });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao bloquear usuário' });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/admin/monitoring/unblock-user/:userId
+// Reativa uma conta bloqueada (status → approved)
+// ─────────────────────────────────────────────────────────────
+export const unblockUser = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.params.userId ?? '';
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { status: 'approved' },
+            { new: true }
+        ).select('email userType status');
+
+        if (!user) {
+            res.status(404).json({ error: 'Usuário não encontrado' });
+            return;
+        }
+
+        await invalidateUserCache(userId);
+
+        res.json({ message: 'Usuário reativado com sucesso', userId, email: user.email });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao reativar usuário' });
     }
 };

@@ -120,8 +120,8 @@ describe('POST /api/broadcaster-proposals', () => {
     expect(res.body.proposal.ownerType).toBe('broadcaster');
     expect(res.body.proposal.status).toBe('draft');
     expect(res.body.proposal.items).toHaveLength(1);
-    // grossAmount = 125 * 10 = 1250 (pricePerInsertion from DB)
-    expect(res.body.proposal.grossAmount).toBe(1250);
+    // grossAmount = 100 * 10 = 1000 (netPrice — emissora vende direto, sem markup da plataforma)
+    expect(res.body.proposal.grossAmount).toBe(1000);
   });
 
   it('should reject when items are missing', async () => {
@@ -519,5 +519,185 @@ describe('Broadcaster Proposal Templates', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.template.name).toBe('Novo Template Emissora');
+  });
+
+  it('PUT /api/broadcaster-proposals/templates/:id atualiza template', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const template = await ProposalTemplate.create({
+      name: 'Original',
+      broadcasterId: broadcaster._id,
+      customization: { primaryColor: '#000000', secondaryColor: '#ffffff', backgroundColor: '#f0f0f0', textColor: '#333333', accentColor: '#0066cc', titleFont: 'Arial', bodyFont: 'Helvetica', sectionOrder: [], hiddenSections: [], hiddenElements: [], kpis: [], metrics: [], customSections: [], customTexts: {} },
+    });
+
+    const res = await request(app)
+      .put(`/api/broadcaster-proposals/templates/${template._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ name: 'Atualizado' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.template.name).toBe('Atualizado');
+  });
+
+  it('DELETE /api/broadcaster-proposals/templates/:id deleta template', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const template = await ProposalTemplate.create({
+      name: 'Deletar',
+      broadcasterId: broadcaster._id,
+      customization: { primaryColor: '#000000', secondaryColor: '#ffffff', backgroundColor: '#f0f0f0', textColor: '#333333', accentColor: '#0066cc', titleFont: 'Arial', bodyFont: 'Helvetica', sectionOrder: [], hiddenSections: [], hiddenElements: [], kpis: [], metrics: [], customSections: [], customTexts: {} },
+    });
+
+    const res = await request(app)
+      .delete(`/api/broadcaster-proposals/templates/${template._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/excluído/i);
+    const still = await ProposalTemplate.findById(template._id);
+    expect(still).toBeNull();
+  });
+
+  it('DELETE template retorna 404 para template de outra emissora', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const { broadcaster: outra } = await createBroadcasterWithProducts();
+    const template = await ProposalTemplate.create({
+      name: 'Alheio',
+      broadcasterId: outra._id,
+      customization: { primaryColor: '#000000', secondaryColor: '#ffffff', backgroundColor: '#f0f0f0', textColor: '#333333', accentColor: '#0066cc', titleFont: 'Arial', bodyFont: 'Helvetica', sectionOrder: [], hiddenSections: [], hiddenElements: [], kpis: [], metrics: [], customSections: [], customTexts: {} },
+    });
+
+    const res = await request(app)
+      .delete(`/api/broadcaster-proposals/templates/${template._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/broadcaster-proposals/analytics
+// ─────────────────────────────────────────────────
+describe('GET /api/broadcaster-proposals/analytics', () => {
+  it('retorna analytics da emissora com estrutura correta', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+
+    const res = await request(app)
+      .get('/api/broadcaster-proposals/analytics')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.analytics).toHaveProperty('total');
+    expect(res.body.analytics).toHaveProperty('byStatus');
+    expect(res.body.analytics).toHaveProperty('conversionRate');
+  });
+
+  it('retorna 403 para agency', async () => {
+    const { auth } = await createAgency();
+
+    const res = await request(app)
+      .get('/api/broadcaster-proposals/analytics')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app).get('/api/broadcaster-proposals/analytics');
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// Broadcaster Clients (CRM)
+// ─────────────────────────────────────────────────
+describe('Broadcaster Clients', () => {
+  it('GET /api/broadcaster-proposals/clients lista clientes da emissora', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const AgencyClient = (await import('../../models/AgencyClient')).default;
+
+    await AgencyClient.create({ broadcasterId: broadcaster._id, name: 'Cliente A', documentNumber: '12345678000100' });
+
+    const res = await request(app)
+      .get('/api/broadcaster-proposals/clients')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('POST /api/broadcaster-proposals/clients cria cliente', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+
+    const res = await request(app)
+      .post('/api/broadcaster-proposals/clients')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ name: 'Novo Cliente', documentNumber: '98765432000100' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.name).toBe('Novo Cliente');
+  });
+
+  it('POST /api/broadcaster-proposals/clients retorna 400 sem nome', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+
+    const res = await request(app)
+      .post('/api/broadcaster-proposals/clients')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ documentNumber: '12345678000199' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('PUT /api/broadcaster-proposals/clients/:id atualiza cliente', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const AgencyClient = (await import('../../models/AgencyClient')).default;
+    const client = await AgencyClient.create({ broadcasterId: broadcaster._id, name: 'Antigo', documentNumber: '11111111000199' });
+
+    const res = await request(app)
+      .put(`/api/broadcaster-proposals/clients/${client._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ name: 'Atualizado' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe('Atualizado');
+  });
+
+  it('DELETE /api/broadcaster-proposals/clients/:id remove cliente', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const AgencyClient = (await import('../../models/AgencyClient')).default;
+    const client = await AgencyClient.create({ broadcasterId: broadcaster._id, name: 'Deletar', documentNumber: '22222222000199' });
+
+    const res = await request(app)
+      .delete(`/api/broadcaster-proposals/clients/${client._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/sucesso/i);
+    const still = await AgencyClient.findById(client._id);
+    expect(still).toBeNull();
+  });
+
+  it('DELETE /api/broadcaster-proposals/clients/:id retorna 404 para cliente de outra emissora', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const { broadcaster: outra } = await createBroadcasterWithProducts();
+    const AgencyClient = (await import('../../models/AgencyClient')).default;
+    const client = await AgencyClient.create({ broadcasterId: outra._id, name: 'Alheio', documentNumber: '33333333000199' });
+
+    const res = await request(app)
+      .delete(`/api/broadcaster-proposals/clients/${client._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(404);
   });
 });

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import SystemMetric from '../models/SystemMetric';
+import { blockedIPsSet } from '../utils/ipBlockList';
 
 // ─────────────────────────────────────────────────────────────
 // Tipos
@@ -51,6 +52,8 @@ let metricsBatch: Array<{
     isError: boolean;
     isSlow: boolean;
     ip: string;
+    userId?: string;
+    userEmail?: string;
     timestamp: Date;
 }> = [];
 
@@ -82,6 +85,8 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
         const isError = res.statusCode >= 500;
         const isSlow = duration > 2000;
         const ip = req.ip || req.socket.remoteAddress || '';
+        const userId = (req as any).userId?.toString() || undefined;
+        const userEmail = (req as any).user?.email || undefined;
 
         const metric: RouteMetric = {
             route: routeKey,
@@ -117,6 +122,8 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
             isError,
             isSlow,
             ip,
+            userId,
+            userEmail,
             timestamp: metric.timestamp,
         });
         if (metricsBatch.length >= BATCH_SIZE) {
@@ -218,6 +225,24 @@ function formatUptime(seconds: number): string {
     parts.push(`${s}s`);
     return parts.join(' ');
 }
+
+// ─────────────────────────────────────────────────────────────
+// Middleware de bloqueio de IP
+// Rejeita IPs na lista de bloqueio antes de qualquer processamento.
+// Admin routes ficam isentas para o admin não se auto-trancar.
+// ─────────────────────────────────────────────────────────────
+export const checkBlockedIP = (req: Request, res: Response, next: NextFunction): void => {
+    if (req.path.startsWith('/api/admin/')) {
+        next();
+        return;
+    }
+    const ip = req.ip || req.socket.remoteAddress || '';
+    if (blockedIPsSet.has(ip)) {
+        res.status(403).json({ error: 'Acesso bloqueado' });
+        return;
+    }
+    next();
+};
 
 // Exporta store para testes
 export { metricsStore };

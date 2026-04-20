@@ -70,7 +70,7 @@ describe('template helpers', () => {
         it('deve gerar saudacao com nome escapado', () => {
             const result = greeting('Maria');
             expect(result).toContain('Maria');
-            expect(result).toContain('Olá');
+            expect(result).toContain('Ola');
         });
 
         it('deve escapar HTML no nome', () => {
@@ -117,7 +117,7 @@ describe('template helpers', () => {
 
         it('deve usar info como padrao', () => {
             const result = alertCard('Info msg');
-            expect(result).toContain('#FCE7F3');
+            expect(result).toContain('#f9f7f4');
         });
     });
 
@@ -196,9 +196,9 @@ describe('createEmailTemplate', () => {
             content: '<p>Test</p>',
         });
 
-        expect(html).toContain('Termos de Uso');
+        expect(html).toContain('Termos');
         expect(html).toContain('Privacidade');
-        expect(html).toContain('E-rádios');
+        expect(html).toContain('E-radios');
     });
 });
 

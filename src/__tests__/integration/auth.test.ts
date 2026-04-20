@@ -480,3 +480,269 @@ describe('POST /api/auth/logout', () => {
     expect(res.body.message).toMatch(/logout/i);
   });
 });
+
+// ─────────────────────────────────────────────────
+// GET /api/auth/confirm-email/:token
+// ─────────────────────────────────────────────────
+describe('GET /api/auth/confirm-email/:token', () => {
+  it('confirma email com token valido', async () => {
+    const token = 'valid-confirm-token-xyz123456789';
+    await User.create({
+      name: 'Confirmar User',
+      email: 'confirmar@empresa.com.br',
+      password: STRONG_PASSWORD,
+      userType: 'advertiser',
+      status: 'approved',
+      emailConfirmed: false,
+      companyName: 'Test Co',
+      phone: '11999999999',
+      cpfOrCnpj: '12345678000100',
+      emailConfirmToken: token,
+      emailConfirmTokenExpires: new Date(Date.now() + 3600000),
+    });
+
+    const res = await request(app)
+      .get(`/api/auth/confirm-email/${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/confirmado/i);
+
+    const updated = await User.findOne({ email: 'confirmar@empresa.com.br' });
+    expect(updated?.emailConfirmed).toBe(true);
+  });
+
+  it('retorna 400 para token invalido', async () => {
+    const res = await request(app)
+      .get('/api/auth/confirm-email/token-invalido-99999');
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 400 para token expirado', async () => {
+    const token = 'expired-token-abc123456789012';
+    await User.create({
+      name: 'Expirado User',
+      email: 'expirado@empresa.com.br',
+      password: STRONG_PASSWORD,
+      userType: 'advertiser',
+      status: 'approved',
+      emailConfirmed: false,
+      companyName: 'Test Co',
+      phone: '11999999999',
+      cpfOrCnpj: '12345678000101',
+      emailConfirmToken: token,
+      emailConfirmTokenExpires: new Date(Date.now() - 1000),
+    });
+
+    const res = await request(app)
+      .get(`/api/auth/confirm-email/${token}`);
+
+    expect(res.status).toBe(400);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// PUT /api/auth/update-profile
+// ─────────────────────────────────────────────────
+describe('PUT /api/auth/update-profile', () => {
+  it('atualiza nome do usuario autenticado', async () => {
+    const { auth } = await createAuthenticatedUser({ name: 'Nome Antigo' });
+
+    const res = await request(app)
+      .put('/api/auth/update-profile')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ name: 'Nome Novo' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/atualizado/i);
+    expect(res.body.user.name).toBe('Nome Novo');
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app)
+      .put('/api/auth/update-profile')
+      .send({ name: 'X' });
+
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/auth/reset-password/:token
+// ─────────────────────────────────────────────────
+describe('POST /api/auth/reset-password/:token', () => {
+  it('redefine senha com token valido', async () => {
+    const token = 'valid-reset-token-xyz123456789';
+    await User.create({
+      name: 'Reset User',
+      email: 'resetar@empresa.com.br',
+      password: STRONG_PASSWORD,
+      userType: 'advertiser',
+      status: 'approved',
+      emailConfirmed: true,
+      companyName: 'Test Co',
+      phone: '11999999999',
+      cpfOrCnpj: '12345678000102',
+      passwordResetToken: token,
+      passwordResetTokenExpires: new Date(Date.now() + 3600000),
+    });
+
+    const res = await request(app)
+      .post(`/api/auth/reset-password/${token}`)
+      .send({ password: 'NovaSenha123!@#' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/redefinida/i);
+  });
+
+  it('retorna 400 para senha fraca', async () => {
+    const token = 'token-senha-fraca';
+    await createTestUser({
+      email: 'resetfraco@empresa.com.br',
+      passwordResetToken: token,
+      passwordResetTokenExpires: new Date(Date.now() + 3600000),
+    } as any);
+
+    const res = await request(app)
+      .post(`/api/auth/reset-password/${token}`)
+      .send({ password: 'fraca' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 400 para token invalido', async () => {
+    const res = await request(app)
+      .post('/api/auth/reset-password/token-nao-existe')
+      .send({ password: 'SenhaForte123!@#' });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/auth/2fa/status
+// ─────────────────────────────────────────────────
+describe('GET /api/auth/2fa/status', () => {
+  it('retorna status 2FA do usuario autenticado', async () => {
+    const { auth } = await createAuthenticatedUser();
+
+    const res = await request(app)
+      .get('/api/auth/2fa/status')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('enabled');
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app).get('/api/auth/2fa/status');
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/auth/2fa/enable
+// ─────────────────────────────────────────────────
+describe('POST /api/auth/2fa/enable', () => {
+  it('envia email de confirmacao para habilitar 2FA', async () => {
+    const { auth } = await createAuthenticatedUser();
+
+    const res = await request(app)
+      .post('/api/auth/2fa/enable')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/confirmação/i);
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app).post('/api/auth/2fa/enable');
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/auth/2fa/disable
+// ─────────────────────────────────────────────────
+describe('POST /api/auth/2fa/disable', () => {
+  it('retorna 401 com senha incorreta', async () => {
+    const { auth } = await createAuthenticatedUser({ password: STRONG_PASSWORD });
+
+    const res = await request(app)
+      .post('/api/auth/2fa/disable')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ password: 'SenhaErrada999!' });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app)
+      .post('/api/auth/2fa/disable')
+      .send({ password: STRONG_PASSWORD });
+
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// PATCH /api/auth/completed-tours
+// ─────────────────────────────────────────────────
+describe('PATCH /api/auth/completed-tours', () => {
+  it('adiciona tourId aos completedTours', async () => {
+    const { auth } = await createAuthenticatedUser();
+
+    const res = await request(app)
+      .patch('/api/auth/completed-tours')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ tourId: 'dashboard-tour-v1' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.completedTours).toContain('dashboard-tour-v1');
+  });
+
+  it('nao duplica tourId ja existente', async () => {
+    const { auth } = await createAuthenticatedUser();
+
+    await request(app)
+      .patch('/api/auth/completed-tours')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ tourId: 'tour-duplicado' });
+
+    const res = await request(app)
+      .patch('/api/auth/completed-tours')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ tourId: 'tour-duplicado' });
+
+    expect(res.status).toBe(200);
+    const count = res.body.completedTours.filter((t: string) => t === 'tour-duplicado').length;
+    expect(count).toBe(1);
+  });
+
+  it('retorna 400 sem tourId', async () => {
+    const { auth } = await createAuthenticatedUser();
+
+    const res = await request(app)
+      .patch('/api/auth/completed-tours')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({});
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app)
+      .patch('/api/auth/completed-tours')
+      .send({ tourId: 'x' });
+
+    expect(res.status).toBe(401);
+  });
+});

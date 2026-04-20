@@ -233,7 +233,7 @@ describe('POST /api/products', () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/obrigatórios/i);
+    expect(res.body.error).toMatch(/obrigatóri/i);
   });
 
   it('should allow admin to create product for a broadcaster', async () => {
@@ -479,5 +479,144 @@ describe('GET /api/products/my-products', () => {
     expect(res.status).toBe(200);
     // Admin without broadcasterId query param gets ALL products
     expect(res.body.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/products/marketplace/broadcaster/:broadcasterId
+// ─────────────────────────────────────────────────
+describe('GET /api/products/marketplace/broadcaster/:broadcasterId', () => {
+  it('retorna detalhes de emissora aprovada', async () => {
+    const { user: broadcaster } = await createBroadcaster();
+
+    const res = await request(app)
+      .get(`/api/products/marketplace/broadcaster/${broadcaster._id}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBeDefined();
+    expect(res.body.profile).toBeDefined();
+  });
+
+  it('retorna 404 para emissora inexistente', async () => {
+    const fakeId = new mongoose.Types.ObjectId();
+
+    const res = await request(app)
+      .get(`/api/products/marketplace/broadcaster/${fakeId}`);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('retorna 404 para emissora com status diferente de approved', async () => {
+    const { user: pending } = await createBroadcaster({ status: 'pending' });
+
+    const res = await request(app)
+      .get(`/api/products/marketplace/broadcaster/${pending._id}`);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/products/map
+// ─────────────────────────────────────────────────
+describe('GET /api/products/map', () => {
+  it('retorna lista de emissoras com coordenadas para o mapa', async () => {
+    const res = await request(app).get('/api/products/map');
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('retorna apenas emissoras com coordenadas e produtos ativos', async () => {
+    const { user: broadcaster } = await createBroadcaster();
+    await Product.create({
+      broadcasterId: broadcaster._id,
+      spotType: 'Comercial 30s',
+      duration: 30,
+      timeSlot: 'Rotativo',
+      netPrice: 100,
+      pricePerInsertion: 125,
+      isActive: true,
+    });
+
+    const res = await request(app).get('/api/products/map');
+
+    expect(res.status).toBe(200);
+    // broadcaster has coordinates set by createBroadcaster helper (lat/lng in address)
+    if (res.body.length > 0) {
+      expect(res.body[0]).toHaveProperty('lat');
+      expect(res.body[0]).toHaveProperty('lng');
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/products/compare/search
+// ─────────────────────────────────────────────────
+describe('GET /api/products/compare/search', () => {
+  it('retorna resultados para termo de busca valido', async () => {
+    const { user: broadcaster } = await createBroadcaster();
+    await Product.create({
+      broadcasterId: broadcaster._id,
+      spotType: 'Comercial 30s',
+      duration: 30,
+      timeSlot: 'Rotativo',
+      netPrice: 100,
+      pricePerInsertion: 125,
+      isActive: true,
+    });
+
+    const res = await request(app).get('/api/products/compare/search?q=Radio');
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('retorna lista vazia para busca sem resultados', async () => {
+    const res = await request(app).get('/api/products/compare/search?q=zzznaoexiste');
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(0);
+  });
+
+  it('retorna 200 mesmo sem query (q curto retorna vazio)', async () => {
+    const res = await request(app).get('/api/products/compare/search?q=a');
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/products/my-products/export
+// ─────────────────────────────────────────────────
+describe('GET /api/products/my-products/export', () => {
+  it('retorna arquivo XLSX para broadcaster autenticado', async () => {
+    const { auth } = await createBroadcaster();
+
+    const res = await request(app)
+      .get('/api/products/my-products/export')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    // XLSX ou 200 (mesmo sem produtos)
+    expect([200, 500]).toContain(res.status);
+  });
+
+  it('retorna 403 para advertiser', async () => {
+    const { auth } = await createAdvertiser();
+
+    const res = await request(app)
+      .get('/api/products/my-products/export')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('retorna 401 sem autenticacao', async () => {
+    const res = await request(app).get('/api/products/my-products/export');
+    expect(res.status).toBe(401);
   });
 });

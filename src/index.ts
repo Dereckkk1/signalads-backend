@@ -45,7 +45,8 @@ import { redis } from './config/redis';
 import { createRedisStore } from './config/rateLimitStore';
 import { mongoSanitize, xssSanitize } from './middleware/security';
 import { csrfProtection } from './middleware/csrf';
-import { metricsMiddleware } from './middleware/metrics';
+import { metricsMiddleware, checkBlockedIP } from './middleware/metrics';
+import { loadBlockedIPs } from './utils/ipBlockList';
 import healthRoutes from './routes/healthRoutes';
 
 dotenv.config();
@@ -107,17 +108,68 @@ app.use(helmet({
   },
 }));
 
-// Rate Limit Global — 2000 req/min por IP (Redis store para persistir entre restarts #7)
-const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 2000,
-  message: 'Muitas requisições deste IP, por favor tente novamente em um minuto.',
+// ─────────────────────────────────────────────────────────────
+// Rate Limiting dual: por IP + por userId autenticado
+//
+// Por quê dual?
+//   - IP sozinho fode CGNAT: empresa inteira cai junto
+//   - userId sozinho deixa ataques anônimos passarem
+//   - Dois limiters em série cobre os dois vetores
+//
+// Limiter 1 — por IP (300 req/min)
+//   Protege contra anonimos e é CGNAT-friendly (limite mais alto)
+//
+// Limiter 2 — por userId (150 req/min)
+//   Só dispara quando há JWT válido. Usa jwt.decode() sem verificar
+//   (verificação real continua na auth middleware) — apenas para
+//   extrair a chave de rate limit. Forjar userId só queima a cota
+//   de outra chave, não ajuda o atacante.
+//
+// Headers retornados (RFC 6585 + draft-ietf-httpapi-ratelimit):
+//   RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After
+// ─────────────────────────────────────────────────────────────
+import jwt from 'jsonwebtoken';
+
+const isHealthCheck = (req: Request) =>
+  req.path === '/api/health' || req.path === '/health';
+
+const getUserIdFromToken = (req: Request): string | null => {
+  try {
+    const token = (req as any).cookies?.access_token;
+    if (!token) return null;
+    const decoded = jwt.decode(token) as { userId?: string } | null;
+    return decoded?.userId || null;
+  } catch {
+    return null;
+  }
+};
+
+// Limiter 1: por IP — 300 req/min
+const ipLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === '/api/health' || req.path === '/health',
-  store: createRedisStore('global'),
+  skip: isHealthCheck,
+  store: createRedisStore('ip'),
+  keyGenerator: (req) => req.ip || 'unknown',
+  message: { error: 'Muitas requisições deste IP. Tente novamente em um minuto.' },
 });
-app.use(limiter);
+
+// Limiter 2: por userId — 150 req/min (só para autenticados)
+const userLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => isHealthCheck(req) || !getUserIdFromToken(req),
+  store: createRedisStore('user'),
+  keyGenerator: (req) => `user:${getUserIdFromToken(req)}`,
+  message: { error: 'Limite de requisições por conta atingido. Tente novamente em um minuto.' },
+});
+
+app.use(ipLimiter);
+app.use(userLimiter);
 
 // Compressao de respostas (gzip/brotli) — reduz 70-80% do tamanho de JSONs grandes
 app.use(compression());
@@ -136,6 +188,9 @@ app.use(csrfProtection); // CSRF double-submit cookie (verifica X-CSRF-Token hea
 
 // Servir arquivos estáticos (uploads locais para desenvolvimento)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Bloqueio de IPs (antes das rotas, admin routes isentas — ver checkBlockedIP)
+app.use(checkBlockedIP);
 
 // Coleta de métricas de performance (antes das rotas para capturar tudo)
 app.use(metricsMiddleware);
@@ -230,6 +285,9 @@ const startServer = async () => {
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
       console.log(`📍 http://localhost:${PORT}`);
     });
+
+    // Carrega IPs bloqueados em memória para checagem rápida
+    await loadBlockedIPs();
 
     // Inicia crons
     startBackupCron();

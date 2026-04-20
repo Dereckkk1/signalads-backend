@@ -5,7 +5,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   userType: 'advertiser' | 'agency' | 'broadcaster' | 'admin';
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'blocked';
   cpf?: string; // CPF (advertiser)
   cpfOrCnpj: string;
   companyName?: string;
@@ -160,7 +160,7 @@ const userSchema = new Schema<IUser>(
     },
     status: {
       type: String,
-      enum: ['pending', 'approved', 'rejected'],
+      enum: ['pending', 'approved', 'rejected', 'blocked'],
       default: 'pending'
     },
     cpf: {
