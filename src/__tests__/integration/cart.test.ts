@@ -620,7 +620,7 @@ describe('PUT /api/cart/items/sponsorship-material', () => {
         quantity: 1,
         duration: 0,
         addedAt: new Date(),
-        sponsorshipMaterials: [],
+        sponsorshipMaterials: {},
       }],
     });
 
