@@ -1211,7 +1211,6 @@ describe('POST /api/proposals/public/:slug/verify-pin', () => {
       protection: {
         enabled: true,
         pin: '9999',
-        failedAttempts: 0,
       },
     });
 
@@ -1235,7 +1234,6 @@ describe('POST /api/proposals/public/:slug/verify-pin', () => {
       protection: {
         enabled: true,
         pin: '1234',
-        failedAttempts: 0,
       },
     });
 

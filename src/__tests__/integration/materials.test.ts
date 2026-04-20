@@ -272,7 +272,7 @@ describe('POST /api/materials/:orderId/item/:itemIndex/broadcaster/reject', () =
     expect(res.body.success).toBe(true);
 
     const updated = await Order.findById(order._id);
-    expect(updated!.items[0]!.material.status).toBe('broadcaster_rejected');
+    expect(updated!.items[0]!.material!.status).toBe('broadcaster_rejected');
   });
 
   it('should reject when not the owner broadcaster', async () => {
@@ -317,7 +317,7 @@ describe('POST /api/materials/:orderId/item/:itemIndex/broadcaster/approve', () 
     expect(res.body.success).toBe(true);
 
     const updated = await Order.findById(order._id);
-    expect(updated!.items[0]!.material.status).toBe('final_approved');
+    expect(updated!.items[0]!.material!.status).toBe('final_approved');
   });
 
   it('should reject when not the owner broadcaster', async () => {
@@ -349,7 +349,7 @@ describe('POST /api/materials/:orderId/item/:itemIndex/client/approve', () => {
     expect(res.body.success).toBe(true);
 
     const updated = await Order.findById(order._id);
-    expect(updated!.items[0]!.material.status).toBe('final_approved');
+    expect(updated!.items[0]!.material!.status).toBe('final_approved');
   });
 
   it('should reject when broadcaster tries to use client endpoint', async () => {
@@ -393,7 +393,7 @@ describe('POST /api/materials/:orderId/item/:itemIndex/client/reject', () => {
     expect(res.body.success).toBe(true);
 
     const updated = await Order.findById(order._id);
-    expect(updated!.items[0]!.material.status).toBe('client_rejected');
+    expect(updated!.items[0]!.material!.status).toBe('client_rejected');
   });
 
   it('should reject when broadcaster tries to use client reject endpoint', async () => {

@@ -42,7 +42,7 @@ async function loginAndGetRefreshToken(email: string): Promise<string> {
     .post('/api/auth/login')
     .send({ emailOrCnpj: email, password: STRONG_PASSWORD });
 
-  const cookies = loginRes.headers['set-cookie'] as string[];
+  const cookies = loginRes.headers['set-cookie'] as unknown as string[];
   const refreshCookie = cookies?.find((c: string) => c.startsWith('refresh_token='));
   const rawToken = refreshCookie?.split(';')[0]?.replace('refresh_token=', '') ?? '';
   return rawToken;
@@ -63,7 +63,7 @@ describe('POST /api/auth/refresh — rotação de token', () => {
 
     expect(res.status).toBe(200);
 
-    const cookies = res.headers['set-cookie'] as string[];
+    const cookies = res.headers['set-cookie'] as unknown as string[];
     expect(cookies.some((c: string) => c.startsWith('access_token='))).toBe(true);
     expect(cookies.some((c: string) => c.startsWith('refresh_token='))).toBe(true);
   });
@@ -77,7 +77,7 @@ describe('POST /api/auth/refresh — rotação de token', () => {
       .set('Cookie', [`refresh_token=${rawToken1}`]);
 
     expect(res.status).toBe(200);
-    const cookies = res.headers['set-cookie'] as string[];
+    const cookies = res.headers['set-cookie'] as unknown as string[];
     const newRefreshCookie = cookies?.find((c: string) => c.startsWith('refresh_token='));
     const rawToken2 = newRefreshCookie?.split(';')[0]?.replace('refresh_token=', '');
 

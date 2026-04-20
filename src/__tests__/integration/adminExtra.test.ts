@@ -14,7 +14,7 @@ import { createTestApp } from '../helpers/createTestApp';
 import { connectTestDB, clearTestDB, disconnectTestDB } from '../helpers/setup';
 import { createAdmin, createAdvertiser, createBroadcaster, createAgency } from '../helpers/authHelper';
 import { User } from '../../models/User';
-import Order from '../../models/Order';
+import Order, { IOrder } from '../../models/Order';
 
 let app: Application;
 
@@ -34,7 +34,8 @@ afterAll(async () => {
 });
 
 async function createTestOrder(buyerId: string, status = 'pending_contact') {
-  return Order.create({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (Order.create as any)({
     buyerId,
     buyerName: 'Comprador',
     buyerEmail: 'buyer@empresa.com.br',
@@ -56,7 +57,6 @@ async function createTestOrder(buyerId: string, status = 'pending_contact') {
       quantity: 2,
       unitPrice: 250,
       totalPrice: 500,
-      itemStatus: 'pending',
       schedule: new Map([['seg', 2]]),
     }],
     payment: {
@@ -66,7 +66,7 @@ async function createTestOrder(buyerId: string, status = 'pending_contact') {
       totalAmount: 500,
       walletAmountUsed: 0,
     },
-  });
+  }) as Promise<IOrder>;
 }
 
 // ═══════════════════════════════════════════════════════════════

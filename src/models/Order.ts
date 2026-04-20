@@ -26,7 +26,7 @@ export interface IOrderItem {
   selectedMonth?: string;
   sponsorshipInsertions?: IOrderSponsorshipInsertion[];
   sponsorshipMaterials?: Record<string, any>;
-  material: {
+  material?: {
     type: 'audio' | 'script' | 'text' | 'recording';
     audioUrl?: string;
     audioFileName?: string;

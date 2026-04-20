@@ -27,7 +27,7 @@ import {
   createAdmin,
 } from '../helpers/authHelper';
 import AgencyClient from '../../models/AgencyClient';
-import Order from '../../models/Order';
+import Order, { IOrder } from '../../models/Order';
 
 function createApp(): Application {
   const app = express();
@@ -388,7 +388,8 @@ describe('GET /api/agency/dashboard', () => {
 // ─────────────────────────────────────────────────
 describe('GET /api/agency/dashboard — com dados reais', () => {
   async function createTestOrder(agencyId: string, status: string, totalAmount: number, agencyCommission: number) {
-    return Order.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (Order.create as any)({
       buyerId: agencyId,
       buyerName: 'Agency Teste',
       buyerEmail: 'agency@test.com',
@@ -411,7 +412,6 @@ describe('GET /api/agency/dashboard — com dados reais', () => {
         quantity: 5,
         unitPrice: totalAmount / 5,
         totalPrice: totalAmount,
-        itemStatus: 'pending',
         schedule: new Map([['seg-sex', 5]]),
       }],
       payment: {
@@ -421,7 +421,7 @@ describe('GET /api/agency/dashboard — com dados reais', () => {
         totalAmount,
         walletAmountUsed: 0,
       },
-    });
+    }) as Promise<IOrder>;
   }
 
   it('agrega totalGross e totalCommission corretamente com pedidos', async () => {
@@ -467,7 +467,8 @@ describe('GET /api/agency/dashboard — com dados reais', () => {
       documentNumber: '11111111000199',
     });
 
-    await Order.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (Order.create as any)({
       buyerId: agency._id,
       buyerName: 'Agency',
       buyerEmail: 'a@b.com',
@@ -491,7 +492,6 @@ describe('GET /api/agency/dashboard — com dados reais', () => {
         quantity: 2,
         unitPrice: 400,
         totalPrice: 800,
-        itemStatus: 'pending',
         schedule: new Map([['seg-sex', 2]]),
       }],
       payment: {

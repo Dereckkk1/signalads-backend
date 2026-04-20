@@ -43,7 +43,7 @@ import {
 } from '../helpers/authHelper';
 import { User } from '../../models/User';
 import { Product } from '../../models/Product';
-import OrderModel from '../../models/Order';
+import OrderModel, { IOrder } from '../../models/Order';
 
 let app: Application;
 
@@ -672,7 +672,8 @@ describe('GET catalog-orders', () => {
 // ─────────────────────────────────────────────────
 describe('GET & DELETE order opecs', () => {
   async function createTestOrderForOpec(buyerId: string) {
-    return OrderModel.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (OrderModel.create as any)({
       buyerId,
       buyerName: 'Comprador',
       buyerEmail: 'buyer@test.com',
@@ -694,11 +695,10 @@ describe('GET & DELETE order opecs', () => {
         quantity: 1,
         unitPrice: 500,
         totalPrice: 500,
-        itemStatus: 'pending',
         schedule: new Map([['seg', 1]]),
       }],
       payment: { method: 'pending_contact', status: 'pending', chargedAmount: 500, totalAmount: 500, walletAmountUsed: 0 },
-    });
+    }) as Promise<IOrder>;
   }
 
   it('GET opecs retorna lista vazia para pedido sem opec', async () => {

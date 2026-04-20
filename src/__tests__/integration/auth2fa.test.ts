@@ -66,7 +66,7 @@ describe('POST /api/auth/2fa/verify-code', () => {
     expect(res.body.user).toBeDefined();
     expect(res.body.user.email).toBeDefined();
 
-    const cookies = res.headers['set-cookie'] as string[];
+    const cookies = res.headers['set-cookie'] as unknown as string[];
     expect(cookies.some((c: string) => c.startsWith('access_token='))).toBe(true);
     expect(cookies.some((c: string) => c.startsWith('csrf_token='))).toBe(true);
   });
@@ -161,8 +161,8 @@ describe('POST /api/auth/2fa/verify-code', () => {
 
     const updated = await User.findById(user._id);
     expect(updated!.trustedDevices?.length).toBeGreaterThan(0);
-    expect(updated!.trustedDevices![0].deviceId).toBeDefined();
-    expect(updated!.trustedDevices![0].deviceName).toBeDefined();
+    expect(updated!.trustedDevices![0]!.deviceId).toBeDefined();
+    expect(updated!.trustedDevices![0]!.deviceName).toBeDefined();
   });
 
   it('nao seta cookie de autenticacao antes de verificar codigo', async () => {
