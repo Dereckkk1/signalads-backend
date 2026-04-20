@@ -36,6 +36,7 @@ import {
 import { Product } from '../../models/Product';
 import Proposal from '../../models/Proposal';
 import ProposalTemplate from '../../models/ProposalTemplate';
+import ProposalVersion from '../../models/ProposalVersion';
 
 function createBroadcasterProposalTestApp(): Application {
   const app = express();
@@ -699,5 +700,287 @@ describe('Broadcaster Clients', () => {
       .set('X-CSRF-Token', auth.csrfHeader);
 
     expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// Client Types CRUD
+// ─────────────────────────────────────────────────
+describe('Broadcaster Client Types', () => {
+  it('GET /api/broadcaster-proposals/client-types lista tipos', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const res = await request(app)
+      .get('/api/broadcaster-proposals/client-types')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('POST /api/broadcaster-proposals/client-types cria tipo', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const res = await request(app)
+      .post('/api/broadcaster-proposals/client-types')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ name: 'Pessoa Jurídica' });
+    expect(res.status).toBe(201);
+    expect(res.body.name).toBe('Pessoa Jurídica');
+  });
+
+  it('POST /api/broadcaster-proposals/client-types retorna 400 sem nome', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const res = await request(app)
+      .post('/api/broadcaster-proposals/client-types')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('PUT /api/broadcaster-proposals/client-types/:id atualiza tipo', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const ClientType = (await import('../../models/ClientType')).default;
+    const tipo = await ClientType.create({ broadcasterId: broadcaster._id, name: 'Antigo' });
+
+    const res = await request(app)
+      .put(`/api/broadcaster-proposals/client-types/${tipo._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ name: 'Atualizado' });
+    expect(res.status).toBe(200);
+  });
+
+  it('DELETE /api/broadcaster-proposals/client-types/:id remove tipo', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const ClientType = (await import('../../models/ClientType')).default;
+    const tipo = await ClientType.create({ broadcasterId: broadcaster._id, name: 'Deletar' });
+
+    const res = await request(app)
+      .delete(`/api/broadcaster-proposals/client-types/${tipo._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// Client Origins CRUD
+// ─────────────────────────────────────────────────
+describe('Broadcaster Client Origins', () => {
+  it('GET /api/broadcaster-proposals/client-origins lista origens', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const res = await request(app)
+      .get('/api/broadcaster-proposals/client-origins')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('POST /api/broadcaster-proposals/client-origins cria origem', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const res = await request(app)
+      .post('/api/broadcaster-proposals/client-origins')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ name: 'Indicação' });
+    expect(res.status).toBe(201);
+    expect(res.body.name).toBe('Indicação');
+  });
+
+  it('PUT /api/broadcaster-proposals/client-origins/:id atualiza origem', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const ClientOrigin = (await import('../../models/ClientOrigin')).default;
+    const origem = await ClientOrigin.create({ broadcasterId: broadcaster._id, name: 'Antiga' });
+
+    const res = await request(app)
+      .put(`/api/broadcaster-proposals/client-origins/${origem._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ name: 'Nova Origem' });
+    expect(res.status).toBe(200);
+  });
+
+  it('DELETE /api/broadcaster-proposals/client-origins/:id remove origem', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const ClientOrigin = (await import('../../models/ClientOrigin')).default;
+    const origem = await ClientOrigin.create({ broadcasterId: broadcaster._id, name: 'Deletar' });
+
+    const res = await request(app)
+      .delete(`/api/broadcaster-proposals/client-origins/${origem._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// Versionamento
+// ─────────────────────────────────────────────────
+describe('GET /api/broadcaster-proposals/:id/versions', () => {
+  it('retorna lista de versoes da proposta', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+
+    const proposal = await Proposal.create({
+      broadcasterId: broadcaster._id,
+      ownerType: 'broadcaster',
+      title: 'Com Versoes',
+      slug: `bp-versions-${Date.now()}`,
+      items: [],
+      grossAmount: 0,
+      totalAmount: 0,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .get(`/api/broadcaster-proposals/${proposal._id}/versions`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.versions).toBeDefined();
+    expect(Array.isArray(res.body.versions)).toBe(true);
+  });
+});
+
+describe('POST /api/broadcaster-proposals/:id/versions/:versionId/restore', () => {
+  it('restaura proposta a partir de versao anterior', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+
+    const proposal = await Proposal.create({
+      broadcasterId: broadcaster._id,
+      ownerType: 'broadcaster',
+      title: 'Titulo Atual',
+      slug: `bp-restore-${Date.now()}`,
+      items: [{ productName: 'P', quantity: 1, unitPrice: 100, totalPrice: 100, productType: 'Comercial 30s' }],
+      grossAmount: 100,
+      totalAmount: 100,
+      status: 'draft',
+    });
+
+    const version = await ProposalVersion.create({
+      proposalId: proposal._id,
+      version: 1,
+      snapshot: {
+        title: 'Titulo Antigo',
+        items: [],
+        grossAmount: 0,
+        techFee: 0,
+        productionCost: 0,
+        agencyCommission: 0,
+        agencyCommissionAmount: 0,
+        monitoringCost: 0,
+        discountAmount: 0,
+        totalAmount: 0,
+        customization: {},
+      },
+      changedBy: broadcaster._id,
+      changeType: 'manual',
+    });
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/versions/${version._id}/restore`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.proposal.title).toBe('Titulo Antigo');
+  });
+
+  it('retorna 404 para versao inexistente', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const proposal = await Proposal.create({
+      broadcasterId: broadcaster._id,
+      ownerType: 'broadcaster',
+      title: 'P',
+      slug: `bp-restore-404-${Date.now()}`,
+      items: [],
+      grossAmount: 0,
+      totalAmount: 0,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/versions/${new mongoose.Types.ObjectId()}/restore`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// Comments + Protection
+// ─────────────────────────────────────────────────
+describe('POST /api/broadcaster-proposals/:id/comments', () => {
+  it('adiciona comentario na proposta', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const proposal = await Proposal.create({
+      broadcasterId: broadcaster._id,
+      ownerType: 'broadcaster',
+      title: 'Para Comentar',
+      slug: `bp-comment-${Date.now()}`,
+      items: [],
+      grossAmount: 0,
+      totalAmount: 0,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/comments`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ sectionId: 'header', text: 'Verificar preços', author: 'Vendedor' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.comments.length).toBeGreaterThan(0);
+  });
+
+  it('retorna 400 sem campos obrigatorios', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const proposal = await Proposal.create({
+      broadcasterId: broadcaster._id,
+      ownerType: 'broadcaster',
+      title: 'P',
+      slug: `bp-comment-400-${Date.now()}`,
+      items: [],
+      grossAmount: 0,
+      totalAmount: 0,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/comments`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ text: 'Sem secao' });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/broadcaster-proposals/:id/protection', () => {
+  it('ativa protecao por PIN na proposta', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const proposal = await Proposal.create({
+      broadcasterId: broadcaster._id,
+      ownerType: 'broadcaster',
+      title: 'PIN Test',
+      slug: `bp-pin-${Date.now()}`,
+      items: [],
+      grossAmount: 0,
+      totalAmount: 0,
+      status: 'sent',
+    });
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/protection`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ enabled: true, pin: '5678' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.protection?.enabled).toBe(true);
   });
 });

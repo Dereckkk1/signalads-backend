@@ -199,6 +199,137 @@ describe('GET /api/broadcaster/reports/breakdown', () => {
       .set('X-CSRF-Token', auth.csrfHeader);
     expect(res.status).toBe(403);
   });
+
+  it('retorna breakdown por insertionType', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=insertionType')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('insertionType');
+    expect(Array.isArray(res.body.rows)).toBe(true);
+  });
+
+  it('retorna breakdown por clientType', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=clientType')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('clientType');
+  });
+
+  it('retorna breakdown por proposalType', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=proposalType')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('proposalType');
+  });
+
+  it('retorna breakdown por timeSlot', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=timeSlot')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('timeSlot');
+  });
+
+  it('retorna breakdown por dayOfWeek', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=dayOfWeek')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('dayOfWeek');
+  });
+
+  it('retorna breakdown por month', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=month')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('month');
+  });
+
+  it('retorna breakdown por year', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=year')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('year');
+  });
+
+  it('retorna breakdown por userType', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=userType')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('userType');
+  });
+
+  it('retorna breakdown por validity', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=validity')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('validity');
+  });
+
+  it('retorna breakdown por insertionTable', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=insertionTable')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('insertionTable');
+  });
+
+  it('retorna breakdown por combo', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=combo')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('combo');
+  });
+
+  it('aceita filtro por startDate e endDate', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=client&startDate=2026-01-01&endDate=2026-12-31')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.rows)).toBe(true);
+  });
+
+  it('retorna array vazio quando nao ha dados no periodo', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/broadcaster/reports/breakdown?by=client&startDate=2000-01-01&endDate=2000-01-02')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.rows).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

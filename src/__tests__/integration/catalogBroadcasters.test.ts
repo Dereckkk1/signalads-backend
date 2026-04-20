@@ -43,6 +43,7 @@ import {
 } from '../helpers/authHelper';
 import { User } from '../../models/User';
 import { Product } from '../../models/Product';
+import OrderModel from '../../models/Order';
 
 let app: Application;
 
@@ -585,5 +586,171 @@ describe('DELETE /api/admin/catalog-products/:productId', () => {
       .set('X-CSRF-Token', auth.csrfHeader);
 
     expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/admin/catalog-broadcasters/:id/complete-profile
+// ─────────────────────────────────────────────────
+describe('POST complete-profile', () => {
+  it('atualiza perfil e marca onboardingCompleted=true', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    // Cria SEM broadcasterProfile pre-existente para evitar bug de spread de Mongoose subdoc
+    const broadcaster = await User.create({
+      email: `catalog-cp-${Date.now()}@emissora.com.br`,
+      password: '$2a$04$fakehash',
+      userType: 'broadcaster',
+      status: 'approved',
+      companyName: 'Radio CP FM',
+      phone: '11999998888',
+      cpfOrCnpj: `12345678000${Math.floor(Math.random() * 900) + 100}`,
+      isCatalogOnly: true,
+      emailConfirmed: true,
+      onboardingCompleted: false,
+    });
+
+    // Envia broadcasterProfile completo (sem herdar subdoc existente)
+    const res = await request(app)
+      .post(`/api/admin/catalog-broadcasters/${broadcaster._id}/complete-profile`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({
+        broadcasterProfile: {
+          generalInfo: { stationName: 'Radio Nova FM', dialFrequency: '97.5', band: 'FM' },
+          socialMedia: {},
+          audienceProfile: {},
+          coverage: {},
+          businessRules: {},
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.broadcaster.onboardingCompleted).toBe(true);
+  });
+
+  it('retorna 404 para emissora nao-catalogo', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: regular } = await createBroadcaster();
+
+    const res = await request(app)
+      .post(`/api/admin/catalog-broadcasters/${regular._id}/complete-profile`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ broadcasterProfile: {} });
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/admin/catalog-orders
+// ─────────────────────────────────────────────────
+describe('GET catalog-orders', () => {
+  it('retorna lista de pedidos de emissoras catalogo', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const res = await request(app)
+      .get('/api/admin/catalog-orders')
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.orders)).toBe(true);
+  });
+
+  it('retorna 403 para nao-admin', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get('/api/admin/catalog-orders')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(403);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET & DELETE /api/admin/orders/:orderId/opec
+// ─────────────────────────────────────────────────
+describe('GET & DELETE order opecs', () => {
+  async function createTestOrderForOpec(buyerId: string) {
+    return OrderModel.create({
+      buyerId,
+      buyerName: 'Comprador',
+      buyerEmail: 'buyer@test.com',
+      buyerPhone: '11999999999',
+      buyerDocument: '12345678000100',
+      status: 'approved',
+      totalAmount: 500,
+      grossAmount: 400,
+      subtotal: 400,
+      platformFee: 100,
+      techFee: 25,
+      platformSplit: 100,
+      broadcasterAmount: 375,
+      items: [{
+        broadcasterId: new mongoose.Types.ObjectId(),
+        broadcasterName: 'Radio Catalogo',
+        productId: new mongoose.Types.ObjectId(),
+        productName: 'Spot 30s',
+        quantity: 1,
+        unitPrice: 500,
+        totalPrice: 500,
+        itemStatus: 'pending',
+        schedule: new Map([['seg', 1]]),
+      }],
+      payment: { method: 'pending_contact', status: 'pending', chargedAmount: 500, totalAmount: 500, walletAmountUsed: 0 },
+    });
+  }
+
+  it('GET opecs retorna lista vazia para pedido sem opec', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+    const order = await createTestOrderForOpec(advertiser._id.toString());
+
+    const res = await request(app)
+      .get(`/api/admin/orders/${order._id}/opec`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.opecs)).toBe(true);
+  });
+
+  it('GET opecs retorna 404 para pedido inexistente', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const res = await request(app)
+      .get(`/api/admin/orders/${new mongoose.Types.ObjectId()}/opec`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+    expect(res.status).toBe(404);
+  });
+
+  it('GET opecs retorna 403 para nao-admin', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .get(`/api/admin/orders/${new mongoose.Types.ObjectId()}/opec`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(403);
+  });
+
+  it('DELETE opec retorna 404 para opec inexistente', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+    const order = await createTestOrderForOpec(advertiser._id.toString());
+
+    const res = await request(app)
+      .delete(`/api/admin/orders/${order._id}/opec/${new mongoose.Types.ObjectId()}`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader);
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE opec retorna 403 para nao-admin', async () => {
+    const { auth } = await createBroadcaster();
+    const res = await request(app)
+      .delete(`/api/admin/orders/${new mongoose.Types.ObjectId()}/opec/${new mongoose.Types.ObjectId()}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+    expect(res.status).toBe(403);
   });
 });

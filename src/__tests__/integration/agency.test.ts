@@ -27,6 +27,7 @@ import {
   createAdmin,
 } from '../helpers/authHelper';
 import AgencyClient from '../../models/AgencyClient';
+import Order from '../../models/Order';
 
 function createApp(): Application {
   const app = express();
@@ -339,5 +340,229 @@ describe('GET /api/agency/dashboard', () => {
       .set('X-CSRF-Token', auth.csrfHeader);
 
     expect(res.status).toBe(403);
+  });
+
+  it('should return 401 when unauthenticated', async () => {
+    const res = await request(app).get('/api/agency/dashboard');
+    expect(res.status).toBe(401);
+  });
+
+  it('deve retornar estrutura completa de summary com campos financeiros', async () => {
+    const { auth } = await createAgency();
+
+    const res = await request(app)
+      .get('/api/agency/dashboard')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('summary');
+    expect(res.body).toHaveProperty('monthlyData');
+    expect(res.body).toHaveProperty('categories');
+    expect(res.body.summary).toHaveProperty('totalClients');
+    expect(res.body.summary).toHaveProperty('totalOrders');
+    // Campos financeiros presentes mesmo com valores zero
+    expect(res.body.summary).toHaveProperty('totalGross');
+  });
+
+  it('deve refletir numero de clientes cadastrados no summary', async () => {
+    const { user: agency, auth } = await createAgency();
+
+    // Cria 3 clientes
+    await AgencyClient.create({ agencyId: agency._id, name: 'Cliente 1', documentNumber: '11111111000101' });
+    await AgencyClient.create({ agencyId: agency._id, name: 'Cliente 2', documentNumber: '22222222000101' });
+    await AgencyClient.create({ agencyId: agency._id, name: 'Cliente 3', documentNumber: '33333333000101' });
+
+    const res = await request(app)
+      .get('/api/agency/dashboard')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary.totalClients).toBe(3);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// GET /api/agency/dashboard — com pedidos reais
+// ─────────────────────────────────────────────────
+describe('GET /api/agency/dashboard — com dados reais', () => {
+  async function createTestOrder(agencyId: string, status: string, totalAmount: number, agencyCommission: number) {
+    return Order.create({
+      buyerId: agencyId,
+      buyerName: 'Agency Teste',
+      buyerEmail: 'agency@test.com',
+      buyerPhone: '11999999999',
+      buyerDocument: '12345678000100',
+      status,
+      totalAmount,
+      grossAmount: totalAmount * 0.8,
+      agencyCommission,
+      subtotal: totalAmount * 0.8,
+      platformFee: totalAmount * 0.2,
+      techFee: totalAmount * 0.05,
+      platformSplit: totalAmount * 0.2,
+      broadcasterAmount: totalAmount * 0.75,
+      items: [{
+        broadcasterId: new mongoose.Types.ObjectId(),
+        broadcasterName: 'Radio Test',
+        productId: new mongoose.Types.ObjectId(),
+        productName: 'Comercial 30s',
+        quantity: 5,
+        unitPrice: totalAmount / 5,
+        totalPrice: totalAmount,
+        itemStatus: 'pending',
+        schedule: new Map([['seg-sex', 5]]),
+      }],
+      payment: {
+        method: 'pending_contact',
+        status: 'pending',
+        chargedAmount: totalAmount,
+        totalAmount,
+        walletAmountUsed: 0,
+      },
+    });
+  }
+
+  it('agrega totalGross e totalCommission corretamente com pedidos', async () => {
+    const { user: agency, auth } = await createAgency();
+
+    await createTestOrder(agency._id.toString(), 'paid', 1000, 150);
+    await createTestOrder(agency._id.toString(), 'completed', 2000, 300);
+
+    const res = await request(app)
+      .get('/api/agency/dashboard')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary.totalOrders).toBe(2);
+    expect(res.body.summary.totalGross).toBe(3000);
+    expect(res.body.summary.totalCommission).toBe(450);
+  });
+
+  it('conta campanhas ativas corretamente', async () => {
+    const { user: agency, auth } = await createAgency();
+
+    await createTestOrder(agency._id.toString(), 'paid', 500, 75);
+    await createTestOrder(agency._id.toString(), 'approved', 500, 75);
+    await createTestOrder(agency._id.toString(), 'cancelled', 500, 75);
+
+    const res = await request(app)
+      .get('/api/agency/dashboard')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    // paid e approved sao ativos, cancelled nao
+    expect(res.body.summary.activeCampaigns).toBe(2);
+    expect(res.body.summary.totalOrders).toBe(3);
+  });
+
+  it('retorna clientBreakdown com pedidos atribuidos a clientes', async () => {
+    const { user: agency, auth } = await createAgency();
+    const client = await AgencyClient.create({
+      agencyId: agency._id,
+      name: 'Cliente Teste',
+      documentNumber: '11111111000199',
+    });
+
+    await Order.create({
+      buyerId: agency._id,
+      buyerName: 'Agency',
+      buyerEmail: 'a@b.com',
+      buyerPhone: '11999999999',
+      buyerDocument: '12345678000100',
+      clientId: client._id,
+      status: 'paid',
+      totalAmount: 800,
+      grossAmount: 640,
+      agencyCommission: 120,
+      subtotal: 640,
+      platformFee: 160,
+      techFee: 40,
+      platformSplit: 160,
+      broadcasterAmount: 600,
+      items: [{
+        broadcasterId: new mongoose.Types.ObjectId(),
+        broadcasterName: 'Radio',
+        productId: new mongoose.Types.ObjectId(),
+        productName: 'Testemunhal 60s',
+        quantity: 2,
+        unitPrice: 400,
+        totalPrice: 800,
+        itemStatus: 'pending',
+        schedule: new Map([['seg-sex', 2]]),
+      }],
+      payment: {
+        method: 'pending_contact',
+        status: 'pending',
+        chargedAmount: 800,
+        totalAmount: 800,
+        walletAmountUsed: 0,
+      },
+    });
+
+    const res = await request(app)
+      .get('/api/agency/dashboard')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.clientBreakdown)).toBe(true);
+    const clientEntry = res.body.clientBreakdown.find((c: any) => c.clientName === 'Cliente Teste');
+    expect(clientEntry).toBeDefined();
+    expect(clientEntry.totalOrders).toBe(1);
+  });
+
+  it('retorna categories agrupadas por tipo de produto', async () => {
+    const { user: agency, auth } = await createAgency();
+
+    await createTestOrder(agency._id.toString(), 'paid', 500, 75);
+
+    const res = await request(app)
+      .get('/api/agency/dashboard')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.categories)).toBe(true);
+    // Deve ter categoria 'Comercial' baseada no productName 'Comercial 30s'
+    const comercialCat = res.body.categories.find((c: any) => c.name === 'Comercial');
+    expect(comercialCat).toBeDefined();
+  });
+
+  it('retorna recentOrders com os ultimos pedidos', async () => {
+    const { user: agency, auth } = await createAgency();
+
+    await createTestOrder(agency._id.toString(), 'pending_contact', 300, 45);
+    await createTestOrder(agency._id.toString(), 'paid', 600, 90);
+
+    const res = await request(app)
+      .get('/api/agency/dashboard')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.recentOrders)).toBe(true);
+    expect(res.body.recentOrders.length).toBe(2);
+    expect(res.body.recentOrders[0]).toHaveProperty('status');
+    expect(res.body.recentOrders[0]).toHaveProperty('totalAmount');
+  });
+
+  it('calcChange retorna 100 quando previous=0 e current>0', async () => {
+    const { user: agency, auth } = await createAgency();
+
+    // Cria pedido no mes atual para ter currentMonthOrders > 0 e previousMonthOrders = 0
+    await createTestOrder(agency._id.toString(), 'paid', 1000, 150);
+
+    const res = await request(app)
+      .get('/api/agency/dashboard')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    // changes.orders deveria ser 100 (100% de crescimento de 0 para N)
+    expect(res.body.summary.changes.orders).toBe(100);
   });
 });

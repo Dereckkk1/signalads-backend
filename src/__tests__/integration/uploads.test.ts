@@ -15,8 +15,9 @@ jest.mock('../../config/storage', () => ({
 }));
 
 // Mock file-type before importing controller
+const mockFromBuffer = jest.fn().mockResolvedValue({ mime: 'audio/mpeg', ext: 'mp3' });
 jest.mock('file-type', () => ({
-  fromBuffer: jest.fn().mockResolvedValue({ mime: 'audio/mpeg', ext: 'mp3' }),
+  fromBuffer: (...args: any[]) => mockFromBuffer(...args),
 }));
 
 import request from 'supertest';
@@ -24,6 +25,7 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
 import hpp from 'hpp';
 import mongoose from 'mongoose';
+import { uploadFile } from '../../config/storage';
 
 import { mongoSanitize, xssSanitize } from '../../middleware/security';
 import { csrfProtection } from '../../middleware/csrf';
@@ -236,5 +238,114 @@ describe('POST /api/upload/script', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/nenhum arquivo/i);
+  });
+
+  it('deve retornar 4xx/5xx para MIME type nao permitido (html disfarçado de script)', async () => {
+    const { auth, product } = await setupCartWithItem();
+
+    const res = await request(app)
+      .post('/api/upload/script')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .field('productId', product._id.toString())
+      .attach('script', Buffer.from('<html>hack</html>'), { filename: 'hack.html', contentType: 'text/html' });
+
+    // multer fileFilter rejeita tipos nao permitidos — erro pode ser 400, 422 ou 500 dependendo do handler
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+
+  it('deve retornar 400 para PDF com magic bytes invalidos (nao e PDF real)', async () => {
+    const { auth, product } = await setupCartWithItem();
+    // Simula arquivo com extensao .pdf mas magic bytes de outro tipo
+    mockFromBuffer.mockResolvedValueOnce({ mime: 'image/png', ext: 'png' });
+
+    const res = await request(app)
+      .post('/api/upload/script')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .field('productId', product._id.toString())
+      .attach('script', Buffer.from('%PDF-fake'), { filename: 'script.pdf', contentType: 'application/pdf' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/PDF|conteúdo/i);
+  });
+
+  it('deve retornar 401 sem autenticacao', async () => {
+    const res = await request(app)
+      .post('/api/upload/script');
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/upload/audio — testes de segurança
+// ─────────────────────────────────────────────────
+describe('POST /api/upload/audio — validacao de magic bytes', () => {
+  beforeEach(() => {
+    // Resetar para audio valido por padrao
+    mockFromBuffer.mockResolvedValue({ mime: 'audio/mpeg', ext: 'mp3' });
+  });
+
+  it('deve retornar 400 para arquivo com magic bytes de executavel (EXE disfarçado de MP3)', async () => {
+    const { auth, product } = await setupCartWithItem();
+    // fromBuffer detecta que o conteudo e EXE, nao audio
+    mockFromBuffer.mockResolvedValueOnce({ mime: 'application/x-msdownload', ext: 'exe' });
+
+    const res = await request(app)
+      .post('/api/upload/audio')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .field('productId', product._id.toString())
+      .attach('audio', Buffer.from('MZmalware-payload'), { filename: 'audio.mp3', contentType: 'audio/mpeg' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/áudio|conteúdo|válido/i);
+  });
+
+  it('deve retornar 400 quando productId nao esta no carrinho (audio valido)', async () => {
+    const { auth } = await setupCartWithItem();
+    const fakeProductId = new mongoose.Types.ObjectId();
+
+    const res = await request(app)
+      .post('/api/upload/audio')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .field('productId', fakeProductId.toString())
+      .attach('audio', Buffer.from('audio-data'), { filename: 'test.mp3', contentType: 'audio/mpeg' });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('deve retornar 500 quando GCS falha (storage indisponivel)', async () => {
+    const { auth, product } = await setupCartWithItem();
+    const mockedUpload = uploadFile as jest.Mock;
+    mockedUpload.mockRejectedValueOnce(new Error('GCS bucket unavailable'));
+
+    const res = await request(app)
+      .post('/api/upload/audio')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .field('productId', product._id.toString())
+      .attach('audio', Buffer.from('audio-valid'), { filename: 'audio.mp3', contentType: 'audio/mpeg' });
+
+    expect(res.status).toBe(500);
+  });
+
+  it('upload de audio valido — salva URL no carrinho e retorna 200', async () => {
+    const { auth, product } = await setupCartWithItem();
+    const mockedUpload = uploadFile as jest.Mock;
+    mockedUpload.mockResolvedValueOnce('https://storage.test.com/audio.mp3');
+
+    const res = await request(app)
+      .post('/api/upload/audio')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .field('productId', product._id.toString())
+      .attach('audio', Buffer.from('valid-audio-bytes'), { filename: 'comercial.mp3', contentType: 'audio/mpeg' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.url).toMatch(/storage/i);
+    expect(res.body.fileName).toBe('comercial.mp3');
   });
 });

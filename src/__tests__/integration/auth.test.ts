@@ -12,6 +12,7 @@ import '../helpers/mocks';
 import request from 'supertest';
 import { Application } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 import { createTestApp } from '../helpers/createTestApp';
 import { connectTestDB, clearTestDB, disconnectTestDB } from '../helpers/setup';
@@ -746,3 +747,114 @@ describe('PATCH /api/auth/completed-tours', () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ─────────────────────────────────────────────────
+// GET /api/auth/2fa/confirm/:token
+// ─────────────────────────────────────────────────
+describe('GET /api/auth/2fa/confirm/:token', () => {
+  it('confirma habilitacao de 2FA com token valido', async () => {
+    const token = crypto.randomBytes(32).toString('hex');
+    const { user } = await createAuthenticatedUser();
+    await User.findByIdAndUpdate(user._id, {
+      twoFactorPendingToken: token,
+      twoFactorPendingTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      twoFactorEnabled: false,
+    });
+
+    const res = await request(app).get(`/api/auth/2fa/confirm/${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/habilitada/i);
+  });
+
+  it('retorna 400 para token invalido', async () => {
+    const res = await request(app).get('/api/auth/2fa/confirm/token-que-nao-existe');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/inválido|expirado/i);
+  });
+
+  it('retorna 400 para token expirado', async () => {
+    const token = crypto.randomBytes(32).toString('hex');
+    const { user } = await createAuthenticatedUser();
+    await User.findByIdAndUpdate(user._id, {
+      twoFactorPendingToken: token,
+      twoFactorPendingTokenExpires: new Date(Date.now() - 1000),
+      twoFactorEnabled: false,
+    });
+
+    const res = await request(app).get(`/api/auth/2fa/confirm/${token}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('ativa twoFactorEnabled no banco apos confirmacao', async () => {
+    const token = crypto.randomBytes(32).toString('hex');
+    const { user } = await createAuthenticatedUser();
+    await User.findByIdAndUpdate(user._id, {
+      twoFactorPendingToken: token,
+      twoFactorPendingTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      twoFactorEnabled: false,
+    });
+
+    await request(app).get(`/api/auth/2fa/confirm/${token}`);
+
+    const updated = await User.findById(user._id);
+    expect(updated!.twoFactorEnabled).toBe(true);
+    expect(updated!.twoFactorConfirmedAt).toBeDefined();
+    expect(updated!.twoFactorPendingToken).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/auth/2fa/disable — happy path
+// ─────────────────────────────────────────────────
+describe('POST /api/auth/2fa/disable — happy path', () => {
+  it('desabilita 2FA com senha correta', async () => {
+    const { user, auth } = await createAuthenticatedUser({ password: STRONG_PASSWORD });
+    await User.findByIdAndUpdate(user._id, {
+      twoFactorEnabled: true,
+      twoFactorConfirmedAt: new Date(),
+    });
+
+    const res = await request(app)
+      .post('/api/auth/2fa/disable')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ password: STRONG_PASSWORD });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/desabilitada/i);
+
+    const updated = await User.findById(user._id);
+    expect(updated!.twoFactorEnabled).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/auth/login com usuario 2FA habilitado
+// ─────────────────────────────────────────────────
+describe('POST /api/auth/login com 2FA ativo', () => {
+  it('retorna requiresTwoFactor ao inves de jwt quando 2FA esta habilitado', async () => {
+    const { user } = await createAuthenticatedUser({
+      email: `user2fa-${Date.now()}@empresa.com.br`,
+      password: STRONG_PASSWORD,
+    });
+    await User.findByIdAndUpdate(user._id, {
+      twoFactorEnabled: true,
+      twoFactorConfirmedAt: new Date(),
+    });
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ emailOrCnpj: user.email, password: STRONG_PASSWORD });
+
+    expect(res.status).toBe(200);
+    expect(res.body.requiresTwoFactor).toBe(true);
+    expect(res.body.userId).toBeDefined();
+    // Nao deve setar cookies de autenticacao ainda
+    const cookies = res.headers['set-cookie'] as string[] | undefined;
+    const hasAccessToken = cookies?.some((c: string) => c.startsWith('access_token='));
+    expect(hasAccessToken).toBeFalsy();
+  });
+});
+
+// POST /api/auth/2fa/verify-code — testado em auth2fa.test.ts (arquivo separado para evitar rate limiter compartilhado)

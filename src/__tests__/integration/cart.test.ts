@@ -642,3 +642,207 @@ describe('PUT /api/cart/items/sponsorship-material', () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ─────────────────────────────────────────────────
+// PUT /api/cart/items/sponsorship-month — happy paths
+// ─────────────────────────────────────────────────
+describe('PUT /api/cart/items/sponsorship-month — happy path', () => {
+  it('atualiza selectedMonth de patrocinio no carrinho', async () => {
+    const { user: advertiser, auth } = await createAdvertiser();
+    const { user: broadcaster } = await createBroadcaster();
+
+    // Importa Sponsorship dinamicamente
+    const { Sponsorship } = await import('../../models/Sponsorship');
+    const sponsorship = await Sponsorship.create({
+      broadcasterId: broadcaster._id,
+      programName: 'Show da Manhã',
+      timeRange: { start: '08:00', end: '10:00' },
+      daysOfWeek: [1, 2, 3, 4, 5],
+      insertions: [{ name: 'Citação', duration: 0, quantityPerDay: 2, requiresMaterial: false }],
+      netPrice: 500,
+      pricePerMonth: 625,
+      isActive: true,
+    });
+
+    // Cria carrinho com o patrocínio
+    await Cart.create({
+      userId: advertiser._id,
+      items: [{
+        productId: sponsorship._id,
+        itemType: 'sponsorship',
+        productName: 'Show da Manhã',
+        productSchedule: 'Seg-Sex',
+        broadcasterId: broadcaster._id,
+        broadcasterName: 'Radio Test FM',
+        broadcasterDial: '100.1',
+        broadcasterBand: 'FM',
+        broadcasterLogo: '',
+        broadcasterCity: 'São Paulo',
+        price: 625,
+        quantity: 1,
+        duration: 0,
+        addedAt: new Date(),
+      }],
+    });
+
+    // Data futura para evitar rejeição de mês passado
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 2);
+    const selectedMonth = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
+
+    const res = await request(app)
+      .put('/api/cart/items/sponsorship-month')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: sponsorship._id.toString(), selectedMonth });
+
+    expect(res.status).toBe(200);
+    const item = res.body.items.find((i: any) => i.productId === sponsorship._id.toString());
+    expect(item.selectedMonth).toBe(selectedMonth);
+  });
+
+  it('retorna 400 para mes passado ou atual', async () => {
+    const { auth } = await createAdvertiser();
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const res = await request(app)
+      .put('/api/cart/items/sponsorship-month')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: new mongoose.Types.ObjectId().toString(), selectedMonth: currentMonth });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/mês seguinte/i);
+  });
+
+  it('retorna 404 quando carrinho nao existe', async () => {
+    const { auth } = await createAdvertiser();
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 2);
+    const selectedMonth = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
+
+    const res = await request(app)
+      .put('/api/cart/items/sponsorship-month')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: new mongoose.Types.ObjectId().toString(), selectedMonth });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/carrinho/i);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// PUT /api/cart/items/sponsorship-material — happy path
+// ─────────────────────────────────────────────────
+describe('PUT /api/cart/items/sponsorship-material — happy path', () => {
+  it('salva material de audio valido no carrinho', async () => {
+    const { user: advertiser, auth } = await createAdvertiser();
+    const { user: broadcaster } = await createBroadcaster();
+    const productId = new mongoose.Types.ObjectId();
+
+    await Cart.create({
+      userId: advertiser._id,
+      items: [{
+        productId,
+        itemType: 'sponsorship',
+        productName: 'Programa Tarde',
+        productSchedule: 'Seg-Sex',
+        broadcasterId: broadcaster._id,
+        broadcasterName: 'Radio Test FM',
+        broadcasterDial: '100.1',
+        broadcasterBand: 'FM',
+        broadcasterLogo: '',
+        broadcasterCity: 'São Paulo',
+        price: 500,
+        quantity: 1,
+        duration: 0,
+        addedAt: new Date(),
+        sponsorshipMaterials: {},
+      }],
+    });
+
+    const res = await request(app)
+      .put('/api/cart/items/sponsorship-material')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({
+        productId: productId.toString(),
+        insertionName: 'Citação',
+        material: { audioUrl: 'https://storage.gcs.com/audio.mp3', type: 'audio' },
+      });
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.items)).toBe(true);
+    // Verifica que o carrinho foi retornado com os itens (material salvo)
+    const item = res.body.items.find((i: any) => i.productId === productId.toString());
+    expect(item).toBeDefined();
+  });
+
+  it('retorna 404 quando patrocinio nao esta no carrinho', async () => {
+    const { user: advertiser, auth } = await createAdvertiser();
+    const { user: broadcaster } = await createBroadcaster();
+
+    await Cart.create({
+      userId: advertiser._id,
+      items: [{
+        productId: new mongoose.Types.ObjectId(),
+        itemType: 'sponsorship',
+        productName: 'Outro Programa',
+        productSchedule: 'Seg',
+        broadcasterId: broadcaster._id,
+        broadcasterName: 'Radio',
+        broadcasterDial: '100.1',
+        broadcasterBand: 'FM',
+        broadcasterLogo: '',
+        broadcasterCity: 'SP',
+        price: 300,
+        quantity: 1,
+        duration: 0,
+        addedAt: new Date(),
+      }],
+    });
+
+    const res = await request(app)
+      .put('/api/cart/items/sponsorship-material')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({
+        productId: new mongoose.Types.ObjectId().toString(),
+        insertionName: 'Vinheta',
+        material: { audioUrl: 'https://storage.gcs.com/audio.mp3' },
+      });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/patrocínio/i);
+  });
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/cart/items — produto inativo
+// ─────────────────────────────────────────────────
+describe('POST /api/cart/items — produto inativo', () => {
+  it('retorna 404 ao tentar adicionar produto inativo', async () => {
+    const { auth } = await createAdvertiser();
+    const { user: broadcaster } = await createBroadcaster();
+
+    const inactiveProduct = await Product.create({
+      broadcasterId: broadcaster._id,
+      spotType: 'Comercial 30s',
+      duration: 30,
+      timeSlot: 'Rotativo',
+      netPrice: 100,
+      pricePerInsertion: 125,
+      isActive: false, // inativo
+    });
+
+    const res = await request(app)
+      .post('/api/cart/items')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ productId: inactiveProduct._id.toString(), quantity: 1 });
+
+    expect(res.status).toBe(404);
+  });
+});

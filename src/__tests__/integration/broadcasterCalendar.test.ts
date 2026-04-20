@@ -127,4 +127,105 @@ describe('GET /api/broadcaster/calendar', () => {
     const res = await request(app).get(`/api/broadcaster/calendar?start=${START}&end=${END}`);
     expect(res.status).toBe(401);
   });
+
+  it('retorna array vazio quando nao ha patrocinios no periodo', async () => {
+    const { auth } = await createBroadcaster();
+
+    const res = await request(app)
+      .get('/api/broadcaster/calendar?start=2020-01-01&end=2020-01-31')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.events).toHaveLength(0);
+    expect(res.body.totalEvents).toBe(0);
+  });
+
+  it('retorna apenas eventos da propria emissora (isolamento)', async () => {
+    const { user: broadcaster1, auth: auth1 } = await createBroadcaster();
+    const { user: broadcaster2 } = await createBroadcaster();
+
+    await Sponsorship.create({
+      broadcasterId: broadcaster2._id,
+      programName: 'Programa da Outra Emissora',
+      timeRange: { start: '07:00', end: '08:00' },
+      daysOfWeek: [1],
+      insertions: [{ name: 'Spot', duration: 30, quantityPerDay: 1, requiresMaterial: false }],
+      netPrice: 200,
+      pricePerMonth: 250,
+      isActive: true,
+    });
+
+    const res = await request(app)
+      .get(`/api/broadcaster/calendar?start=${START}&end=${END}`)
+      .set('Cookie', auth1.cookieHeader)
+      .set('X-CSRF-Token', auth1.csrfHeader);
+
+    expect(res.status).toBe(200);
+    const outsideEvents = res.body.events.filter(
+      (e: any) => e.title === 'Programa da Outra Emissora'
+    );
+    expect(outsideEvents).toHaveLength(0);
+  });
+
+  it('retorna eventos de multiplos patrocinios no mesmo periodo', async () => {
+    const { user: broadcaster, auth } = await createBroadcaster();
+
+    await Sponsorship.create({
+      broadcasterId: broadcaster._id,
+      programName: 'Matinal',
+      timeRange: { start: '06:00', end: '09:00' },
+      daysOfWeek: [1, 2, 3, 4, 5],
+      insertions: [{ name: 'Citação', duration: 0, quantityPerDay: 1, requiresMaterial: false }],
+      netPrice: 300,
+      pricePerMonth: 375,
+      isActive: true,
+    });
+
+    await Sponsorship.create({
+      broadcasterId: broadcaster._id,
+      programName: 'Vespertino',
+      timeRange: { start: '14:00', end: '17:00' },
+      daysOfWeek: [1, 2, 3, 4, 5],
+      insertions: [{ name: 'Vinheta', duration: 5, quantityPerDay: 2, requiresMaterial: false }],
+      netPrice: 400,
+      pricePerMonth: 500,
+      isActive: true,
+    });
+
+    const res = await request(app)
+      .get(`/api/broadcaster/calendar?start=${START}&end=${END}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    const matinalEvents = res.body.events.filter((e: any) => e.title === 'Matinal');
+    const vespertinoEvents = res.body.events.filter((e: any) => e.title === 'Vespertino');
+    expect(matinalEvents.length).toBeGreaterThan(0);
+    expect(vespertinoEvents.length).toBeGreaterThan(0);
+  });
+
+  it('ignora patrocinios inativos', async () => {
+    const { user: broadcaster, auth } = await createBroadcaster();
+
+    await Sponsorship.create({
+      broadcasterId: broadcaster._id,
+      programName: 'Programa Inativo',
+      timeRange: { start: '10:00', end: '11:00' },
+      daysOfWeek: [1, 2, 3, 4, 5],
+      insertions: [{ name: 'Spot', duration: 30, quantityPerDay: 1, requiresMaterial: false }],
+      netPrice: 100,
+      pricePerMonth: 125,
+      isActive: false, // inativo!
+    });
+
+    const res = await request(app)
+      .get(`/api/broadcaster/calendar?start=${START}&end=${END}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    const inactiveEvents = res.body.events.filter((e: any) => e.title === 'Programa Inativo');
+    expect(inactiveEvents).toHaveLength(0);
+  });
 });
