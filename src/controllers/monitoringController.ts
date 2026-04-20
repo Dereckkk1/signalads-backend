@@ -525,7 +525,6 @@ export const unblockIp = async (req: Request, res: Response) => {
 export const blockUser = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.params.userId ?? '';
-        const { reason } = req.body as { reason?: string };
 
         const user = await User.findByIdAndUpdate(
             userId,
