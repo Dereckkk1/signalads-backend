@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import SystemMetric from '../models/SystemMetric';
+import BlockedIP from '../models/BlockedIP';
 import { blockedIPsSet } from '../utils/ipBlockList';
 
 // ─────────────────────────────────────────────────────────────
@@ -57,6 +58,86 @@ let metricsBatch: Array<{
     timestamp: Date;
 }> = [];
 
+// ─────────────────────────────────────────────────────────────
+// Auto-block: tracker em memória por IP (janela deslizante de 1h)
+// Detecta bots varrendo rotas inexistentes sem precisar de DB
+// ─────────────────────────────────────────────────────────────
+const LOCALHOST_IPS_AUTO = new Set(['::1', '127.0.0.1', '::ffff:127.0.0.1']);
+const AUTO_BLOCK_WINDOW_MS = 60 * 60 * 1000;       // janela: 1h
+const AUTO_BLOCK_MIN_REQUESTS = 10;                  // mínimo para avaliar
+const AUTO_BLOCK_NOT_FOUND_THRESHOLD = 0.7;          // 70% de 404s → bloqueia
+const AUTO_BLOCK_ROUTE_RATIO_THRESHOLD = 0.85;       // 85% rotas únicas (anônimo)
+const AUTO_BLOCK_ROUTE_MIN_REQUESTS = 15;            // mínimo para checar ratio
+
+interface IpTracker {
+    requestCount: number;
+    notFoundCount: number;
+    uniqueRoutes: Set<string>;
+    windowStart: number;
+    hasAuth: boolean;
+}
+
+const ipTrackers = new Map<string, IpTracker>();
+
+function getOrResetTracker(ip: string, now: number): IpTracker {
+    let tracker = ipTrackers.get(ip);
+    if (!tracker || now - tracker.windowStart > AUTO_BLOCK_WINDOW_MS) {
+        tracker = { requestCount: 0, notFoundCount: 0, uniqueRoutes: new Set(), windowStart: now, hasAuth: false };
+        ipTrackers.set(ip, tracker);
+    }
+    return tracker;
+}
+
+async function runAutoBlock(batch: typeof metricsBatch): Promise<void> {
+    const ipsToCheck = new Set<string>();
+
+    for (const metric of batch) {
+        const { ip } = metric;
+        if (!ip || LOCALHOST_IPS_AUTO.has(ip) || blockedIPsSet.has(ip)) continue;
+
+        const tracker = getOrResetTracker(ip, metric.timestamp.getTime());
+        tracker.requestCount++;
+        tracker.uniqueRoutes.add(metric.route);
+        if (metric.statusCode === 404) tracker.notFoundCount++;
+        if (metric.userId) tracker.hasAuth = true;
+        ipsToCheck.add(ip);
+    }
+
+    for (const ip of ipsToCheck) {
+        if (blockedIPsSet.has(ip)) continue;
+        const tracker = ipTrackers.get(ip);
+        if (!tracker || tracker.requestCount < AUTO_BLOCK_MIN_REQUESTS) continue;
+
+        const notFoundRate = tracker.notFoundCount / tracker.requestCount;
+        const routeRatio = tracker.uniqueRoutes.size / tracker.requestCount;
+
+        const isBot =
+            notFoundRate >= AUTO_BLOCK_NOT_FOUND_THRESHOLD ||
+            (!tracker.hasAuth &&
+                routeRatio >= AUTO_BLOCK_ROUTE_RATIO_THRESHOLD &&
+                tracker.requestCount >= AUTO_BLOCK_ROUTE_MIN_REQUESTS);
+
+        if (!isBot) continue;
+
+        const notFoundPct = Math.round(notFoundRate * 100);
+        const routePct = Math.round(routeRatio * 100);
+        const reason = `Auto-bloqueado: ${notFoundPct}% 404s, ${routePct}% diversidade de rotas em ${tracker.requestCount} requests`;
+
+        try {
+            await BlockedIP.findOneAndUpdate(
+                { ip },
+                { ip, reason, blockedAt: new Date(), blockedById: 'system', blockedByEmail: 'auto-block@sistema' },
+                { upsert: true }
+            );
+            blockedIPsSet.add(ip);
+            ipTrackers.delete(ip);
+            console.log(`[auto-block] ${ip} bloqueado — ${reason}`);
+        } catch {
+            // Silencioso — monitoramento nunca quebra a aplicação
+        }
+    }
+}
+
 async function flushMetricsBatch(): Promise<void> {
     if (metricsBatch.length === 0) return;
     const toInsert = metricsBatch.splice(0);
@@ -65,6 +146,8 @@ async function flushMetricsBatch(): Promise<void> {
     } catch {
         // Falha silenciosa — monitoramento nunca deve quebrar a aplicação
     }
+    // Roda auto-block sem bloquear o flush (falha silenciosa)
+    runAutoBlock(toInsert).catch(() => {});
 }
 
 // Timer que garante flush mesmo com pouco tráfego

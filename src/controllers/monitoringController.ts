@@ -332,12 +332,44 @@ export const getTimeline = async (req: Request, res: Response) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Helper: classifica nível de risco pelo volume de requests
+// Helper: classifica nível de risco por múltiplos fatores
+// Considera: taxa de 404s, concentração de rotas e autenticação.
+// Volume puro não é suficiente — usuários legítimos fazem muitos
+// requests. Bots se revelam pela diversidade de rotas inexistentes.
 // ─────────────────────────────────────────────────────────────
-function getRiskLevel(requestCount: number): 'low' | 'medium' | 'high' | 'critical' {
-    if (requestCount >= 500) return 'critical';
-    if (requestCount >= 200) return 'high';
-    if (requestCount >= 50) return 'medium';
+interface RiskFactors {
+    requestCount: number;
+    uniqueRouteCount: number;
+    notFoundCount: number;
+    isAuthenticated: boolean;
+}
+
+function getRiskLevel(factors: RiskFactors): 'low' | 'medium' | 'high' | 'critical' {
+    const { requestCount, uniqueRouteCount, notFoundCount, isAuthenticated } = factors;
+    let score = 0;
+
+    const routeRatio = uniqueRouteCount / Math.max(requestCount, 1);
+    const notFoundRate = notFoundCount / Math.max(requestCount, 1);
+
+    // Taxa de 404s: sinal primário de bot varrendo rotas inexistentes
+    if (notFoundRate >= 0.5) score += 40;
+    else if (notFoundRate >= 0.2) score += 20;
+    else if (notFoundRate >= 0.1) score += 10;
+
+    // Concentração de rotas: muitas rotas únicas por request = probing
+    if (routeRatio >= 0.8) score += 35;
+    else if (routeRatio >= 0.5) score += 15;
+
+    // Acesso anônimo é inerentemente mais suspeito
+    if (!isAuthenticated) score += 15;
+
+    // Volume contribui pouco (não é o driver principal)
+    if (requestCount >= 500) score += 10;
+    else if (requestCount >= 200) score += 5;
+
+    if (score >= 60) return 'critical';
+    if (score >= 35) return 'high';
+    if (score >= 15) return 'medium';
     return 'low';
 }
 
@@ -363,6 +395,9 @@ export const getTopActors = async (req: Request, res: Response) => {
                     uniqueRoutes: { $addToSet: '$route' },
                     errorCount: { $sum: { $cond: ['$isError', 1, 0] } },
                     slowCount: { $sum: { $cond: ['$isSlow', 1, 0] } },
+                    notFoundCount: {
+                        $sum: { $cond: [{ $eq: ['$statusCode', 404] }, 1, 0] },
+                    },
                     firstSeen: { $min: '$timestamp' },
                     lastSeen: { $max: '$timestamp' },
                     userEmail: { $first: '$userEmail' },
@@ -377,18 +412,25 @@ export const getTopActors = async (req: Request, res: Response) => {
 
         const result = actors.map((a) => {
             const ip = a._id.ip || '';
+            const userId = a._id.userId || null;
             const blockedInfo = blockedIPMap.get(ip);
             return {
                 ip,
-                userId: a._id.userId || null,
+                userId,
                 userEmail: a.userEmail || null,
                 totalRequests: a.totalRequests,
                 uniqueRouteCount: a.uniqueRoutes.length,
                 errorCount: a.errorCount,
                 slowCount: a.slowCount,
+                notFoundCount: a.notFoundCount,
                 firstSeen: a.firstSeen,
                 lastSeen: a.lastSeen,
-                riskLevel: getRiskLevel(a.totalRequests),
+                riskLevel: getRiskLevel({
+                    requestCount: a.totalRequests,
+                    uniqueRouteCount: a.uniqueRoutes.length,
+                    notFoundCount: a.notFoundCount,
+                    isAuthenticated: !!userId,
+                }),
                 isIPBlocked: !!blockedInfo,
                 blockedReason: blockedInfo?.reason || null,
                 blockedAt: blockedInfo?.blockedAt || null,
