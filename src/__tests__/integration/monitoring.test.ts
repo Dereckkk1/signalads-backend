@@ -376,24 +376,45 @@ describe('GET /api/admin/monitoring/top-actors', () => {
     expect(actor.isIPBlocked).toBe(true);
   });
 
-  it('should return correct risk levels based on request count', async () => {
-    // Seed 500+ requests for a single IP to trigger critical risk
+  it('should return correct risk levels based on multi-factor scoring', async () => {
     const now = new Date();
-    const bulkMetrics = Array.from({ length: 500 }, () => ({
-      route: '/api/products', method: 'GET', statusCode: 200,
-      duration: 100, isError: false, isSlow: false, timestamp: now, ip: '99.99.99.99',
-    }));
-    await SystemMetric.insertMany(bulkMetrics);
-    const { auth } = await createAdmin();
 
+    // Bot pattern: anônimo, 20 requests em 18 rotas distintas, 15 delas retornam 404
+    // → notFoundRate = 75% (+40), routeRatio = 90% (+35), anônimo (+15) = 90 → critical
+    const botRoutes = Array.from({ length: 18 }, (_, i) => `/api/hidden-route-${i}`);
+    const botMetrics = [
+      ...Array.from({ length: 15 }, (_, i) => ({
+        route: botRoutes[i % 18], method: 'GET', statusCode: 404,
+        duration: 50, isError: false, isSlow: false, timestamp: now, ip: '99.99.99.99',
+      })),
+      ...Array.from({ length: 5 }, (_, i) => ({
+        route: botRoutes[(i + 15) % 18], method: 'GET', statusCode: 200,
+        duration: 50, isError: false, isSlow: false, timestamp: now, ip: '99.99.99.99',
+      })),
+    ];
+    await SystemMetric.insertMany(botMetrics);
+
+    // Usuário legítimo: autenticado, muitos requests, poucas rotas distintas
+    // → notFoundRate ≈ 0, routeRatio baixo, autenticado = 0 → low
+    const legitimateMetrics = Array.from({ length: 200 }, () => ({
+      route: '/api/proposals', method: 'GET', statusCode: 200,
+      duration: 100, isError: false, isSlow: false, timestamp: now,
+      ip: '10.0.0.1', userId: 'legit-user', userEmail: 'legit@example.com',
+    }));
+    await SystemMetric.insertMany(legitimateMetrics);
+
+    const { auth } = await createAdmin();
     const res = await request(app)
       .get('/api/admin/monitoring/top-actors')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader);
 
     expect(res.status).toBe(200);
-    const criticalActor = res.body.actors.find((a: any) => a.ip === '99.99.99.99');
-    expect(criticalActor.riskLevel).toBe('critical');
+    const botActor = res.body.actors.find((a: any) => a.ip === '99.99.99.99');
+    expect(botActor.riskLevel).toBe('critical');
+
+    const legitActor = res.body.actors.find((a: any) => a.ip === '10.0.0.1');
+    expect(legitActor.riskLevel).toBe('low');
   });
 
   it('should return 401 when unauthenticated', async () => {

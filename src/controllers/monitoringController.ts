@@ -357,8 +357,11 @@ function getRiskLevel(factors: RiskFactors): 'low' | 'medium' | 'high' | 'critic
     else if (notFoundRate >= 0.1) score += 10;
 
     // Concentração de rotas: muitas rotas únicas por request = probing
-    if (routeRatio >= 0.8) score += 35;
-    else if (routeRatio >= 0.5) score += 15;
+    // Exige mínimo de requests para evitar falso positivo com poucos acessos
+    if (requestCount >= 5) {
+        if (routeRatio >= 0.8) score += 35;
+        else if (routeRatio >= 0.5) score += 15;
+    }
 
     // Acesso anônimo é inerentemente mais suspeito
     if (!isAuthenticated) score += 15;
