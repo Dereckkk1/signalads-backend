@@ -850,6 +850,15 @@ export const getPublicProposal = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
+    // Propostas reabertas para revisao ficam indisponiveis publicamente ate o reenvio
+    if (proposal.status === 'returned') {
+      res.status(409).json({
+        error: 'Esta proposta esta sob revisao pela emissora. Voce sera notificado quando for reenviada.',
+        proposal: { title: proposal.title, status: 'returned' }
+      });
+      return;
+    }
+
     // Verificar proteção por PIN
     if (proposal.protection?.enabled) {
       // Retornar indicação de proteção (sem dados da proposta)
@@ -883,6 +892,7 @@ export const getPublicProposal = async (req: AuthRequest, res: Response): Promis
         discountAmount: proposal.discountAmount || 0,
         totalAmount: proposal.totalAmount,
         customization: proposal.customization,
+        contract: proposal.contract || undefined,
         status: proposal.status,
         validUntil: proposal.validUntil,
         respondedAt: proposal.respondedAt,
@@ -894,6 +904,11 @@ export const getPublicProposal = async (req: AuthRequest, res: Response): Promis
         client: proposal.clientId,
         comments: proposal.comments || [],
         approval: proposal.approval ? { name: proposal.approval.name, approvedAt: proposal.approval.approvedAt } : undefined,
+        statusHistory: (proposal.statusHistory || []).map((h: any) => ({
+          status: h.status,
+          changedAt: h.changedAt,
+          actorType: h.actorType,
+        })),
       }
     };
 
@@ -1009,6 +1024,11 @@ async function autoConvertBroadcasterProposal(
   const grossAmount = proposal.grossAmount || 0;
   const totalAmount = proposal.totalAmount || grossAmount;
 
+  // Copia o contrato da proposta (se existir) — mantem numero, parcelas, vigencia, etc
+  const contractSnapshot = proposal.contract
+    ? (typeof proposal.contract.toObject === 'function' ? proposal.contract.toObject() : proposal.contract)
+    : undefined;
+
   const order = new Order({
     orderNumber: proposal.proposalNumber,      // mantém o mesmo número do PI da proposta
     buyerId: proposal.broadcasterId,           // broadcaster é o responsável; cliente não é usuário da plataforma
@@ -1044,6 +1064,7 @@ async function autoConvertBroadcasterProposal(
     opecs: [],
     notifications: [],
     webhookLogs: [],
+    ...(contractSnapshot ? { contract: contractSnapshot } : {}),
   });
 
   // validateBeforeSave: false pois buyerPhone/buyerDocument não se aplicam a
@@ -1113,6 +1134,11 @@ export const respondToProposal = async (req: AuthRequest, res: Response): Promis
 
     if (proposal.status === 'approved' || proposal.status === 'rejected') {
       res.status(400).json({ error: 'Esta proposta já foi respondida' });
+      return;
+    }
+
+    if (proposal.status === 'returned' || proposal.status === 'draft') {
+      res.status(409).json({ error: 'Esta proposta esta sob revisao e ainda nao pode ser respondida' });
       return;
     }
 
@@ -1378,6 +1404,11 @@ export const convertToOrder = async (req: AuthRequest, res: Response): Promise<v
     const monitoringCost = proposal.monitoringCost || 0;
     const totalAmount = parseFloat((grossAmount + techFee + agencyCommission + monitoringCost).toFixed(2));
 
+    // Copia o contrato da proposta (se existir) — mantem numero, parcelas, vigencia
+    const contractSnapshot = (proposal as any).contract
+      ? (typeof (proposal as any).contract.toObject === 'function' ? (proposal as any).contract.toObject() : (proposal as any).contract)
+      : undefined;
+
     const order = new Order({
       buyerId: (buyer as any)._id,
       buyerName: (buyer as any).name || (buyer as any).companyName || (buyer as any).fantasyName || '',
@@ -1410,7 +1441,8 @@ export const convertToOrder = async (req: AuthRequest, res: Response): Promise<v
       broadcasterInvoices: [],
       opecs: [],
       notifications: [],
-      webhookLogs: []
+      webhookLogs: [],
+      ...(contractSnapshot ? { contract: contractSnapshot } : {}),
     });
 
     await order.save();

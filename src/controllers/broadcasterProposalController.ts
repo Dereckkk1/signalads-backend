@@ -7,6 +7,7 @@ import ProposalVersion from '../models/ProposalVersion';
 import AgencyClient from '../models/AgencyClient';
 import ClientType from '../models/ClientType';
 import ClientOrigin from '../models/ClientOrigin';
+import BroadcasterPaymentTag from '../models/BroadcasterPaymentTag';
 import { Product } from '../models/Product';
 import { Sponsorship } from '../models/Sponsorship';
 import { User } from '../models/User';
@@ -15,6 +16,7 @@ import ExcelJS from 'exceljs';
 import { uploadFile } from '../config/storage';
 import crypto from 'crypto';
 import { escapeRegex } from '../utils/stringUtils';
+import { generateContractNumber, generateInstallments, normalizeContractPayload } from '../utils/proposalContract';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -131,7 +133,7 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
   try {
     if (!requireBroadcaster(req, res)) return;
 
-    const { items, clientName, clientId, title, description, templateId, discount: discountInput, clientLogo } = req.body;
+    const { items, clientName, clientId, title, description, templateId, discount: discountInput, clientLogo, contract: contractInput } = req.body;
     const effectiveBroadcasterId = getEffectiveBroadcasterId(req);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -360,6 +362,12 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
       }
     }
 
+    // Normaliza payload do contrato (se enviado) e gera numero sequencial por emissora
+    let contract = normalizeContractPayload(contractInput, totalAmount);
+    if (contract && !contract.contractNumber) {
+      contract.contractNumber = await generateContractNumber(effectiveBroadcasterId);
+    }
+
     const proposal = new Proposal({
       ownerType: 'broadcaster',
       broadcasterId: effectiveBroadcasterId,
@@ -381,6 +389,7 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
       totalAmount,
       templateId: templateId || undefined,
       ...(customization ? { customization } : clientLogo ? { customization: { logo: clientLogo } } : {}),
+      ...(contract ? { contract } : {}),
       status: 'draft',
       statusHistory: [{
         status: 'draft',
@@ -498,7 +507,7 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const { title, description, clientName, clientId, items, customization, validUntil, discount: discountInput } = req.body;
+    const { title, description, clientName, clientId, items, customization, validUntil, discount: discountInput, contract: contractInput } = req.body;
 
     // Atualizar campos basicos
     if (title !== undefined) proposal.title = title;
@@ -699,6 +708,21 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       proposal.totalAmount = parseFloat((proposal.grossAmount - discountAmt).toFixed(2));
     }
 
+    // Atualizar contrato (condicoes de pagamento)
+    if (contractInput !== undefined) {
+      if (contractInput === null) {
+        proposal.contract = undefined as any;
+      } else {
+        const normalized = normalizeContractPayload(contractInput, proposal.totalAmount);
+        if (normalized) {
+          // Preserva numero existente; gera novo se for o primeiro contrato
+          const existingNumber = proposal.contract?.contractNumber || contractInput.contractNumber;
+          normalized.contractNumber = existingNumber || await generateContractNumber(_effBId);
+          proposal.contract = normalized;
+        }
+      }
+    }
+
     await proposal.save();
     await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
 
@@ -844,16 +868,24 @@ export const sendProposal = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    if (proposal.status !== 'draft' && proposal.status !== 'sent') {
-      res.status(400).json({ error: 'Apenas propostas em rascunho podem ser enviadas' });
+    const isResend = proposal.status === 'returned';
+    if (proposal.status !== 'draft' && proposal.status !== 'sent' && !isResend) {
+      res.status(400).json({ error: 'Apenas propostas em rascunho ou retornadas podem ser enviadas' });
       return;
     }
 
     proposal.status = 'sent';
     proposal.sentAt = new Date();
+    // Ao reenviar, limpar resposta anterior para permitir nova decisao do cliente
+    if (isResend) {
+      proposal.respondedAt = undefined as any;
+      proposal.responseNote = undefined as any;
+      proposal.approval = undefined as any;
+    }
     proposal.statusHistory.push({
       status: 'sent',
       changedAt: new Date(),
+      note: isResend ? 'Reenvio apos revisao' : undefined,
       actorName: await getActorName(req.userId),
       actorType: 'broadcaster'
     });
@@ -861,7 +893,13 @@ export const sendProposal = async (req: AuthRequest, res: Response): Promise<voi
     await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
 
     // Criar versão ao enviar
-    await createVersion(proposal._id.toString(), req.userId!, 'auto_send', proposal, 'Proposta enviada');
+    await createVersion(
+      proposal._id.toString(),
+      req.userId!,
+      'auto_send',
+      proposal,
+      isResend ? 'Proposta reenviada apos revisao' : 'Proposta enviada'
+    );
 
     const publicUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/p/${proposal.slug}`;
 
@@ -869,6 +907,52 @@ export const sendProposal = async (req: AuthRequest, res: Response): Promise<voi
   } catch (error) {
     console.error('Erro ao enviar proposta:', error);
     res.status(500).json({ error: 'Erro ao enviar proposta' });
+  }
+};
+
+/**
+ * POST /api/broadcaster-proposals/:id/reopen
+ * Reabre uma proposta recusada para revisao (rejected -> returned).
+ * Preserva o motivo da recusa em responseNote; a nota da emissora vai no statusHistory.
+ */
+export const reopenProposal = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+
+    const _effBId = getEffectiveBroadcasterId(req);
+    const proposal = await Proposal.findOne({
+      _id: req.params.id,
+      broadcasterId: _effBId
+    });
+
+    if (!proposal) {
+      res.status(404).json({ error: 'Proposta nao encontrada' });
+      return;
+    }
+
+    if (proposal.status !== 'rejected') {
+      res.status(400).json({ error: 'Apenas propostas recusadas podem ser reabertas para revisao' });
+      return;
+    }
+
+    const note = (req.body?.note as string | undefined)?.trim();
+
+    proposal.status = 'returned';
+    proposal.statusHistory.push({
+      status: 'returned',
+      changedAt: new Date(),
+      note: note || undefined,
+      actorName: await getActorName(req.userId),
+      actorType: 'broadcaster'
+    });
+
+    await proposal.save();
+    await invalidateProposalCache(_effBId, proposal.slug);
+
+    res.json({ proposal });
+  } catch (error) {
+    console.error('Erro ao reabrir proposta:', error);
+    res.status(500).json({ error: 'Erro ao reabrir proposta para revisao' });
   }
 };
 
@@ -2053,5 +2137,118 @@ export const deleteBroadcasterClientOrigin = async (req: AuthRequest, res: Respo
     res.json({ message: 'Origem removida com sucesso' });
   } catch {
     res.status(500).json({ error: 'Erro ao deletar origem de cliente' });
+  }
+};
+
+// ─── Payment Tags (contrato) ─────────────────────────────────────────────
+
+/**
+ * GET /api/broadcaster-proposals/payment-tags
+ * Lista tags livres de descricao de parcelas da emissora (compartilhadas entre sub-users).
+ */
+export const getPaymentTags = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const broadcasterId = getEffectiveBroadcasterId(req);
+    const tags = await BroadcasterPaymentTag.find({ broadcasterId }).sort({ label: 1 }).lean();
+    res.json({ tags });
+  } catch (error) {
+    console.error('Erro ao listar tags de pagamento:', error);
+    res.status(500).json({ error: 'Erro ao listar tags' });
+  }
+};
+
+/**
+ * POST /api/broadcaster-proposals/payment-tags
+ * Cria nova tag (dedupe por label case-insensitive).
+ */
+export const createPaymentTag = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const label = String(req.body?.label || '').trim();
+    if (!label) {
+      res.status(400).json({ error: 'Label da tag eh obrigatorio' });
+      return;
+    }
+    if (label.length > 60) {
+      res.status(400).json({ error: 'Label muito longo (max 60 caracteres)' });
+      return;
+    }
+    const broadcasterId = getEffectiveBroadcasterId(req);
+    const existing = await BroadcasterPaymentTag.findOne({
+      broadcasterId,
+      label: { $regex: `^${escapeRegex(label)}$`, $options: 'i' }
+    });
+    if (existing) {
+      res.status(200).json({ tag: existing });
+      return;
+    }
+    const tag = await BroadcasterPaymentTag.create({
+      broadcasterId,
+      label,
+      createdBy: req.userId
+    });
+    res.status(201).json({ tag });
+  } catch (error) {
+    console.error('Erro ao criar tag de pagamento:', error);
+    res.status(500).json({ error: 'Erro ao criar tag' });
+  }
+};
+
+/**
+ * DELETE /api/broadcaster-proposals/payment-tags/:id
+ * Remove tag da emissora.
+ */
+export const deletePaymentTag = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const broadcasterId = getEffectiveBroadcasterId(req);
+    const tag = await BroadcasterPaymentTag.findOneAndDelete({
+      _id: req.params.id,
+      broadcasterId
+    });
+    if (!tag) {
+      res.status(404).json({ error: 'Tag nao encontrada' });
+      return;
+    }
+    res.json({ message: 'Tag removida' });
+  } catch (error) {
+    console.error('Erro ao deletar tag de pagamento:', error);
+    res.status(500).json({ error: 'Erro ao deletar tag' });
+  }
+};
+
+/**
+ * POST /api/broadcaster-proposals/contract/preview-installments
+ * Calcula as parcelas a partir dos parametros enviados (sem persistir).
+ * Body: { totalValue, installmentsCount, firstDueDate, interval: { value, unit }, dueDay? }
+ */
+export const previewInstallments = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!requireBroadcaster(req, res)) return;
+    const { totalValue, installmentsCount, firstDueDate, interval, dueDay } = req.body || {};
+    if (typeof totalValue !== 'number' || totalValue < 0) {
+      res.status(400).json({ error: 'totalValue deve ser um numero positivo' });
+      return;
+    }
+    if (!firstDueDate) {
+      res.status(400).json({ error: 'firstDueDate eh obrigatorio' });
+      return;
+    }
+    if (!interval || !interval.unit || !interval.value) {
+      res.status(400).json({ error: 'interval { value, unit } eh obrigatorio' });
+      return;
+    }
+    const installments = generateInstallments({
+      totalValue,
+      installmentsCount: installmentsCount || 1,
+      firstDueDate,
+      interval,
+      dueDay
+    });
+    res.json({ installments });
+  } catch (error) {
+    console.error('Erro ao gerar preview de parcelas:', error);
+    res.status(500).json({ error: 'Erro ao gerar preview de parcelas' });
   }
 };

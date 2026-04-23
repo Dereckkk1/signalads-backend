@@ -126,6 +126,31 @@ export interface IProtection {
   expiresAt?: Date;
 }
 
+export interface IContractInstallment {
+  number: number;
+  dueDate: Date;
+  amount: number;
+}
+
+export type ContractIntervalUnit = 'day' | 'week' | 'fortnight' | 'month';
+
+export interface IProposalContract {
+  contractNumber?: string; // gerado automaticamente no backend (ex: CTR-{broadcasterId:6}-0001)
+  clientSnapshot?: { name?: string; document?: string };
+  agencySnapshot?: { name?: string; document?: string }; // snapshot da emissora (vendedor)
+  validity?: { start?: Date; end?: Date };
+  totalValue: number;
+  installmentsCount: number;
+  firstDueDate?: Date;
+  carrier?: string; // nome do usuario que cria a proposta (ex: vendedor/portador)
+  procedure?: string; // ex: 'Nota Fiscal', 'Boleto'
+  interval?: { value: number; unit: ContractIntervalUnit };
+  dueDay?: number; // 1-31
+  installments: IContractInstallment[]; // geradas pelo botao "Gerar"
+  description?: string;
+  descriptionTags: string[]; // snapshot das tags usadas na descricao
+}
+
 export interface IProposalCustomization {
   logo?: string; // URL GCS
   coverImage?: string; // URL GCS
@@ -230,7 +255,7 @@ export interface IProposal extends Document {
   templateId?: mongoose.Types.ObjectId;
 
   // Status & Lifecycle
-  status: 'draft' | 'sent' | 'viewed' | 'approved' | 'rejected' | 'expired' | 'converted';
+  status: 'draft' | 'sent' | 'viewed' | 'approved' | 'rejected' | 'expired' | 'converted' | 'returned';
   validUntil?: Date;
   sentAt?: Date;
   viewedAt?: Date;
@@ -253,6 +278,9 @@ export interface IProposal extends Document {
   viewCount: number;
   lastViewedAt?: Date;
   viewSessions: IViewSession[];
+
+  // Contrato / Condicoes de Pagamento
+  contract?: IProposalContract;
 
   // Conversao
   convertedOrderId?: mongoose.Types.ObjectId;
@@ -445,7 +473,7 @@ const ProposalSchema = new Schema<IProposal>({
   // ─── Status & Lifecycle ─────────────────────────────────────────────────
   status: {
     type: String,
-    enum: ['draft', 'sent', 'viewed', 'approved', 'rejected', 'expired', 'converted'],
+    enum: ['draft', 'sent', 'viewed', 'approved', 'rejected', 'expired', 'converted', 'returned'],
     default: 'draft'
   },
   validUntil: { type: Date },
@@ -498,6 +526,44 @@ const ProposalSchema = new Schema<IProposal>({
     actorName: { type: String },
     actorType: { type: String, enum: ['broadcaster', 'client', 'system'] }
   }], default: [] },
+
+  // ─── Contrato / Condicoes de Pagamento ───────────────────────────────────
+  contract: { type: new Schema<IProposalContract>({
+    contractNumber: { type: String },
+    clientSnapshot: {
+      name: { type: String },
+      document: { type: String }
+    },
+    agencySnapshot: {
+      name: { type: String },
+      document: { type: String }
+    },
+    validity: {
+      start: { type: Date },
+      end: { type: Date }
+    },
+    totalValue: { type: Number, default: 0 },
+    installmentsCount: { type: Number, default: 1 },
+    firstDueDate: { type: Date },
+    carrier: { type: String },
+    procedure: { type: String },
+    interval: {
+      value: { type: Number },
+      unit: { type: String, enum: ['day', 'week', 'fortnight', 'month'] }
+    },
+    dueDay: { type: Number, min: 1, max: 31 },
+    installments: {
+      type: [{
+        number: { type: Number, required: true },
+        dueDate: { type: Date, required: true },
+        amount: { type: Number, required: true },
+        _id: false
+      }],
+      default: []
+    },
+    description: { type: String },
+    descriptionTags: { type: [String], default: [] }
+  }, { _id: false }), default: undefined },
 
   convertedOrderId: { type: Schema.Types.ObjectId, ref: 'Order' }
 }, {

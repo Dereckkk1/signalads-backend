@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { User } from '../models/User';
-import { Conversation } from '../models/Conversation';
-import WalletModel, { IWallet } from '../models/Wallet';
 import { cacheInvalidate } from '../config/redis';
 import { invalidateUserCache } from '../middleware/auth';
 import OrderModel, { IOrder } from '../models/Order';
@@ -68,52 +66,6 @@ export const approveBroadcaster = async (req: Request, res: Response): Promise<v
       cacheInvalidate('compare:*'),
       invalidateUserCache(broadcaster._id.toString()),
     ]);
-
-    // Criar conversa de suporte com admin
-    try {
-      const admin = await User.findOne({ userType: 'admin' }).sort({ createdAt: 1 });
-
-      if (admin) {
-        const existingConversation = await Conversation.findOne({
-          advertiserId: admin._id.toString(),
-          broadcasterId: broadcasterId
-        });
-
-        if (!existingConversation) {
-          const broadcasterProfile = broadcaster.broadcasterProfile;
-          const generalInfo = broadcasterProfile?.generalInfo || {};
-
-          const conversation = new Conversation({
-            advertiserId: admin._id.toString(),
-            advertiserName: 'Suporte E-rádios',
-            broadcasterId: broadcasterId,
-            broadcasterName: generalInfo.stationName || broadcaster.companyName || 'Emissora',
-            broadcasterLogo: broadcasterProfile?.logo || '',
-            broadcasterDial: generalInfo.dialFrequency || '',
-            broadcasterBand: generalInfo.band || '',
-            messages: [{
-              senderId: admin._id.toString(),
-              senderName: 'Suporte E-rádios',
-              senderType: 'admin',
-              message: `Olá ${generalInfo.stationName || broadcaster.companyName}! 👋\n\nParabéns! Seu cadastro foi aprovado e você já pode começar a receber campanhas.\n\nEste é o canal de suporte da plataforma E-rádios. Estamos aqui para ajudar com qualquer dúvida.\n\nBem-vindo(a) à plataforma!`,
-              timestamp: new Date(),
-              read: false
-            }],
-            relatedOrders: [],
-            lastMessageAt: new Date(),
-            lastMessageBy: admin._id.toString(),
-            unreadCount: {
-              advertiser: 0,
-              broadcaster: 1
-            }
-          });
-
-          await conversation.save();
-        }
-      }
-    } catch (chatError) {
-      // Chat creation error (non-critical)
-    }
 
     res.json({
       message: 'Emissora aprovada com sucesso!',
@@ -244,97 +196,14 @@ export const getBroadcastersForManagement = async (req: AuthRequest, res: Respon
       .limit(limitNum)
       .lean();
 
-    // Batch: buscar todas as conversas de admin com emissoras em uma única query
-    const broadcasterIds = broadcasters.map(b => b._id.toString());
-    const conversations = await Conversation.find({
-      broadcasterId: { $in: broadcasterIds },
-      advertiserName: 'Suporte E-rádios'
-    }).lean();
-
-    // Map para O(1) lookup por broadcasterId
-    const conversationMap = new Map<string, typeof conversations[0]>();
-    conversations.forEach(conv => {
-      conversationMap.set(conv.broadcasterId, conv);
-    });
-
-    const broadcastersWithChat = broadcasters.map((broadcaster) => {
-      const conversation = conversationMap.get(broadcaster._id.toString()) || null;
-      return {
-        ...broadcaster,
-        hasAdminChat: !!conversation,
-        conversationId: conversation?._id || null,
-        lastMessageAt: conversation?.lastMessageAt || null
-      };
-    });
-
-
     res.json({
       total,
       hasMore: pageNum * limitNum < total,
       totalPages: Math.ceil(total / limitNum),
-      broadcasters: broadcastersWithChat
+      broadcasters
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar emissoras' });
-  }
-};
-
-// Criar ou buscar conversa entre admin e emissora
-export const getOrCreateAdminConversation = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { broadcasterId } = req.params;
-    const adminId = req.user?._id?.toString();
-
-
-    if (!adminId) {
-      res.status(401).json({ message: 'Admin não autenticado' });
-      return;
-    }
-
-    // Buscar dados da emissora
-    const broadcaster = await User.findById(broadcasterId).select('-password');
-
-    if (!broadcaster || broadcaster.userType !== 'broadcaster') {
-      res.status(404).json({ message: 'Emissora não encontrada' });
-      return;
-    }
-
-    // Buscar conversa existente (admin usa campo advertiserId)
-    let conversation = await Conversation.findOne({
-      advertiserId: adminId,
-      broadcasterId: broadcasterId
-    });
-
-    // Se não existe, criar nova conversa
-    if (!conversation) {
-
-      const broadcasterProfile = broadcaster.broadcasterProfile;
-      const generalInfo = broadcasterProfile?.generalInfo || {};
-
-      conversation = new Conversation({
-        advertiserId: adminId,
-        advertiserName: 'Suporte E-rádios',
-        broadcasterId: broadcasterId,
-        broadcasterName: generalInfo.stationName || broadcaster.companyName || 'Emissora',
-        broadcasterLogo: broadcasterProfile?.logo || '',
-        broadcasterDial: generalInfo.dialFrequency || '',
-        broadcasterBand: generalInfo.band || '',
-        messages: [],
-        relatedOrders: [],
-        lastMessageAt: new Date(),
-        unreadCount: {
-          advertiser: 0,
-          broadcaster: 0
-        }
-      });
-
-      await conversation.save();
-    } else {
-    }
-
-    res.json({ conversation });
-  } catch (error: any) {
-    res.status(500).json({ error: 'Erro ao processar conversa' });
   }
 };
 
@@ -360,107 +229,6 @@ export const getBroadcasterDetails = async (req: Request, res: Response): Promis
     res.json({ broadcaster });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar detalhes da emissora' });
-  }
-};
-
-// Buscar dados financeiros da emissora (wallet)
-export const getBroadcasterWallet = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    // Verifica se a emissora existe
-    const broadcaster = await User.findById(id);
-    if (!broadcaster || broadcaster.userType !== 'broadcaster') {
-      res.status(404).json({ error: 'Emissora não encontrada' });
-      return;
-    }
-
-    // Busca wallet da emissora
-    let wallet = await WalletModel.findOne({ userId: id });
-
-    if (!wallet) {
-      // Cria wallet se não existir
-      wallet = new WalletModel({
-        userId: id,
-        balance: 0,
-        blockedBalance: 0,
-        totalEarned: 0,
-        totalSpent: 0,
-        transactions: []
-      });
-      await wallet.save();
-    }
-
-    // Valores da wallet
-    const balance = wallet.balance || 0;
-    const blockedBalance = wallet.blockedBalance || 0;
-    const totalEarned = wallet.totalEarned || 0;
-
-    // Busca TODOS os pedidos da emissora que foram pagos (mesma lógica do painel financeiro)
-    const allPaidOrders = await OrderModel.find({
-      'items.broadcasterId': id,
-      status: { $nin: ['pending_payment', 'cancelled', 'pending_billing_validation', 'billing_rejected'] }
-    }).select('orderNumber status splits broadcasterAmount payment createdAt paidAt');
-
-    // Calcula total ganho historicamente (soma dos splits em pedidos pagos)
-    let totalFromOrders = 0;
-    for (const order of allPaidOrders) {
-      const broadcasterSplits = order.splits?.filter((split: any) =>
-        split.recipientId?.toString() === id && split.recipientType === 'broadcaster'
-      ) || [];
-
-      const orderAmount = broadcasterSplits.reduce((sum: number, split: any) =>
-        sum + (split.amount || 0), 0
-      );
-
-      totalFromOrders += orderAmount;
-    }
-
-    // Busca orders PAGOS mas NÃO APROVADOS ainda (receita pendente de aprovação da emissora)
-    // Quando emissora aprovar, os valores serão creditados na wallet
-    const pendingOrders = await OrderModel.find({
-      'items.broadcasterId': id,
-      status: { $in: ['paid', 'pending_approval'] }, // Pagos mas aguardando aprovação da emissora
-      'payment.method': { $ne: 'billing' } // Exclui "A Faturar" (tem fluxo diferente)
-    }).select('splits');
-
-    // Calcula valor pendente (aguardando aprovação da emissora)
-    let pendingAmount = 0;
-    for (const order of pendingOrders) {
-      const broadcasterSplits = order.splits?.filter((split: any) =>
-        split.recipientId?.toString() === id && split.recipientType === 'broadcaster'
-      ) || [];
-
-      const orderPendingAmount = broadcasterSplits.reduce((sum: number, split: any) =>
-        sum + (split.amount || 0), 0
-      );
-
-      pendingAmount += orderPendingAmount;
-    }
-
-    // Pega últimas 20 transações da wallet
-    const recentTransactions = wallet.transactions
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 20);
-
-
-
-    res.json({
-      balance,
-      blockedBalance,
-      totalEarned, // Total acumulado na wallet
-      totalFromOrders, // Total calculado dos pedidos (deve bater com totalEarned)
-      pendingAmount,
-      transactions: recentTransactions,
-      // Estatísticas adicionais
-      stats: {
-        paidOrders: allPaidOrders.length,
-        pendingOrders: pendingOrders.length,
-        totalOrders: allPaidOrders.length + pendingOrders.length
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar dados financeiros' });
   }
 };
 
@@ -674,95 +442,6 @@ export const adminApproveOrder = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Credita valores conforme array de splits (apenas para pagamentos já processados)
-    const creditResults: any[] = [];
-
-    for (const split of order.splits) {
-
-      if (split.recipientType === 'broadcaster') {
-        // Credita wallet da emissora
-        let broadcasterWallet = await WalletModel.findOne({ userId: split.recipientId });
-        if (!broadcasterWallet) {
-          broadcasterWallet = await WalletModel.create({
-            userId: split.recipientId,
-            balance: 0,
-            blockedBalance: 0,
-            totalEarned: 0,
-            totalSpent: 0,
-            transactions: []
-          });
-        }
-
-        await broadcasterWallet.addCredit(
-          split.amount,
-          `Pedido ${order.orderNumber} - ${split.description}`,
-          order._id
-        );
-
-        creditResults.push({
-          recipient: split.recipientName,
-          type: 'broadcaster',
-          amount: split.amount,
-          status: 'credited'
-        });
-
-      } else if (split.recipientType === 'platform') {
-        // Credita wallet da plataforma
-        let platformWallet = await WalletModel.findOne({ userId: 'platform' });
-        if (!platformWallet) {
-          platformWallet = await WalletModel.create({
-            userId: 'platform',
-            balance: 0,
-            blockedBalance: 0,
-            totalEarned: 0,
-            totalSpent: 0,
-            transactions: []
-          });
-        }
-
-        await platformWallet.addCredit(
-          split.amount,
-          `Pedido ${order.orderNumber} - ${split.description}`,
-          order._id
-        );
-
-        creditResults.push({
-          recipient: 'Plataforma',
-          type: 'platform',
-          amount: split.amount,
-          status: 'credited'
-        });
-
-      } else if (split.recipientType === 'agency') {
-        // Credita wallet da agência (se houver)
-        let agencyWallet = await WalletModel.findOne({ userId: split.recipientId });
-        if (!agencyWallet) {
-          agencyWallet = await WalletModel.create({
-            userId: split.recipientId,
-            balance: 0,
-            blockedBalance: 0,
-            totalEarned: 0,
-            totalSpent: 0,
-            transactions: []
-          });
-        }
-
-        await agencyWallet.addCredit(
-          split.amount,
-          `Pedido ${order.orderNumber} - ${split.description}`,
-          order._id
-        );
-
-        creditResults.push({
-          recipient: split.recipientName,
-          type: 'agency',
-          amount: split.amount,
-          status: 'credited'
-        });
-
-      }
-    }
-
     // Atualiza status do pedido
     order.status = 'approved';
     order.approvedAt = new Date();
@@ -789,309 +468,17 @@ export const adminApproveOrder = async (req: AuthRequest, res: Response) => {
     });
 
     return res.json({
-      message: 'Pedido aprovado com sucesso! Valores creditados nas wallets.',
+      message: 'Pedido aprovado com sucesso!',
       order: {
         orderNumber: order.orderNumber,
         status: order.status
-      },
-      credits: creditResults
+      }
     });
 
   } catch (error) {
     return res.status(500).json({ message: 'Erro interno ao aprovar pedido' });
   }
 };
-/**
- * GET /api/admin/platform-wallet
- * Retorna saldo e informações da wallet da plataforma
- */
-export const getPlatformWallet = async (req: AuthRequest, res: Response) => {
-  try {
-
-    let platformWallet = await WalletModel.findOne({ userId: 'platform' });
-
-    // Cria wallet se não existir
-    if (!platformWallet) {
-      platformWallet = await WalletModel.create({
-        userId: 'platform',
-        balance: 0,
-        blockedBalance: 0,
-        totalEarned: 0,
-        totalSpent: 0,
-        transactions: []
-      });
-    }
-
-    // Busca transações recentes (últimas 50)
-    const recentTransactions = platformWallet.transactions
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 50);
-
-    // Asaas descontinuado — saldo retorna null
-    const asaasBalance = null;
-
-    res.json({
-      wallet: {
-        balance: platformWallet.balance,
-        blockedBalance: platformWallet.blockedBalance || 0,
-        totalEarned: platformWallet.totalEarned,
-        totalSpent: platformWallet.totalSpent || 0,
-        availableBalance: platformWallet.balance - (platformWallet.blockedBalance || 0),
-        bankAccount: platformWallet.bankAccount
-      },
-      asaasBalance: null,
-      transactions: recentTransactions
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: 'Erro ao buscar wallet da plataforma' });
-  }
-};
-
-/**
- * PUT /api/admin/platform-wallet/bank-account
- * Atualiza dados bancários da wallet da plataforma
- */
-export const updatePlatformBankAccount = async (req: AuthRequest, res: Response) => {
-  try {
-    const { bankCode, bankName, agency, account, accountDigit, accountType, holderName, holderDocument } = req.body;
-
-
-    // Validações básicas
-    if (!bankCode || !agency || !account || !holderName || !holderDocument) {
-      return res.status(400).json({ message: 'Todos os campos são obrigatórios' });
-    }
-
-    let platformWallet = await WalletModel.findOne({ userId: 'platform' });
-
-    if (!platformWallet) {
-      platformWallet = await WalletModel.create({
-        userId: 'platform',
-        balance: 0,
-        blockedBalance: 0,
-        totalEarned: 0,
-        totalSpent: 0,
-        transactions: []
-      });
-    }
-
-    platformWallet.bankAccount = {
-      bankCode,
-      bankName: bankName || bankCode,
-      agency,
-      account,
-      accountDigit: accountDigit || '',
-      accountType: accountType || 'checking',
-      holderName,
-      holderDocument
-    };
-
-    await platformWallet.save();
-
-
-    res.json({
-      message: 'Dados bancários atualizados com sucesso',
-      bankAccount: platformWallet.bankAccount
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: 'Erro ao atualizar dados bancários' });
-  }
-};
-
-/**
- * POST /api/admin/platform-wallet/withdraw
- * Descontinuado — integração Asaas removida
- */
-export const requestPlatformWithdraw = async (req: AuthRequest, res: Response) => {
-  res.status(410).json({ error: 'Feature de saque via Asaas descontinuada. Pagamentos são feitos por fora da plataforma.' });
-};
-
-/**
- * POST /api/admin/platform-wallet/confirm-withdraw
- * Confirma saque processado (marca como concluído)
- */
-export const confirmPlatformWithdraw = async (req: AuthRequest, res: Response) => {
-  try {
-    const { externalReference } = req.body;
-    const amount = Number(req.body.amount);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return res.status(400).json({ error: 'Valor de saque deve ser um número positivo' });
-    }
-
-    const platformWallet = await WalletModel.findOne({ userId: 'platform' });
-
-    if (!platformWallet) {
-      return res.status(404).json({ message: 'Wallet da plataforma não encontrada' });
-    }
-
-    // Debita do saldo e remove do bloqueado
-    platformWallet.balance -= amount;
-    platformWallet.blockedBalance = Math.max(0, (platformWallet.blockedBalance || 0) - amount);
-    platformWallet.totalSpent = (platformWallet.totalSpent || 0) + amount;
-
-    // Adiciona transação de saque confirmado
-    platformWallet.transactions.push({
-      type: 'debit',
-      amount,
-      description: `Saque confirmado${externalReference ? ` - Ref: ${externalReference}` : ''}`,
-      status: 'completed',
-      createdAt: new Date()
-    });
-
-    await platformWallet.save();
-
-
-    res.json({
-      message: 'Saque confirmado com sucesso',
-      newBalance: platformWallet.balance
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: 'Erro ao confirmar saque' });
-  }
-};
-
-/**
- * GET /api/admin/platform-wallet/check-transfers
- * Descontinuado — integração Asaas removida
- */
-export const checkPendingTransfers = async (req: AuthRequest, res: Response) => {
-  res.status(410).json({ error: 'Feature de verificação de transferências Asaas descontinuada.' });
-};
-
-/**
- * GET /api/admin/withdraw-requests
- * Lista todas as solicitações de saque pendentes (emissoras e agências)
- */
-export const getPendingWithdrawRequests = async (req: AuthRequest, res: Response) => {
-  try {
-
-    // Busca todas as wallets que têm transações de débito pendentes
-    const walletsWithPendingWithdraws = await WalletModel.find({
-      'transactions': {
-        $elemMatch: {
-          type: 'debit',
-          status: 'pending'
-        }
-      }
-    });
-
-    // Filtra wallets de usuários (exclui plataforma) e busca todos os usuários em batch
-    const userWallets = walletsWithPendingWithdraws.filter(w => w.userId !== 'platform');
-    const userIds = userWallets.map(w => w.userId);
-    const users = await User.find({ _id: { $in: userIds } }).select('fantasyName companyName email userType');
-
-    // Map para O(1) lookup por userId
-    const userMap = new Map<string, typeof users[0]>();
-    users.forEach(u => userMap.set(u._id.toString(), u));
-
-    const requests: any[] = [];
-
-    for (const wallet of userWallets) {
-      const user = userMap.get(wallet.userId.toString()) || null;
-
-      // Filtra transações pendentes
-      const pendingTransactions = wallet.transactions.filter(
-        t => t.type === 'debit' && t.status === 'pending'
-      );
-
-      for (const tx of pendingTransactions) {
-        requests.push({
-          walletId: wallet._id,
-          transactionId: (tx as any)._id,
-          userId: wallet.userId,
-          userName: user?.fantasyName || user?.companyName || user?.email || 'Desconhecido',
-          userType: user?.userType || 'unknown',
-          amount: tx.amount,
-          requestedAt: tx.createdAt,
-          bankAccount: wallet.bankAccount,
-          walletBalance: wallet.balance,
-          walletBlockedBalance: wallet.blockedBalance
-        });
-      }
-    }
-
-    // Ordena por data (mais antigo primeiro)
-    requests.sort((a, b) => new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime());
-
-    res.json({
-      total: requests.length,
-      requests
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: 'Erro ao listar solicitações' });
-  }
-};
-
-/**
- * POST /api/admin/withdraw-requests/:walletId/:transactionId/process
- * Descontinuado — integração Asaas removida
- */
-export const processWithdrawRequest = async (req: AuthRequest, res: Response) => {
-  res.status(410).json({ error: 'Feature de processamento de saque via Asaas descontinuada.' });
-};
-
-/**
- * POST /api/admin/withdraw-requests/:walletId/:transactionId/reject
- * Rejeita uma solicitação de saque
- */
-export const rejectWithdrawRequest = async (req: AuthRequest, res: Response) => {
-  try {
-    const { walletId, transactionId } = req.params;
-    const { reason } = req.body;
-
-
-    // Busca wallet
-    const wallet = await WalletModel.findById(walletId);
-    if (!wallet) {
-      return res.status(404).json({ message: 'Wallet não encontrada' });
-    }
-
-    // Busca transação
-    const txIndex = wallet.transactions.findIndex(
-      t => (t as any)._id?.toString() === transactionId
-    );
-
-    if (txIndex === -1) {
-      return res.status(404).json({ message: 'Transação não encontrada' });
-    }
-
-    const transaction = wallet.transactions[txIndex];
-
-    if (!transaction) {
-      return res.status(404).json({ message: 'Transação não encontrada' });
-    }
-
-    if (transaction.status !== 'pending') {
-      return res.status(400).json({ message: 'Transação já foi processada' });
-    }
-
-    // Atualiza transação
-    const tx = wallet.transactions[txIndex];
-    if (tx) {
-      tx.status = 'failed';
-      tx.description = `Saque rejeitado: ${reason || 'Motivo não informado'}`;
-    }
-
-    // Libera bloqueio (devolve para saldo disponível)
-    wallet.blockedBalance = Math.max(0, (wallet.blockedBalance || 0) - transaction.amount);
-
-    await wallet.save();
-
-
-    res.json({
-      message: 'Solicitação de saque rejeitada. Valor devolvido ao saldo disponível.',
-      releasedAmount: transaction?.amount || 0
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: 'Erro ao rejeitar saque' });
-  }
-};
-
 /**
  * PUT /api/admin/orders/:orderId/status
  * Atualiza o status de um pedido (admin)
@@ -1332,12 +719,6 @@ export const getUserFullDetails = async (req: AuthRequest, res: Response) => {
     const paidOrders = orders.filter((o: any) => ['paid', 'approved', 'completed'].includes(o.status));
     const totalSpent = paidOrders.reduce((sum, order) => sum + (order.payment?.totalAmount || 0), 0);
 
-    // Se for broadcaster, buscar wallet também
-    let wallet = null;
-    if (user.userType === 'broadcaster') {
-      wallet = await WalletModel.findOne({ userId }).lean();
-    }
-
     res.json({
       user,
       cart: cart || { items: [] },
@@ -1346,8 +727,7 @@ export const getUserFullDetails = async (req: AuthRequest, res: Response) => {
         totalOrders: orders.length,
         totalSpent,
         completedOrders: paidOrders.length
-      },
-      wallet
+      }
     });
 
   } catch (error) {
@@ -1514,15 +894,7 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     );
     deletionSummary.ordersAnonymized = orderUpdateResult.modifiedCount;
 
-    // 3. Conversas do usuário (como anunciante/advertiser)
-    const convResult = await Conversation.deleteMany({ advertiserId: userId.toString() });
-    deletionSummary.conversations = convResult.deletedCount;
-
-    // 4. Wallet do usuário
-    const walletResult = await WalletModel.deleteMany({ userId });
-    deletionSummary.wallets = walletResult.deletedCount;
-
-    // 5. Quote Requests (solicitações de orçamento)
+    // 3. Quote Requests (solicitações de orçamento)
     const quoteResult = await QuoteRequest.deleteMany({ buyer: userId });
     deletionSummary.quoteRequests = quoteResult.deletedCount;
 

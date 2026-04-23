@@ -149,6 +149,31 @@ export interface IOpec {
   description?: string;
 }
 
+export interface IOrderContractInstallment {
+  number: number;
+  dueDate: Date;
+  amount: number;
+}
+
+export type OrderContractIntervalUnit = 'day' | 'week' | 'fortnight' | 'month';
+
+export interface IOrderContract {
+  contractNumber?: string;
+  clientSnapshot?: { name?: string; document?: string };
+  agencySnapshot?: { name?: string; document?: string };
+  validity?: { start?: Date; end?: Date };
+  totalValue: number;
+  installmentsCount: number;
+  firstDueDate?: Date;
+  carrier?: string;
+  procedure?: string;
+  interval?: { value: number; unit: OrderContractIntervalUnit };
+  dueDay?: number;
+  installments: IOrderContractInstallment[];
+  description?: string;
+  descriptionTags: string[];
+}
+
 export interface IPayment {
   method: 'credit_card' | 'pix' | 'wallet' | 'billing' | 'pending_contact'; // Adicionado 'pending_contact'
   status: 'pending' | 'confirmed' | 'received' | 'failed' | 'refunded';
@@ -198,6 +223,9 @@ export interface IOrder extends Document {
   // Origem interna da emissora (proposta aprovada convertida em campanha) —
   // fica fora do kanban do admin porque nao envolve plataforma.
   isFromBroadcasterProposal?: boolean;
+
+  // Contrato (condicoes de pagamento) — copiado da proposta na conversao.
+  contract?: IOrderContract;
 
   // Valores financeiros
   grossAmount: number; // Valor bruto dos produtos (100%)
@@ -434,6 +462,44 @@ const OrderSchema = new Schema<IOrder>({
   },
 
   isFromBroadcasterProposal: { type: Boolean, default: false, index: true },
+
+  // Contrato copiado da proposta (condicoes de pagamento)
+  contract: { type: new Schema<IOrderContract>({
+    contractNumber: { type: String },
+    clientSnapshot: {
+      name: { type: String },
+      document: { type: String }
+    },
+    agencySnapshot: {
+      name: { type: String },
+      document: { type: String }
+    },
+    validity: {
+      start: { type: Date },
+      end: { type: Date }
+    },
+    totalValue: { type: Number, default: 0 },
+    installmentsCount: { type: Number, default: 1 },
+    firstDueDate: { type: Date },
+    carrier: { type: String },
+    procedure: { type: String },
+    interval: {
+      value: { type: Number },
+      unit: { type: String, enum: ['day', 'week', 'fortnight', 'month'] }
+    },
+    dueDay: { type: Number, min: 1, max: 31 },
+    installments: {
+      type: [{
+        number: { type: Number, required: true },
+        dueDate: { type: Date, required: true },
+        amount: { type: Number, required: true },
+        _id: false
+      }],
+      default: []
+    },
+    description: { type: String },
+    descriptionTags: { type: [String], default: [] }
+  }, { _id: false }), default: undefined },
 
   grossAmount: { type: Number, required: true },
   broadcasterAmount: { type: Number, required: true },

@@ -19,6 +19,8 @@ import broadcasterCalendarRoutes from '../../routes/broadcasterCalendarRoutes';
 import { connectTestDB, clearTestDB, disconnectTestDB } from '../helpers/setup';
 import { createBroadcaster, createAdvertiser } from '../helpers/authHelper';
 import { Sponsorship } from '../../models/Sponsorship';
+import Order from '../../models/Order';
+import Proposal from '../../models/Proposal';
 
 function createTestApp(): Application {
   const app = express();
@@ -227,5 +229,122 @@ describe('GET /api/broadcaster/calendar', () => {
     expect(res.status).toBe(200);
     const inactiveEvents = res.body.events.filter((e: any) => e.title === 'Programa Inativo');
     expect(inactiveEvents).toHaveLength(0);
+  });
+
+  it('gera eventos vencimento_parcela a partir de orders com contract', async () => {
+    const { user: broadcaster, auth } = await createBroadcaster();
+
+    await Order.create({
+      orderNumber: `ORD-TEST-${Date.now()}`,
+      buyerId: broadcaster._id,
+      buyerName: 'Cliente XYZ',
+      buyerEmail: 'cli@xyz.com',
+      buyerPhone: '11999999999',
+      buyerDocument: '12345678900',
+      items: [{
+        productId: 'p1',
+        productName: 'Comercial 30s',
+        broadcasterName: 'Radio',
+        broadcasterId: broadcaster._id.toString(),
+        quantity: 10,
+        unitPrice: 100,
+        totalPrice: 1000,
+        schedule: new Map(),
+      }],
+      payment: { method: 'pending_contact' as const, status: 'pending' as const, walletAmountUsed: 0, chargedAmount: 1000, totalAmount: 1000 },
+      splits: [],
+      status: 'approved',
+      isFromBroadcasterProposal: true,
+      grossAmount: 1000, broadcasterAmount: 1000, platformSplit: 0, techFee: 0,
+      agencyCommission: 0, monitoringCost: 0, isMonitoringEnabled: false,
+      totalAmount: 1000, subtotal: 1000, platformFee: 0,
+      contract: {
+        contractNumber: 'CTR-ABC123-0001',
+        totalValue: 1000,
+        installmentsCount: 3,
+        procedure: 'Boleto',
+        carrier: 'Carteira',
+        descriptionTags: [],
+        installments: [
+          { number: 1, dueDate: new Date('2026-04-10'), amount: 333.33 },
+          { number: 2, dueDate: new Date('2026-04-20'), amount: 333.33 },
+          { number: 3, dueDate: new Date('2026-04-30'), amount: 333.34 },
+        ],
+      },
+    });
+
+    const res = await request(app)
+      .get(`/api/broadcaster/calendar?start=${START}&end=${END}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    const parcelaEvents = res.body.events.filter((e: any) => e.type === 'vencimento_parcela');
+    expect(parcelaEvents).toHaveLength(3);
+    expect(parcelaEvents[0].contractNumber).toBe('CTR-ABC123-0001');
+    expect(parcelaEvents[0].procedure).toBe('Boleto');
+    expect(parcelaEvents[0].amount).toBe(333.33);
+    expect(parcelaEvents[0].installmentNumber).toBe(1);
+
+    // dateSummary tem o campo parcelas
+    const d10 = res.body.dateSummary['2026-04-10'];
+    expect(d10).toBeDefined();
+    expect(d10.parcelas).toBe(1);
+  });
+
+  it('nao duplica parcelas quando proposta approved ja foi convertida em order', async () => {
+    const { user: broadcaster, auth } = await createBroadcaster();
+
+    const order = await Order.create({
+      orderNumber: `ORD-DUP-${Date.now()}`,
+      buyerId: broadcaster._id,
+      buyerName: 'Cliente',
+      buyerEmail: 'c@c.com',
+      buyerPhone: '1',
+      buyerDocument: '1',
+      items: [{
+        productId: 'p1', productName: 'P', broadcasterName: 'R',
+        broadcasterId: broadcaster._id.toString(),
+        quantity: 1, unitPrice: 100, totalPrice: 100, schedule: new Map(),
+      }],
+      payment: { method: 'pending_contact' as const, status: 'pending' as const, walletAmountUsed: 0, chargedAmount: 100, totalAmount: 100 },
+      splits: [],
+      status: 'approved',
+      isFromBroadcasterProposal: true,
+      grossAmount: 100, broadcasterAmount: 100, platformSplit: 0, techFee: 0,
+      agencyCommission: 0, monitoringCost: 0, isMonitoringEnabled: false,
+      totalAmount: 100, subtotal: 100, platformFee: 0,
+      contract: {
+        contractNumber: 'CTR-X-0001', totalValue: 100, installmentsCount: 1,
+        descriptionTags: [],
+        installments: [{ number: 1, dueDate: new Date('2026-04-15'), amount: 100 }],
+      },
+    });
+
+    await Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId: broadcaster._id,
+      title: 'P',
+      slug: `dup-${Date.now()}`,
+      items: [{ productName: 'P', quantity: 1, unitPrice: 100, totalPrice: 100, productType: 'Comercial' }],
+      grossAmount: 100, totalAmount: 100,
+      status: 'approved',
+      convertedOrderId: order._id,
+      contract: {
+        contractNumber: 'CTR-X-0001', totalValue: 100, installmentsCount: 1,
+        descriptionTags: [],
+        installments: [{ number: 1, dueDate: new Date('2026-04-15'), amount: 100 }],
+      },
+    });
+
+    const res = await request(app)
+      .get(`/api/broadcaster/calendar?start=${START}&end=${END}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    const parcelaEvents = res.body.events.filter((e: any) => e.type === 'vencimento_parcela');
+    // So um evento — vem do Order, nao duplica via Proposal
+    expect(parcelaEvents).toHaveLength(1);
   });
 });

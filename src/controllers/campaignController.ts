@@ -2,28 +2,8 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import Order from '../models/Order';
 import { Product } from '../models/Product';
-import Wallet from '../models/Wallet';
 import { User } from '../models/User';
 import { sendOrderApprovedToClient, sendOrderRejectedToClient, sendNewOrderToBroadcaster } from '../services/emailService';
-
-/**
- * Garante que a wallet da plataforma existe
- */
-async function ensurePlatformWallet() {
-  const platformUserId = process.env.PLATFORM_USER_ID || 'platform';
-  let platformWallet = await Wallet.findOne({ userId: platformUserId });
-  if (!platformWallet) {
-    platformWallet = await Wallet.create({
-      userId: platformUserId,
-      balance: 0,
-      blockedBalance: 0,
-      totalEarned: 0,
-      totalSpent: 0,
-      transactions: []
-    });
-  }
-  return platformWallet;
-}
 
 /**
  * Controller de Campanhas
@@ -81,21 +61,6 @@ export const processAutoApprovalForCatalogItems = async (orderId: string): Promi
 
     // Se TODOS os itens são de emissoras catálogo, auto-aprova o pedido inteiro
     if (allCatalog) {
-
-      // Credita valores na wallet da plataforma (emissoras catálogo não recebem via wallet)
-      for (const split of order.splits) {
-        if (split.recipientType === 'platform') {
-          const platformWallet = await ensurePlatformWallet();
-
-          await platformWallet.addCredit(
-            split.amount,
-            `Pedido ${order.orderNumber} - ${split.description} (Auto-aprovado)`,
-            order._id
-          );
-
-        }
-        // Emissoras catálogo NÃO recebem crédito via wallet (são pagas por fora)
-      }
 
       // Atualiza status do pedido
       order.status = 'approved';
@@ -525,135 +490,40 @@ export const approveBroadcasterItems = async (req: AuthRequest, res: Response) =
       });
     }
 
-    // Credita valores conforme array de splits (apenas para pagamentos já processados)
-    const creditResults: any[] = [];
-
-    for (const split of order.splits) {
-
-      if (split.recipientType === 'broadcaster') {
-        // Credita wallet da emissora
-        let broadcasterWallet = await Wallet.findOne({ userId: split.recipientId });
-        if (!broadcasterWallet) {
-          broadcasterWallet = await Wallet.create({
-            userId: split.recipientId,
-            balance: 0,
-            blockedBalance: 0,
-            totalEarned: 0,
-            totalSpent: 0,
-            transactions: []
-          });
-        }
-
-        await broadcasterWallet.addCredit(
-          split.amount,
-          `Pedido ${order.orderNumber} - ${split.description}`,
-          order._id
-        );
-
-        creditResults.push({
-          recipientType: 'broadcaster',
-          recipientName: split.recipientName,
-          amount: split.amount,
-          newBalance: broadcasterWallet.balance + split.amount
-        });
-
-      }
-
-      else if (split.recipientType === 'platform') {
-        // Credita wallet da plataforma
-        const platformWallet = await ensurePlatformWallet();
-
-        await platformWallet.addCredit(
-          split.amount,
-          `Pedido ${order.orderNumber} - ${split.description}`,
-          order._id
-        );
-
-        creditResults.push({
-          recipientType: 'platform',
-          recipientName: split.recipientName,
-          amount: split.amount,
-          newBalance: platformWallet.balance + split.amount
-        });
-
-      }
-
-      else if (split.recipientType === 'agency') {
-        // Credita wallet da agência
-        let agencyWallet = await Wallet.findOne({ userId: split.recipientId });
-        if (!agencyWallet) {
-          agencyWallet = await Wallet.create({
-            userId: split.recipientId,
-            balance: 0,
-            blockedBalance: 0,
-            totalEarned: 0,
-            totalSpent: 0,
-            transactions: []
-          });
-        }
-
-        await agencyWallet.addCredit(
-          split.amount,
-          `Pedido ${order.orderNumber} - ${split.description}`,
-          order._id
-        );
-
-        creditResults.push({
-          recipientType: 'agency',
-          recipientName: split.recipientName,
-          amount: split.amount,
-          newBalance: agencyWallet.balance + split.amount
-        });
-
-      }
-    }
-
     // Atualiza o status do pedido
     order.status = 'approved';
     order.approvedAt = new Date();
 
-    // Adiciona log de notificação
-    const totalCredited = creditResults.reduce((sum, r) => sum + r.amount, 0);
     order.notifications.push({
       type: 'email',
       sentAt: new Date(),
       status: 'sent',
-      message: `Pedido aprovado. Total distribuído: R$ ${totalCredited.toFixed(2)} entre ${creditResults.length} recipientes`
+      message: 'Pedido aprovado pela emissora'
     } as any);
 
     await order.save();
-
-    // Busca wallet atualizada da emissora
-    const updatedWallet = await Wallet.findOne({ userId });
-    const broadcasterCredit = creditResults.find(r => r.recipientType === 'broadcaster');
-
 
     // Busca dados da emissora para o email
     const broadcaster = await User.findById(userId);
     const broadcasterName = broadcaster?.fantasyName || broadcaster?.companyName || 'Emissora';
 
-    // Envia email para o cliente
+    const broadcasterSplit = order.splits.find((s: any) => s.recipientType === 'broadcaster');
+
     sendOrderApprovedToClient({
       orderNumber: order.orderNumber,
       buyerName: order.buyerName,
       buyerEmail: order.buyerEmail,
       broadcasterName,
       broadcasterEmail: broadcaster?.email || '',
-      totalValue: broadcasterCredit?.amount || 0,
+      totalValue: broadcasterSplit?.amount || 0,
       itemsCount: broadcasterItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
       createdAt: order.createdAt
     }).catch(() => {});
 
     res.json({
       success: true,
-      message: `Pedido aprovado! R$ ${broadcasterCredit?.amount.toFixed(2) || '0.00'} foi creditado em sua carteira.`,
-      order,
-      wallet: {
-        balance: updatedWallet?.balance || 0,
-        totalEarned: updatedWallet?.totalEarned || 0,
-        creditedAmount: broadcasterCredit?.amount || 0
-      },
-      creditSummary: creditResults
+      message: 'Pedido aprovado com sucesso!',
+      order
     });
   } catch (error: any) {
     res.status(500).json({
@@ -717,27 +587,6 @@ export const rejectBroadcasterItems = async (req: AuthRequest, res: Response) =>
     // Calcula a taxa proporcional (20% sobre os itens recusados)
     const proportionalFee = itemsValue * 0.20;
     const totalRefund = itemsValue + proportionalFee;
-
-
-    // Busca ou cria wallet do comprador
-    let buyerWallet = await Wallet.findOne({ userId: order.buyerId });
-    if (!buyerWallet) {
-      buyerWallet = await Wallet.create({
-        userId: order.buyerId,
-        balance: 0,
-        blockedBalance: 0,
-        totalEarned: 0,
-        totalSpent: 0,
-        transactions: []
-      });
-    }
-
-    // Credita o estorno na wallet do comprador
-    await buyerWallet.addCredit(
-      totalRefund,
-      `Estorno - Pedido ${order.orderNumber} recusado pela emissora. Motivo: ${reason}`,
-      order._id
-    );
 
 
     // Atualiza o status do pedido

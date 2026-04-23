@@ -6,20 +6,10 @@ import {
   rejectBroadcaster,
   getAllBroadcasters,
   getBroadcastersForManagement,
-  getOrCreateAdminConversation,
   getBroadcasterDetails,
-  getBroadcasterWallet,
   getBroadcasterCampaigns,
   getFullOrdersForAdmin,
   adminApproveOrder,
-  getPlatformWallet,
-  updatePlatformBankAccount,
-  requestPlatformWithdraw,
-  confirmPlatformWithdraw,
-  checkPendingTransfers,
-  getPendingWithdrawRequests,
-  processWithdrawRequest,
-  rejectWithdrawRequest,
   updateOrderStatus,
   getAllUsers,
   getUserFullDetails,
@@ -120,9 +110,7 @@ router.get('/broadcasters/pending', authenticateToken, requireAdmin, getPendingB
 router.get('/broadcasters', authenticateToken, requireAdmin, getAllBroadcasters);
 router.get('/broadcasters/management', authenticateToken, requireAdmin, getBroadcastersForManagement);
 router.get('/broadcasters/:id', authenticateToken, requireAdmin, getBroadcasterDetails);
-router.get('/broadcasters/:id/wallet', authenticateToken, requireAdmin, getBroadcasterWallet);
 router.get('/broadcasters/:id/campaigns', authenticateToken, requireAdmin, getBroadcasterCampaigns);
-router.post('/broadcasters/:broadcasterId/chat', authenticateToken, requireAdmin, getOrCreateAdminConversation);
 router.put('/broadcasters/:broadcasterId/approve', authenticateToken, requireAdmin, auditLog('broadcaster.approve', 'broadcaster'), approveBroadcaster);
 router.put('/broadcasters/:broadcasterId/reject', authenticateToken, requireAdmin, auditLog('broadcaster.reject', 'broadcaster'), rejectBroadcaster);
 
@@ -134,22 +122,6 @@ router.post('/orders/:orderId/approve', authenticateToken, requireAdmin, auditLo
 router.put('/orders/:orderId/status', authenticateToken, requireAdmin, auditLog('order.status_change', 'order'), updateOrderStatus);
 router.post('/orders/:orderId/items/:itemIndex/upload-recording-audio', authenticateToken, requireAdmin, uploadAudio.single('audio'), adminUploadRecordingAudio);
 router.delete('/orders/:orderId/items/:itemIndex/recording-audio', authenticateToken, requireAdmin, adminDeleteRecordingAudio);
-
-// ========================
-// ROTAS DA WALLET DA PLATAFORMA
-// ========================
-router.get('/platform-wallet', authenticateToken, requireAdmin, getPlatformWallet);
-router.put('/platform-wallet/bank-account', authenticateToken, requireAdmin, updatePlatformBankAccount);
-router.post('/platform-wallet/withdraw', authenticateToken, requireAdmin, auditLog('wallet.withdraw', 'platform_wallet'), requestPlatformWithdraw);
-router.post('/platform-wallet/confirm-withdraw', authenticateToken, requireAdmin, confirmPlatformWithdraw);
-router.get('/platform-wallet/check-transfers', authenticateToken, requireAdmin, checkPendingTransfers);
-
-// ========================
-// ROTAS DE SOLICITAÇÕES DE SAQUE (Emissoras/Agências)
-// ========================
-router.get('/withdraw-requests', authenticateToken, requireAdmin, getPendingWithdrawRequests);
-router.post('/withdraw-requests/:walletId/:transactionId/process', authenticateToken, requireAdmin, auditLog('withdraw.process', 'wallet'), processWithdrawRequest);
-router.post('/withdraw-requests/:walletId/:transactionId/reject', authenticateToken, requireAdmin, auditLog('withdraw.reject', 'wallet'), rejectWithdrawRequest);
 
 // ========================
 // ROTAS DE EMISSORAS CATÁLOGO (novas)

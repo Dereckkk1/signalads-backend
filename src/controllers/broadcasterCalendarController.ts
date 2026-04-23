@@ -59,7 +59,7 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response): Promis
       Order.find({
         'items.broadcasterId': { $in: broadcasterIds.map(id => id.toString()) },
         status: { $in: ['approved', 'scheduled', 'in_progress', 'completed', 'paid', 'pending_approval'] },
-      }).select('orderNumber buyerName clientId status items createdAt approvedAt').lean(),
+      }).select('orderNumber buyerName clientId status items createdAt approvedAt contract').lean(),
 
       // 2. Proposals with validUntil in range OR with scheduled items in range
       Proposal.find({
@@ -67,7 +67,7 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response): Promis
         ownerType: 'broadcaster',
         status: { $in: ['sent', 'viewed', 'approved', 'converted', 'draft'] },
         ...salesFilter,
-      }).select('proposalNumber title clientName status validUntil items sentAt createdAt totalAmount').lean(),
+      }).select('proposalNumber title clientName status validUntil items sentAt createdAt totalAmount contract convertedOrderId').lean(),
 
       // 3. Active sponsorships (recurring)
       Sponsorship.find({
@@ -78,7 +78,10 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response): Promis
 
     const events: any[] = [];
 
-    // --- Process Orders (veiculações agendadas) ---
+    // --- Process Orders (veiculações agendadas + parcelas do contrato) ---
+    // Track orders cujas parcelas ja geraram eventos (evita duplicar via proposta convertida)
+    const ordersWithContractSeen = new Set<string>();
+
     for (const order of orders) {
       for (const item of order.items) {
         // Only items belonging to this broadcaster
@@ -111,6 +114,40 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response): Promis
           }
         }
       }
+
+      // Parcelas do contrato (vencimento_parcela)
+      const orderContract: any = (order as any).contract;
+      if (orderContract && Array.isArray(orderContract.installments) && orderContract.installments.length > 0) {
+        ordersWithContractSeen.add(order._id.toString());
+        for (const inst of orderContract.installments) {
+          if (!inst?.dueDate) continue;
+          const d = new Date(inst.dueDate);
+          if (d >= startDate && d <= endDate) {
+            const daysUntil = (d.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
+            const isOverdue = daysUntil < 0;
+            const isNearDue = daysUntil >= 0 && daysUntil < 3;
+            events.push({
+              id: `order-installment-${order._id}-${inst.number}`,
+              type: 'vencimento_parcela',
+              date: d.toISOString().split('T')[0],
+              title: `Parcela ${String(inst.number).padStart(2, '0')}/${orderContract.installmentsCount || orderContract.installments.length}`,
+              subtitle: order.buyerName || orderContract.clientSnapshot?.name || 'Cliente',
+              amount: inst.amount,
+              orderId: order._id,
+              orderNumber: order.orderNumber,
+              orderStatus: order.status,
+              contractNumber: orderContract.contractNumber,
+              installmentNumber: inst.number,
+              installmentsTotal: orderContract.installmentsCount || orderContract.installments.length,
+              procedure: orderContract.procedure,
+              carrier: orderContract.carrier,
+              isOverdue,
+              isNearDue,
+              color: isOverdue ? 'error' : isNearDue ? 'warning' : 'tertiary',
+            });
+          }
+        }
+      }
     }
 
     // --- Process Proposals ---
@@ -133,6 +170,41 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response): Promis
             isExpiringSoon,
             color: isExpiringSoon ? 'error' : 'warning',
           });
+        }
+      }
+
+      // Parcelas do contrato em propostas aprovadas que ainda nao viraram Order
+      // (quando ja converteu em Order, as parcelas vem de la — evita duplicacao)
+      const propContract: any = (proposal as any).contract;
+      const hasOrder = !!(proposal as any).convertedOrderId && ordersWithContractSeen.has((proposal as any).convertedOrderId.toString());
+      if (propContract && Array.isArray(propContract.installments) && propContract.installments.length > 0
+          && proposal.status === 'approved' && !hasOrder) {
+        for (const inst of propContract.installments) {
+          if (!inst?.dueDate) continue;
+          const d = new Date(inst.dueDate);
+          if (d >= startDate && d <= endDate) {
+            const daysUntil = (d.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
+            const isOverdue = daysUntil < 0;
+            const isNearDue = daysUntil >= 0 && daysUntil < 3;
+            events.push({
+              id: `proposal-installment-${proposal._id}-${inst.number}`,
+              type: 'vencimento_parcela',
+              date: d.toISOString().split('T')[0],
+              title: `Parcela ${String(inst.number).padStart(2, '0')}/${propContract.installmentsCount || propContract.installments.length}`,
+              subtitle: proposal.clientName || propContract.clientSnapshot?.name || 'Cliente',
+              amount: inst.amount,
+              proposalId: proposal._id,
+              proposalNumber: proposal.proposalNumber,
+              contractNumber: propContract.contractNumber,
+              installmentNumber: inst.number,
+              installmentsTotal: propContract.installmentsCount || propContract.installments.length,
+              procedure: propContract.procedure,
+              carrier: propContract.carrier,
+              isOverdue,
+              isNearDue,
+              color: isOverdue ? 'error' : isNearDue ? 'warning' : 'tertiary',
+            });
+          }
         }
       }
 
@@ -211,16 +283,17 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response): Promis
     events.sort((a, b) => a.date.localeCompare(b.date));
 
     // Build summary counts per date
-    const dateSummary: Record<string, { veiculacoes: number; patrocinios: number; vencimentos: number; propostas: number }> = {};
+    const dateSummary: Record<string, { veiculacoes: number; patrocinios: number; vencimentos: number; propostas: number; parcelas: number }> = {};
     for (const ev of events) {
       if (!dateSummary[ev.date]) {
-        dateSummary[ev.date] = { veiculacoes: 0, patrocinios: 0, vencimentos: 0, propostas: 0 };
+        dateSummary[ev.date] = { veiculacoes: 0, patrocinios: 0, vencimentos: 0, propostas: 0, parcelas: 0 };
       }
       const entry = dateSummary[ev.date]!;
       if (ev.type === 'veiculacao') entry.veiculacoes++;
       else if (ev.type === 'patrocinio') entry.patrocinios++;
       else if (ev.type === 'vencimento_proposta') entry.vencimentos++;
       else if (ev.type === 'veiculacao_proposta') entry.propostas++;
+      else if (ev.type === 'vencimento_parcela') entry.parcelas++;
     }
 
     res.json({

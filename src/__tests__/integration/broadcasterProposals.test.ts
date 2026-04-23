@@ -437,6 +437,170 @@ describe('POST /api/broadcaster-proposals/:id/send', () => {
 });
 
 // ─────────────────────────────────────────────────
+// POST /api/broadcaster-proposals/:id/reopen
+// Reabertura de proposta recusada para revisao (rejected -> returned)
+// ─────────────────────────────────────────────────
+describe('POST /api/broadcaster-proposals/:id/reopen', () => {
+  async function createRejectedProposal(broadcasterId: mongoose.Types.ObjectId) {
+    return Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId,
+      title: 'Proposta Recusada',
+      slug: `b-reopen-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      items: [{ productName: 'P', quantity: 1, unitPrice: 100, totalPrice: 100, productType: 'Comercial 30s' }],
+      grossAmount: 100,
+      totalAmount: 100,
+      status: 'rejected',
+      respondedAt: new Date(),
+      responseNote: 'Muito caro',
+      approval: { name: 'Cliente X' },
+      statusHistory: [
+        { status: 'sent', changedAt: new Date(Date.now() - 3600_000), actorType: 'broadcaster' },
+        { status: 'rejected', changedAt: new Date(), note: 'Muito caro', actorType: 'client', actorName: 'Cliente X' },
+      ],
+    });
+  }
+
+  it('should move rejected proposal to returned and clear response fields', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const proposal = await createRejectedProposal(broadcaster._id);
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/reopen`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ note: 'Vou ajustar os precos' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.proposal.status).toBe('returned');
+
+    // Persiste no banco
+    const fresh = await Proposal.findById(proposal._id).lean();
+    expect(fresh?.status).toBe('returned');
+    // Nota da emissora registrada no statusHistory
+    const returnedEntry = fresh?.statusHistory?.find((h: any) => h.status === 'returned');
+    expect(returnedEntry).toBeDefined();
+    expect(returnedEntry?.note).toBe('Vou ajustar os precos');
+    expect(returnedEntry?.actorType).toBe('broadcaster');
+    // Motivo da recusa continua disponivel em responseNote historico? Mantemos ate o reenvio — so sendProposal limpa.
+    expect(fresh?.responseNote).toBe('Muito caro');
+  });
+
+  it('should accept reopen without a note', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const proposal = await createRejectedProposal(broadcaster._id);
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/reopen`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.proposal.status).toBe('returned');
+  });
+
+  it('should return 401 when unauthenticated', async () => {
+    const { broadcaster } = await createBroadcasterWithProducts();
+    const proposal = await createRejectedProposal(broadcaster._id);
+
+    const res = await request(app).post(`/api/broadcaster-proposals/${proposal._id}/reopen`).send({});
+
+    expect(res.status).toBe(401);
+  });
+
+  it('should return 404 when proposal belongs to another broadcaster', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const other = await createBroadcaster();
+    const proposal = await createRejectedProposal(other.user._id);
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/reopen`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ note: 'tentativa' });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('should return 400 when proposal is not in rejected status', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const proposal = await Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId: broadcaster._id,
+      title: 'Rascunho',
+      slug: `b-draft-${Date.now()}`,
+      items: [{ productName: 'P', quantity: 1, unitPrice: 100, totalPrice: 100, productType: 'Comercial 30s' }],
+      grossAmount: 100,
+      totalAmount: 100,
+      status: 'draft',
+    });
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/reopen`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({});
+
+    expect(res.status).toBe(400);
+  });
+
+  it('should return 404 for nonexistent proposal', async () => {
+    const { auth } = await createBroadcasterWithProducts();
+    const fakeId = new mongoose.Types.ObjectId();
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${fakeId}/reopen`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({});
+
+    expect(res.status).toBe(404);
+  });
+
+  it('should allow resending a returned proposal via POST /:id/send', async () => {
+    const { broadcaster, auth } = await createBroadcasterWithProducts();
+    const proposal = await Proposal.create({
+      ownerType: 'broadcaster',
+      broadcasterId: broadcaster._id,
+      title: 'Em Revisao',
+      slug: `b-resend-${Date.now()}`,
+      items: [{ productName: 'P', quantity: 1, unitPrice: 100, totalPrice: 100, productType: 'Comercial 30s' }],
+      grossAmount: 100,
+      totalAmount: 100,
+      status: 'returned',
+      respondedAt: new Date(),
+      responseNote: 'Motivo antigo',
+      approval: { name: 'Cliente X', approvedAt: new Date() },
+      statusHistory: [
+        { status: 'sent', changedAt: new Date(Date.now() - 7200_000), actorType: 'broadcaster' },
+        { status: 'rejected', changedAt: new Date(Date.now() - 3600_000), actorType: 'client' },
+        { status: 'returned', changedAt: new Date(), actorType: 'broadcaster' },
+      ],
+    });
+
+    const res = await request(app)
+      .post(`/api/broadcaster-proposals/${proposal._id}/send`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.proposal.status).toBe('sent');
+
+    // Resposta anterior foi limpa para permitir nova decisao
+    const fresh = await Proposal.findById(proposal._id).lean();
+    expect(fresh?.respondedAt).toBeFalsy();
+    expect(fresh?.responseNote).toBeFalsy();
+    // approval removido ou sem approvedAt
+    expect((fresh as any)?.approval?.approvedAt).toBeFalsy();
+    // statusHistory agora inclui novo 'sent' com nota de reenvio
+    const sentEntries = fresh?.statusHistory?.filter((h: any) => h.status === 'sent') || [];
+    expect(sentEntries.length).toBeGreaterThanOrEqual(2);
+    expect(sentEntries[sentEntries.length - 1]?.note).toMatch(/revis/i);
+  });
+});
+
+// ─────────────────────────────────────────────────
 // GET /api/broadcaster-proposals/my-products
 // ─────────────────────────────────────────────────
 describe('GET /api/broadcaster-proposals/my-products', () => {

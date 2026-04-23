@@ -10,6 +10,7 @@ import {
   deleteProposal,
   duplicateProposal,
   sendProposal,
+  reopenProposal,
   uploadProposalImage,
   getTemplates,
   createTemplate,
@@ -34,7 +35,11 @@ import {
   getBroadcasterClientOrigins,
   createBroadcasterClientOrigin,
   updateBroadcasterClientOrigin,
-  deleteBroadcasterClientOrigin
+  deleteBroadcasterClientOrigin,
+  getPaymentTags,
+  createPaymentTag,
+  deletePaymentTag,
+  previewInstallments
 } from '../controllers/broadcasterProposalController';
 
 const router = express.Router();
@@ -84,6 +89,14 @@ router.delete('/client-origins/:id', deleteBroadcasterClientOrigin);
 // Analytics (antes de /:id para não conflitar)
 router.get('/analytics', getAnalytics);
 
+// Tags de descricao de parcelas (contrato)
+router.get('/payment-tags', getPaymentTags);
+router.post('/payment-tags', createPaymentTag);
+router.delete('/payment-tags/:id', deletePaymentTag);
+
+// Preview das parcelas do contrato (nao persiste)
+router.post('/contract/preview-installments', previewInstallments);
+
 // Templates
 router.route('/templates')
   .get(getTemplates)
@@ -106,6 +119,7 @@ router.route('/:id')
 // Ações
 router.post('/:id/duplicate', duplicateProposal);
 router.post('/:id/send', sendProposal);
+router.post('/:id/reopen', reopenProposal);
 router.put('/:id/customization', updateCustomization);
 router.post('/:id/upload', upload.single('file'), uploadProposalImage);
 router.get('/:id/export', exportProposalXlsx);
