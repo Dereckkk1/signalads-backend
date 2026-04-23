@@ -998,6 +998,10 @@ async function autoConvertBroadcasterProposal(
         broadcasterId: item.broadcasterId.toString(),
         quantity: item.quantity,
         unitPrice: effectivePrice,
+        // Preserva preco de tabela e desconto para exibicao em PI/campanha
+        tablePrice: item.tablePrice ?? item.netPrice ?? item.unitPrice,
+        adjustedPrice: item.adjustedPrice,
+        discountReason: item.discountReason,
         totalPrice: parseFloat((effectivePrice * item.quantity).toFixed(2)),
         schedule: item.schedule instanceof Map
           ? item.schedule
@@ -1037,6 +1041,7 @@ async function autoConvertBroadcasterProposal(
     buyerPhone: '',
     buyerDocument: '',
     clientId: proposal.clientId || undefined,
+    description: proposal.description || undefined,
     items: orderItems,
     payment: {
       method: 'pending_contact' as const,
@@ -1416,6 +1421,7 @@ export const convertToOrder = async (req: AuthRequest, res: Response): Promise<v
       buyerPhone: (buyer as any).phone || '',
       buyerDocument: (buyer as any).cpfOrCnpj || (buyer as any).cpf || '',
       clientId: proposal.clientId,
+      description: proposal.description || undefined,
       items: orderItems,
       payment: {
         method: 'pending_contact',

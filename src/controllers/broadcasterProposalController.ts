@@ -2166,6 +2166,7 @@ export const createPaymentTag = async (req: AuthRequest, res: Response): Promise
   try {
     if (!requireBroadcaster(req, res)) return;
     const label = String(req.body?.label || '').trim();
+    const content = req.body?.content != null ? String(req.body.content).trim() : '';
     if (!label) {
       res.status(400).json({ error: 'Label da tag eh obrigatorio' });
       return;
@@ -2174,18 +2175,28 @@ export const createPaymentTag = async (req: AuthRequest, res: Response): Promise
       res.status(400).json({ error: 'Label muito longo (max 60 caracteres)' });
       return;
     }
+    if (content.length > 500) {
+      res.status(400).json({ error: 'Conteudo muito longo (max 500 caracteres)' });
+      return;
+    }
     const broadcasterId = getEffectiveBroadcasterId(req);
     const existing = await BroadcasterPaymentTag.findOne({
       broadcasterId,
       label: { $regex: `^${escapeRegex(label)}$`, $options: 'i' }
     });
     if (existing) {
+      // Atualiza conteudo se foi enviado diferente
+      if (content && existing.content !== content) {
+        existing.content = content;
+        await existing.save();
+      }
       res.status(200).json({ tag: existing });
       return;
     }
     const tag = await BroadcasterPaymentTag.create({
       broadcasterId,
       label,
+      content: content || undefined,
       createdBy: req.userId
     });
     res.status(201).json({ tag });

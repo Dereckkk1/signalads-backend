@@ -288,12 +288,16 @@ export const getPendingApprovalOrders = async (req: AuthRequest, res: Response) 
     const ordersFiltered = orders.map(order => {
       const myItems = order.items.filter((item: any) => item.broadcasterId === userId);
 
-      const myTotalValue = Math.round(
-        myItems.reduce((sum: number, item: any) => {
-          const share = shareMap.get(item.productId?.toString()) ?? 80;
-          return sum + (item.totalPrice || 0) * (share / 100);
-        }, 0) * 100
-      ) / 100;
+      // Orders vindas de proposta da emissora: recebe 100% e ja tem descontos aplicados
+      // no totalAmount (grossAmount - discountAmount global). Nao aplicar sharePercent.
+      const myTotalValue = order.isFromBroadcasterProposal
+        ? (order.totalAmount || 0)
+        : Math.round(
+            myItems.reduce((sum: number, item: any) => {
+              const share = shareMap.get(item.productId?.toString()) ?? 80;
+              return sum + (item.totalPrice || 0) * (share / 100);
+            }, 0) * 100
+          ) / 100;
 
       return {
         ...order,
@@ -379,12 +383,16 @@ export const getBroadcasterOrders = async (req: AuthRequest, res: Response) => {
       const myItems = order.items.filter((item: any) => item.broadcasterId === userId);
 
       // Calcula "minha parte" usando o broadcasterSharePercent de cada produto
-      const myTotalValue = Math.round(
-        myItems.reduce((sum: number, item: any) => {
-          const share = shareMap.get(item.productId?.toString()) ?? 80;
-          return sum + (item.totalPrice || 0) * (share / 100);
-        }, 0) * 100
-      ) / 100;
+      // Orders vindas de proposta da emissora: recebe 100% e ja tem descontos aplicados
+      // no totalAmount (grossAmount - discountAmount global). Nao aplicar sharePercent.
+      const myTotalValue = order.isFromBroadcasterProposal
+        ? (order.totalAmount || 0)
+        : Math.round(
+            myItems.reduce((sum: number, item: any) => {
+              const share = shareMap.get(item.productId?.toString()) ?? 80;
+              return sum + (item.totalPrice || 0) * (share / 100);
+            }, 0) * 100
+          ) / 100;
 
       return {
         ...order,

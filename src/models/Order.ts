@@ -14,7 +14,10 @@ export interface IOrderItem {
   broadcasterName: string;
   broadcasterId: string;
   quantity: number;
-  unitPrice: number;
+  unitPrice: number;            // preco efetivo (ja com desconto do item)
+  tablePrice?: number;          // preco de tabela original (sem desconto) — opcional
+  adjustedPrice?: number;       // preco ajustado por desconto de item (se houve) — opcional
+  discountReason?: string;      // motivo do desconto (ex: 'Bonificação')
   totalPrice: number;
   schedule: Map<string, number>; // { 'YYYY-MM-DD': quantity }
   // Campos de Patrocínio
@@ -203,6 +206,9 @@ export interface IOrder extends Document {
 
   items: IOrderItem[];
 
+  // Observacoes gerais da campanha (copiado de proposal.description na conversao)
+  description?: string;
+
   // Agência: referência ao cliente
   clientId?: mongoose.Types.ObjectId; // Referência ao AgencyClient
 
@@ -275,6 +281,7 @@ const OrderSchema = new Schema<IOrder>({
   buyerDocument: { type: String, required: true },
 
   clientId: { type: Schema.Types.ObjectId, ref: 'AgencyClient' },
+  description: { type: String },
 
   items: [{
     productId: { type: String, required: true },
@@ -283,6 +290,9 @@ const OrderSchema = new Schema<IOrder>({
     broadcasterId: { type: String, required: true },
     quantity: { type: Number, required: true },
     unitPrice: { type: Number, required: true },
+    tablePrice: { type: Number },
+    adjustedPrice: { type: Number },
+    discountReason: { type: String },
     totalPrice: { type: Number, required: true },
     schedule: { type: Map, of: Number, required: true },
     // Campos de Patrocínio
