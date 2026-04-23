@@ -20,9 +20,9 @@ describe('generateInstallments', () => {
       interval: { value: 30, unit: 'day' },
     });
     expect(res).toHaveLength(1);
-    expect(res[0].number).toBe(1);
-    expect(res[0].amount).toBe(500);
-    expect(res[0].dueDate.toISOString().slice(0, 10)).toBe('2026-05-10');
+    expect(res[0]!.number).toBe(1);
+    expect(res[0]!.amount).toBe(500);
+    expect(res[0]!.dueDate.toISOString().slice(0, 10)).toBe('2026-05-10');
   });
 
   it('distribui valores iguais e soma total igual ao totalValue', () => {
@@ -35,7 +35,7 @@ describe('generateInstallments', () => {
     expect(res).toHaveLength(3);
     const sum = res.reduce((acc, i) => acc + i.amount, 0);
     expect(parseFloat(sum.toFixed(2))).toBe(300);
-    expect(res[0].amount).toBe(100);
+    expect(res[0]!.amount).toBe(100);
   });
 
   it('coloca centavos remanescentes na ultima parcela', () => {
@@ -49,8 +49,8 @@ describe('generateInstallments', () => {
     const sum = res.reduce((acc, i) => acc + i.amount, 0);
     expect(parseFloat(sum.toFixed(2))).toBe(100);
     // As duas primeiras sao iguais e a ultima absorve diferenca
-    expect(res[0].amount).toBe(res[1].amount);
-    expect(res[2].amount).toBeGreaterThanOrEqual(res[0].amount);
+    expect(res[0]!.amount).toBe(res[1]!.amount);
+    expect(res[2]!.amount).toBeGreaterThanOrEqual(res[0]!.amount);
   });
 
   it('avanca por dias corretamente', () => {
@@ -60,9 +60,9 @@ describe('generateInstallments', () => {
       firstDueDate: '2026-01-01',
       interval: { value: 15, unit: 'day' },
     });
-    expect(res[0].dueDate.toISOString().slice(0, 10)).toBe('2026-01-01');
-    expect(res[1].dueDate.toISOString().slice(0, 10)).toBe('2026-01-16');
-    expect(res[2].dueDate.toISOString().slice(0, 10)).toBe('2026-01-31');
+    expect(res[0]!.dueDate.toISOString().slice(0, 10)).toBe('2026-01-01');
+    expect(res[1]!.dueDate.toISOString().slice(0, 10)).toBe('2026-01-16');
+    expect(res[2]!.dueDate.toISOString().slice(0, 10)).toBe('2026-01-31');
   });
 
   it('avanca por semanas corretamente', () => {
@@ -72,8 +72,8 @@ describe('generateInstallments', () => {
       firstDueDate: '2026-01-05',
       interval: { value: 1, unit: 'week' },
     });
-    expect(res[1].dueDate.toISOString().slice(0, 10)).toBe('2026-01-12');
-    expect(res[2].dueDate.toISOString().slice(0, 10)).toBe('2026-01-19');
+    expect(res[1]!.dueDate.toISOString().slice(0, 10)).toBe('2026-01-12');
+    expect(res[2]!.dueDate.toISOString().slice(0, 10)).toBe('2026-01-19');
   });
 
   it('avanca por quinzenas (15 dias) corretamente', () => {
@@ -83,7 +83,7 @@ describe('generateInstallments', () => {
       firstDueDate: '2026-01-10',
       interval: { value: 1, unit: 'fortnight' },
     });
-    expect(res[1].dueDate.toISOString().slice(0, 10)).toBe('2026-01-25');
+    expect(res[1]!.dueDate.toISOString().slice(0, 10)).toBe('2026-01-25');
   });
 
   it('avanca por meses ajustando ao dueDay', () => {
@@ -94,9 +94,9 @@ describe('generateInstallments', () => {
       interval: { value: 1, unit: 'month' },
       dueDay: 15,
     });
-    expect(res[0].dueDate.toISOString().slice(0, 10)).toBe('2026-01-10');
-    expect(res[1].dueDate.toISOString().slice(0, 10)).toBe('2026-02-15');
-    expect(res[2].dueDate.toISOString().slice(0, 10)).toBe('2026-03-15');
+    expect(res[0]!.dueDate.toISOString().slice(0, 10)).toBe('2026-01-10');
+    expect(res[1]!.dueDate.toISOString().slice(0, 10)).toBe('2026-02-15');
+    expect(res[2]!.dueDate.toISOString().slice(0, 10)).toBe('2026-03-15');
   });
 
   it('ajusta dueDay=31 para ultimo dia de fevereiro', () => {
@@ -107,7 +107,7 @@ describe('generateInstallments', () => {
       interval: { value: 1, unit: 'month' },
       dueDay: 31,
     });
-    expect(res[1].dueDate.toISOString().slice(0, 10)).toBe('2026-02-28');
+    expect(res[1]!.dueDate.toISOString().slice(0, 10)).toBe('2026-02-28');
   });
 });
 
@@ -147,7 +147,7 @@ describe('normalizeContractPayload', () => {
       ],
     }, 200);
     expect(res?.installments).toHaveLength(2);
-    expect(res?.installments[0].amount).toBe(100);
+    expect(res?.installments[0]!.amount).toBe(100);
   });
 
   it('limita descriptionTags a 30 e filtra vazias', () => {
