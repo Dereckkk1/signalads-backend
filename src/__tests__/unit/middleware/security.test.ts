@@ -228,6 +228,25 @@ describe('mongoSanitize', () => {
         expect(next).toHaveBeenCalled();
     });
 
+    it('deve retornar 400 quando profundidade excede MAX_DEPTH (DoS / ataque de aninhamento)', () => {
+        // Cria objeto com 35 niveis (acima do MAX_DEPTH = 30)
+        let deep: any = { value: 'leaf' };
+        for (let i = 0; i < 35; i++) {
+            deep = { nested: deep };
+        }
+
+        const req = createMockRequest({ body: deep });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        mongoSanitize(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        // Deve responder 400 e NAO chamar next()
+        expect(res.statusCode).toBe(400);
+        expect(res.jsonData).toEqual({ error: 'Payload muito profundo' });
+        expect(next).not.toHaveBeenCalled();
+    });
+
     // ── Body/query/params ausentes ─────────────────────────────
     it('deve funcionar quando body e null', () => {
         const req = createMockRequest({ body: null });
