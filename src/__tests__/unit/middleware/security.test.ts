@@ -4,7 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { mongoSanitize, xssSanitize, sanitizeRichText } from '../../../middleware/security';
+import { mongoSanitize, xssSanitize, sanitizeRichText, dedupeQuery } from '../../../middleware/security';
 import { createMockRequest, createMockResponse, createMockNext } from '../../helpers/testHelpers';
 
 // ═══════════════════════════════════════════════════════════════
@@ -609,5 +609,90 @@ describe('sanitizeRichText', () => {
 
     it('deve tratar string vazia', () => {
         expect(sanitizeRichText('')).toBe('');
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// dedupeQuery (HPP — HTTP Parameter Pollution)
+// Substitui o pacote `hpp` que e no-op no Express 5.
+// ═══════════════════════════════════════════════════════════════
+describe('dedupeQuery', () => {
+    it('deve colapsar query params duplicados para o ULTIMO valor', () => {
+        const req = createMockRequest({
+            query: { sort: ['asc', 'desc'] as any },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        dedupeQuery(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(req.query.sort).toBe('desc');
+        expect(next).toHaveBeenCalled();
+    });
+
+    it('deve preservar valores escalares inalterados', () => {
+        const req = createMockRequest({
+            query: { search: 'radio', page: '2' },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        dedupeQuery(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(req.query.search).toBe('radio');
+        expect(req.query.page).toBe('2');
+        expect(next).toHaveBeenCalled();
+    });
+
+    it('deve colapsar apenas keys com array, mantendo escalares', () => {
+        const req = createMockRequest({
+            query: {
+                search: 'radio',
+                tag: ['music', 'news', 'pop'] as any,
+                limit: '10',
+            },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        dedupeQuery(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(req.query.search).toBe('radio');
+        expect(req.query.tag).toBe('pop'); // ultimo valor do array
+        expect(req.query.limit).toBe('10');
+        expect(next).toHaveBeenCalled();
+    });
+
+    it('deve funcionar quando query esta vazia', () => {
+        const req = createMockRequest({ query: {} });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        dedupeQuery(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(next).toHaveBeenCalled();
+    });
+
+    it('nao deve quebrar quando query e undefined', () => {
+        const req = createMockRequest({});
+        delete (req as any).query;
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        dedupeQuery(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(next).toHaveBeenCalled();
+    });
+
+    it('deve sempre chamar next()', () => {
+        const req = createMockRequest({
+            query: { foo: ['a', 'b'] as any },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        dedupeQuery(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(next).toHaveBeenCalledTimes(1);
     });
 });
