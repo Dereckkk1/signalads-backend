@@ -21,9 +21,8 @@ import { Application } from 'express';
 import mongoose from 'mongoose';
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import hpp from 'hpp';
 
-import { mongoSanitize, xssSanitize } from '../../middleware/security';
+import { mongoSanitize, xssSanitize, dedupeQuery } from '../../middleware/security';
 import { csrfProtection } from '../../middleware/csrf';
 import broadcasterProposalRoutes from '../../routes/broadcasterProposalRoutes';
 
@@ -45,7 +44,7 @@ function createBroadcasterProposalTestApp(): Application {
   app.use(express.urlencoded({ extended: true, limit: '5mb' }));
   app.use(mongoSanitize);
   app.use(xssSanitize);
-  app.use(hpp());
+  app.use(dedupeQuery);
   app.use(csrfProtection);
   app.use('/api/broadcaster-proposals', broadcasterProposalRoutes);
   app.use((_req, res) => { res.status(404).json({ error: 'Rota não encontrada' }); });

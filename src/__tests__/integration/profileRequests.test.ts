@@ -15,10 +15,9 @@ import '../helpers/mocks';
 import request from 'supertest';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
-import hpp from 'hpp';
 import mongoose from 'mongoose';
 
-import { mongoSanitize, xssSanitize } from '../../middleware/security';
+import { mongoSanitize, xssSanitize, dedupeQuery } from '../../middleware/security';
 import { csrfProtection } from '../../middleware/csrf';
 import profileRequestRoutes from '../../routes/profileRequestRoutes';
 import { connectTestDB, clearTestDB, disconnectTestDB } from '../helpers/setup';
@@ -37,7 +36,7 @@ function createApp(): Application {
   app.use(express.urlencoded({ extended: true, limit: '5mb' }));
   app.use(mongoSanitize);
   app.use(xssSanitize);
-  app.use(hpp());
+  app.use(dedupeQuery);
   app.use(csrfProtection);
   app.use('/api/profile-requests', profileRequestRoutes);
   app.use((_req: Request, res: Response) => {

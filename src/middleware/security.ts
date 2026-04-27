@@ -129,3 +129,25 @@ export const xssSanitize = (req: Request, res: Response, next: NextFunction) => 
     }
     next();
 };
+
+// ============================================================
+// HPP (HTTP Parameter Pollution) Protection
+// Substitui o pacote `hpp` que e no-op no Express 5 (req.query virou
+// getter read-only). Colapsa duplicatas para o ULTIMO valor.
+// ============================================================
+export const dedupeQuery = (req: Request, _res: Response, next: NextFunction) => {
+    if (req.query && typeof req.query === 'object') {
+        for (const k of Object.keys(req.query)) {
+            const v = (req.query as any)[k];
+            if (Array.isArray(v)) {
+                Object.defineProperty(req.query, k, {
+                    value: v[v.length - 1],
+                    writable: true,
+                    configurable: true,
+                    enumerable: true,
+                });
+            }
+        }
+    }
+    next();
+};

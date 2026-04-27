@@ -8,9 +8,8 @@
 
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
-import hpp from 'hpp';
 
-import { mongoSanitize, xssSanitize } from '../../middleware/security';
+import { mongoSanitize, xssSanitize, dedupeQuery } from '../../middleware/security';
 import { csrfProtection } from '../../middleware/csrf';
 
 // Routes
@@ -32,7 +31,7 @@ export function createTestApp(): Application {
   // Security middleware
   app.use(mongoSanitize);
   app.use(xssSanitize);
-  app.use(hpp());
+  app.use(dedupeQuery);
   app.use(csrfProtection);
 
   // --- Routes ---

@@ -10,9 +10,8 @@ import { Application } from 'express';
 import mongoose from 'mongoose';
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import hpp from 'hpp';
 
-import { mongoSanitize, xssSanitize } from '../../middleware/security';
+import { mongoSanitize, xssSanitize, dedupeQuery } from '../../middleware/security';
 import { csrfProtection } from '../../middleware/csrf';
 import paymentRoutes from '../../routes/paymentRoutes';
 
@@ -30,7 +29,7 @@ function createCheckoutTestApp(): Application {
   app.use(express.urlencoded({ extended: true, limit: '5mb' }));
   app.use(mongoSanitize);
   app.use(xssSanitize);
-  app.use(hpp());
+  app.use(dedupeQuery);
   app.use(csrfProtection);
   app.use('/api/payment', paymentRoutes);
   app.use((_req, res) => { res.status(404).json({ error: 'Rota nao encontrada' }); });

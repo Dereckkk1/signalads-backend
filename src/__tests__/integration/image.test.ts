@@ -17,10 +17,9 @@ jest.mock('axios');
 import request from 'supertest';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
-import hpp from 'hpp';
 import { PassThrough } from 'stream';
 
-import { mongoSanitize, xssSanitize } from '../../middleware/security';
+import { mongoSanitize, xssSanitize, dedupeQuery } from '../../middleware/security';
 import { csrfProtection } from '../../middleware/csrf';
 import imageRoutes from '../../routes/imageRoutes';
 import { connectTestDB, clearTestDB, disconnectTestDB } from '../helpers/setup';
@@ -35,7 +34,7 @@ function createApp(): Application {
   app.use(express.urlencoded({ extended: true, limit: '5mb' }));
   app.use(mongoSanitize);
   app.use(xssSanitize);
-  app.use(hpp());
+  app.use(dedupeQuery);
   app.use(csrfProtection);
   app.use('/api/image', imageRoutes);
   app.use((_req: Request, res: Response) => {

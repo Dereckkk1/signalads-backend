@@ -42,7 +42,7 @@ import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { redis } from './config/redis';
 import { createRedisStore } from './config/rateLimitStore';
-import { mongoSanitize, xssSanitize } from './middleware/security';
+import { mongoSanitize, xssSanitize, dedupeQuery } from './middleware/security';
 import { csrfProtection } from './middleware/csrf';
 import { metricsMiddleware, checkBlockedIP } from './middleware/metrics';
 import { loadBlockedIPs } from './utils/ipBlockList';
@@ -191,25 +191,6 @@ app.use(compression());
 // Body limit reduzido para 5mb (seguranca contra DoS). Uploads de audio usam multipart com limite proprio no multer.
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
-
-// HPP (HTTP Parameter Pollution) — substitui o pacote `hpp` que e no-op no Express 5
-// (req.query virou getter read-only). Colapsa duplicatas para o ULTIMO valor.
-const dedupeQuery = (req: Request, _res: Response, next: any) => {
-  if (req.query && typeof req.query === 'object') {
-    for (const k of Object.keys(req.query)) {
-      const v = (req.query as any)[k];
-      if (Array.isArray(v)) {
-        Object.defineProperty(req.query, k, {
-          value: v[v.length - 1],
-          writable: true,
-          configurable: true,
-          enumerable: true,
-        });
-      }
-    }
-  }
-  next();
-};
 
 // Protecao contra NoSQL Injection, XSS, HPP e CSRF
 app.use(mongoSanitize); // Previne injecao de operadores MongoDB (Custom + prototype pollution)
