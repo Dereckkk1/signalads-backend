@@ -182,6 +182,20 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
 
       const netPrice = (product as any).netPrice || 0;
       const unitPrice = netPrice; // Emissora vende direto, sem markup da plataforma
+
+      // Floor: adjustedPrice nao pode ser <= 0 nem < 50% do unitPrice
+      if (item.adjustedPrice != null) {
+        if (item.adjustedPrice <= 0) {
+          res.status(400).json({ error: `Preço ajustado para ${(product as any).spotType || 'item'} deve ser maior que zero` });
+          return;
+        }
+        const minPrice = unitPrice * 0.5;
+        if (item.adjustedPrice < minPrice) {
+          res.status(400).json({ error: `Preço ajustado para ${(product as any).spotType || 'item'} não pode ser menor que 50% do preço original (R$${minPrice.toFixed(2)})` });
+          return;
+        }
+      }
+
       const effectivePrice = item.adjustedPrice != null ? item.adjustedPrice : unitPrice;
       const totalPrice = parseFloat((effectivePrice * item.quantity).toFixed(2));
       productsTotal += totalPrice;
@@ -255,6 +269,20 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
 
       const netPrice = (sponsorship as any).netPrice || 0;
       const unitPrice = netPrice; // Emissora vende direto, sem markup da plataforma
+
+      // Floor: adjustedPrice nao pode ser <= 0 nem < 50% do unitPrice
+      if (item.adjustedPrice != null) {
+        if (item.adjustedPrice <= 0) {
+          res.status(400).json({ error: `Preço ajustado para ${(sponsorship as any).programName || 'patrocínio'} deve ser maior que zero` });
+          return;
+        }
+        const minPrice = unitPrice * 0.5;
+        if (item.adjustedPrice < minPrice) {
+          res.status(400).json({ error: `Preço ajustado para ${(sponsorship as any).programName || 'patrocínio'} não pode ser menor que 50% do preço original (R$${minPrice.toFixed(2)})` });
+          return;
+        }
+      }
+
       const effectivePrice = item.adjustedPrice != null ? item.adjustedPrice : unitPrice;
       const totalPrice = parseFloat((effectivePrice * (item.quantity || 1)).toFixed(2));
       productsTotal += totalPrice;
@@ -507,7 +535,43 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const { title, description, clientName, clientId, items, customization, validUntil, discount: discountInput, contract: contractInput } = req.body;
+    const { title, description, clientName, clientId, items, customization, validUntil, discount: discountInput, contract: contractInput, internalNotes } = req.body;
+
+    // ── Status guard ────────────────────────────────────────────────────────
+    // Apenas propostas em rascunho ou devolvidas aceitam edicoes amplas.
+    const editableStatuses = ['draft', 'returned'];
+    const isFullEditable = editableStatuses.includes(proposal.status);
+
+    if (!isFullEditable) {
+      const triedFinancialEdit =
+        items !== undefined ||
+        discountInput !== undefined ||
+        validUntil !== undefined ||
+        clientId !== undefined ||
+        clientName !== undefined ||
+        contractInput !== undefined;
+
+      if (triedFinancialEdit) {
+        res.status(400).json({
+          error: `Proposta em estado "${proposal.status}" não pode ter itens, valores, cliente, validade ou contrato alterados`
+        });
+        return;
+      }
+
+      // Permite apenas edicao cosmetica
+      if (title !== undefined) proposal.title = title;
+      if (description !== undefined) proposal.description = description;
+      if (customization) {
+        proposal.customization = { ...proposal.customization, ...customization };
+      }
+      if (internalNotes !== undefined) (proposal as any).internalNotes = internalNotes;
+
+      await proposal.save();
+      await invalidateProposalCache(getEffectiveBroadcasterId(req), proposal.slug);
+      await createVersion(proposal._id.toString(), req.userId!, 'auto_update', proposal, 'Edição cosmética pós-envio');
+      res.json({ proposal });
+      return;
+    }
 
     // Atualizar campos basicos
     if (title !== undefined) proposal.title = title;
@@ -561,6 +625,20 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
         }
         const netPrice = (product as any).netPrice || 0;
         const unitPrice = netPrice;
+
+        // Floor: adjustedPrice nao pode ser <= 0 nem < 50% do unitPrice
+        if (item.adjustedPrice != null) {
+          if (item.adjustedPrice <= 0) {
+            res.status(400).json({ error: `Preço ajustado para ${(product as any).spotType || 'item'} deve ser maior que zero` });
+            return;
+          }
+          const minPrice = unitPrice * 0.5;
+          if (item.adjustedPrice < minPrice) {
+            res.status(400).json({ error: `Preço ajustado para ${(product as any).spotType || 'item'} não pode ser menor que 50% do preço original (R$${minPrice.toFixed(2)})` });
+            return;
+          }
+        }
+
         const effectivePrice = item.adjustedPrice != null ? item.adjustedPrice : unitPrice;
         const totalPrice = parseFloat((effectivePrice * item.quantity).toFixed(2));
         productsTotal += totalPrice;
@@ -612,6 +690,20 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
         }
         const netPrice = (sponsorship as any).netPrice || 0;
         const unitPrice = netPrice;
+
+        // Floor: adjustedPrice nao pode ser <= 0 nem < 50% do unitPrice
+        if (item.adjustedPrice != null) {
+          if (item.adjustedPrice <= 0) {
+            res.status(400).json({ error: `Preço ajustado para ${(sponsorship as any).programName || 'patrocínio'} deve ser maior que zero` });
+            return;
+          }
+          const minPrice = unitPrice * 0.5;
+          if (item.adjustedPrice < minPrice) {
+            res.status(400).json({ error: `Preço ajustado para ${(sponsorship as any).programName || 'patrocínio'} não pode ser menor que 50% do preço original (R$${minPrice.toFixed(2)})` });
+            return;
+          }
+        }
+
         const effectivePrice = item.adjustedPrice != null ? item.adjustedPrice : unitPrice;
         const totalPrice = parseFloat((effectivePrice * (item.quantity || 1)).toFixed(2));
         productsTotal += totalPrice;

@@ -5,6 +5,8 @@ import { Product } from '../models/Product';
 import { Sponsorship } from '../models/Sponsorship';
 import { User } from '../models/User';
 import Order from '../models/Order';
+import AgencyClient from '../models/AgencyClient';
+import SponsorshipBooking from '../models/SponsorshipBooking';
 import { sendOrderReceivedToClient, sendNewOrderToAdmin } from '../services/emailService';
 
 // Gera schedule automático para patrocínio: cada dia do mês que bate com daysOfWeek
@@ -55,6 +57,21 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
       const pct = Number(agencyCommPct);
       if (!Number.isFinite(pct) || pct < 0 || pct > 30) {
         res.status(400).json({ error: 'Percentual de comissão da agência deve ser entre 0 e 30%' });
+        return;
+      }
+    }
+
+    // Se clientId foi enviado, valida que pertence a este usuario (agencia)
+    // Previne anunciantes/agencias atribuirem pedidos a clientes de terceiros.
+    if (clientId) {
+      // Aceita apenas se for ObjectId valido
+      if (!/^[a-f\d]{24}$/i.test(String(clientId))) {
+        res.status(400).json({ error: 'clientId inválido' });
+        return;
+      }
+      const exists = await AgencyClient.exists({ _id: clientId, agencyId: userId });
+      if (!exists) {
+        res.status(400).json({ error: 'Cliente informado não pertence à sua conta' });
         return;
       }
     }
@@ -301,6 +318,52 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
       notifications: [],
       webhookLogs: []
     });
+
+    // 7.5. Reservar slots de patrocinio (mes-a-mes) ANTES de salvar o pedido.
+    // O index parcial unique em SponsorshipBooking impede dupla reserva
+    // do mesmo (sponsorshipId, month) com status='reserved'.
+    const sponsorshipBookingsCreated: any[] = [];
+    try {
+      for (const item of orderItems) {
+        if (item.itemType === 'sponsorship' && item.sponsorshipId && item.selectedMonth) {
+          const booking = await SponsorshipBooking.create({
+            sponsorshipId: item.sponsorshipId,
+            month: item.selectedMonth,
+            orderId: order._id,
+            status: 'reserved',
+          });
+          sponsorshipBookingsCreated.push(booking);
+        }
+      }
+    } catch (bookingErr: any) {
+      // Cleanup: liberar reservas ja criadas neste checkout
+      if (sponsorshipBookingsCreated.length > 0) {
+        const ids = sponsorshipBookingsCreated.map((b) => b._id);
+        await SponsorshipBooking.deleteMany({ _id: { $in: ids } }).catch(() => {});
+      }
+      // Resetar flag de checkout para permitir nova tentativa
+      try { await Cart.updateOne({ userId: req.userId }, { $set: { checkedOut: false } }); } catch {}
+
+      // Detecta erro de chave duplicada (E11000)
+      if (bookingErr?.code === 11000) {
+        const dupItem = orderItems.find(
+          (i: any) =>
+            i.itemType === 'sponsorship' &&
+            i.sponsorshipId &&
+            i.selectedMonth &&
+            !sponsorshipBookingsCreated.some((b) => String(b.sponsorshipId) === String(i.sponsorshipId) && b.month === i.selectedMonth)
+        );
+        const monthLabel = dupItem?.selectedMonth || 'selecionado';
+        const programLabel = dupItem?.programName || 'este patrocínio';
+        res.status(409).json({
+          error: `Mês ${monthLabel} já reservado para ${programLabel}. Selecione outro mês.`,
+        });
+        return;
+      }
+      console.error('Erro ao criar reservas de patrocínio:', bookingErr);
+      res.status(500).json({ error: 'Erro ao reservar slots de patrocínio' });
+      return;
+    }
 
     await order.save();
 

@@ -116,7 +116,7 @@ export const getAppSheetImage = async (req: Request, res: Response) => {
         });
 
         // Configura headers de resposta
-        const contentType = response.headers['content-type'] || 'image/jpeg';
+        const contentType = String(response.headers['content-type'] || 'image/jpeg');
         res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache no navegador por 24h
 

@@ -3,13 +3,23 @@ import path from 'path';
 import multer from 'multer';
 import { fromBuffer } from 'file-type';
 import { AuthRequest } from '../middleware/auth';
-import { uploadFile } from '../config/storage';
+import { uploadFile, getSignedReadUrl } from '../config/storage';
 import { Cart } from '../models/Cart';
 
 // Magic bytes permitidos por categoria (#44)
 const ALLOWED_AUDIO_MAGIC = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/wave'];
 const ALLOWED_DOC_MAGIC = ['application/pdf'];
 // DOC/DOCX/TXT nao tem magic bytes confiáveis — validados por MIME+extensão apenas
+
+// Sanitiza um filename para persistência em DB / chat / metadados.
+// Remove tags HTML, controles e limita comprimento. Não usado como chave de
+// armazenamento (essa é gerada com crypto.randomUUID em storage.ts).
+const sanitizeFileName = (name: string): string => {
+  if (!name || typeof name !== 'string') return 'arquivo';
+  return name
+    .replace(/[<>"'&\x00-\x1f]/g, '_')
+    .slice(0, 200);
+};
 
 // Helper para retry em caso de VersionError do Mongoose
 const saveWithRetry = async (cart: any, itemIndex: number, material: any, maxRetries = 3): Promise<void> => {
@@ -81,6 +91,9 @@ export const upload = multer({
 });
 
 // Upload de áudio
+// Ordem: validate (auth, cart, item) -> magic-byte sniff -> upload -> persist.
+// O upload para GCS ocorre SOMENTE depois que sabemos que o usuário tem direito
+// de gravar no carrinho — evita lixo perpétuo no bucket por requests inválidos.
 export const uploadAudio = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.userId) {
@@ -100,22 +113,14 @@ export const uploadAudio = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    // Validação de magic bytes — impede upload de executáveis disfarçados (#44)
+    // 1) Validação de magic bytes — impede upload de executáveis disfarçados (#44)
     const fileType = await fromBuffer(req.file.buffer);
     if (fileType && !ALLOWED_AUDIO_MAGIC.includes(fileType.mime)) {
       res.status(400).json({ error: 'Conteúdo do arquivo não corresponde a um áudio válido' });
       return;
     }
 
-    // Upload para Cloud Storage
-    const fileUrl = await uploadFile(
-      req.file.buffer,
-      req.file.originalname,
-      'audio',
-      req.file.mimetype
-    );
-
-    // Atualiza carrinho com URL do áudio
+    // 2) Validação de propriedade do carrinho ANTES de gastar storage no bucket
     const cart = await Cart.findOne({ userId: req.userId });
 
     if (!cart) {
@@ -127,33 +132,36 @@ export const uploadAudio = async (req: AuthRequest, res: Response): Promise<void
       item => item.productId.toString() === productId
     );
 
-    if (itemIndex === -1) {
+    if (itemIndex === -1 || !cart.items[itemIndex]) {
       res.status(404).json({ error: 'Item não encontrado no carrinho' });
       return;
     }
 
-    if (!cart.items[itemIndex]) {
-      res.status(404).json({ error: 'Item não encontrado no carrinho' });
-      return;
-    }
+    // 3) Só agora fazemos o upload pro GCS (a essa altura sabemos que o slot existe e é do usuário)
+    const fileUrl = await uploadFile(
+      req.file.buffer,
+      req.file.originalname,
+      'audio',
+      req.file.mimetype
+    );
 
-    // Prepara material
+    const safeName = sanitizeFileName(req.file.originalname);
+
+    // 4) Persiste no carrinho
     const material = {
       type: 'audio',
       audioUrl: fileUrl,
-      audioFileName: req.file.originalname,
+      audioFileName: safeName,
       audioFileSize: req.file.size,
       uploadedAt: new Date()
     };
 
     await saveWithRetry(cart, itemIndex, material);
 
-
-
     res.json({
       success: true,
       url: fileUrl,
-      fileName: req.file.originalname,
+      fileName: safeName,
       fileSize: req.file.size
     });
   } catch (error) {
@@ -162,6 +170,7 @@ export const uploadAudio = async (req: AuthRequest, res: Response): Promise<void
 };
 
 // Upload de roteiro
+// Mesma ordem aplicada do uploadAudio: validate -> sniff -> upload -> persist.
 export const uploadScript = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.userId) {
@@ -181,7 +190,7 @@ export const uploadScript = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    // Validação de magic bytes para PDFs (#44)
+    // 1) Validação de magic bytes para PDFs (#44)
     const ext = path.extname(req.file.originalname).toLowerCase();
     if (ext === '.pdf') {
       const fileType = await fromBuffer(req.file.buffer);
@@ -191,15 +200,7 @@ export const uploadScript = async (req: AuthRequest, res: Response): Promise<voi
       }
     }
 
-    // Upload para Cloud Storage
-    const fileUrl = await uploadFile(
-      req.file.buffer,
-      req.file.originalname,
-      'scripts',
-      req.file.mimetype
-    );
-
-    // Atualiza carrinho com URL do roteiro
+    // 2) Validação de propriedade do carrinho ANTES de subir ao bucket
     const cart = await Cart.findOne({ userId: req.userId });
 
     if (!cart) {
@@ -211,33 +212,36 @@ export const uploadScript = async (req: AuthRequest, res: Response): Promise<voi
       item => item.productId.toString() === productId
     );
 
-    if (itemIndex === -1) {
+    if (itemIndex === -1 || !cart.items[itemIndex]) {
       res.status(404).json({ error: 'Item não encontrado no carrinho' });
       return;
     }
 
-    if (!cart.items[itemIndex]) {
-      res.status(404).json({ error: 'Item não encontrado no carrinho' });
-      return;
-    }
+    // 3) Upload ao GCS
+    const fileUrl = await uploadFile(
+      req.file.buffer,
+      req.file.originalname,
+      'scripts',
+      req.file.mimetype
+    );
 
-    // Prepara material
+    const safeName = sanitizeFileName(req.file.originalname);
+
+    // 4) Persiste no carrinho
     const material = {
       type: 'script',
       scriptUrl: fileUrl,
-      scriptFileName: req.file.originalname,
+      scriptFileName: safeName,
       scriptFileSize: req.file.size,
       uploadedAt: new Date()
     };
 
     await saveWithRetry(cart, itemIndex, material);
 
-
-
     res.json({
       success: true,
       url: fileUrl,
-      fileName: req.file.originalname,
+      fileName: safeName,
       fileSize: req.file.size
     });
   } catch (error) {
@@ -302,5 +306,39 @@ export const saveText = async (req: AuthRequest, res: Response): Promise<void> =
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao salvar texto' });
+  }
+};
+
+// Gera signed URL temporária para leitura de um objeto GCS privado.
+// Auth-required (router já aplica `authenticateToken`).
+//
+// NOTA SEGURANÇA: este endpoint NÃO realiza checagem de ownership granular
+// (ex: "este audioUrl pertence a um pedido do usuário X?"). Toda a checagem
+// no momento é "usuário autenticado", o que já fecha o vetor de exposição
+// pública para o mundo. Uma checagem por-objeto é um followup desejável,
+// mas exige inverter o storage para guardar o objectKey + dono no banco;
+// hoje o objectKey é opaco e basicamente significa "qualquer URL do bucket".
+//
+// Para mitigar enquanto a refatoração maior não acontece:
+// - Bucket está privado (sem makePublic).
+// - Signed URL é de TTL curto (15min).
+// - Object keys agora são UUIDs aleatórios, não previsíveis por timestamp.
+export const getStorageSignedUrl = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ error: 'Usuário não autenticado' });
+      return;
+    }
+
+    const objectKey = (req.query.objectKey || req.query.url || '') as string;
+    if (!objectKey) {
+      res.status(400).json({ error: 'Parâmetro objectKey é obrigatório' });
+      return;
+    }
+
+    const url = await getSignedReadUrl(objectKey, 15);
+    res.json({ url, expiresInSeconds: 15 * 60 });
+  } catch (error: any) {
+    res.status(400).json({ error: 'Não foi possível gerar URL assinada' });
   }
 };

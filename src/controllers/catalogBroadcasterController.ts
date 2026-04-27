@@ -183,10 +183,8 @@ export const createCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       }
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao criar emissora catálogo',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] criar:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -316,10 +314,8 @@ export const getCatalogBroadcasters = async (req: AuthRequest, res: Response) =>
     });
 
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao listar emissoras catálogo',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] listar:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -352,10 +348,8 @@ export const getCatalogBroadcasterById = async (req: AuthRequest, res: Response)
       products
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao buscar emissora catálogo',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] buscar:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -495,10 +489,8 @@ export const updateCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       }
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao atualizar emissora catálogo',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] atualizar:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -541,10 +533,8 @@ export const deleteCatalogBroadcaster = async (req: AuthRequest, res: Response) 
       message: 'Emissora catálogo desativada com sucesso!'
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao desativar emissora catálogo',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] desativar:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -580,10 +570,8 @@ export const reactivateCatalogBroadcaster = async (req: AuthRequest, res: Respon
       }
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao reativar emissora catálogo',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] reativar:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -678,10 +666,8 @@ export const createCatalogProduct = async (req: AuthRequest, res: Response) => {
       companionsCreated: createdCompanions
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao criar produto',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] criar produto:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -722,10 +708,8 @@ export const getCatalogProducts = async (req: AuthRequest, res: Response) => {
       products
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao listar produtos',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] listar produtos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -776,10 +760,8 @@ export const updateCatalogProduct = async (req: AuthRequest, res: Response) => {
       product
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao atualizar produto',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] atualizar produto:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -816,10 +798,8 @@ export const deleteCatalogProduct = async (req: AuthRequest, res: Response) => {
       message: 'Produto deletado com sucesso!'
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao deletar produto',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] deletar produto:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -866,10 +846,8 @@ export const completeCatalogProfile = async (req: AuthRequest, res: Response) =>
       }
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao completar perfil',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] completar perfil:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -918,10 +896,8 @@ export const uploadCatalogLogo = async (req: AuthRequest, res: Response) => {
       logoUrl
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao enviar logo',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] upload logo:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -1015,10 +991,8 @@ export const uploadOpec = async (req: AuthRequest, res: Response) => {
       opec: opecData
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao enviar OPEC',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] enviar OPEC:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -1053,10 +1027,8 @@ export const getOrderOpecs = async (req: AuthRequest, res: Response) => {
       }))
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao listar OPECs',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] listar OPECs:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -1093,10 +1065,8 @@ export const deleteOpec = async (req: AuthRequest, res: Response) => {
 
     res.json({ message: 'OPEC removido com sucesso' });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao remover OPEC',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] remover OPEC:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -1172,9 +1142,7 @@ export const getCatalogOrders = async (req: AuthRequest, res: Response) => {
       hasMore: page * limitNum < total
     });
   } catch (error: any) {
-    res.status(500).json({
-      message: 'Erro ao listar pedidos',
-      error: error.message
-    });
+    console.error('[catalogBroadcaster] listar pedidos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };

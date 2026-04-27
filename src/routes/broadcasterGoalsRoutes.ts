@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth';
+import { requirePermission } from '../middleware/requirePermission';
 import {
   listGoals,
   getGoalsAnalytics,
@@ -11,6 +12,7 @@ import {
 const router = Router();
 
 router.use(authenticateToken);
+router.use(requirePermission('goals'));
 
 router.get('/goals', listGoals);
 router.get('/goals/analytics', getGoalsAnalytics);

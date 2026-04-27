@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth';
+import { requirePermission } from '../middleware/requirePermission';
 import {
   getSummary,
   getBreakdown,
@@ -9,6 +10,7 @@ import {
 const router = Router();
 
 router.use(authenticateToken);
+router.use(requirePermission('reports'));
 
 router.get('/reports/summary', getSummary);
 router.get('/reports/breakdown', getBreakdown);

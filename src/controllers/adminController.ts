@@ -9,6 +9,7 @@ import { escapeRegex } from '../utils/stringUtils';
 import { Cart } from '../models/Cart';
 import bcrypt from 'bcryptjs';
 import { revokeAllUserTokens } from '../utils/tokenService';
+import { setUserIatFloor } from '../utils/jwtDenylist';
 import QuoteRequest from '../models/QuoteRequest';
 import { PLATFORM_COMMISSION_RATE } from '../models/Product';
 import {
@@ -26,7 +27,7 @@ export const getPendingBroadcasters = async (req: Request, res: Response): Promi
     const pendingBroadcasters = await User.find({
       userType: 'broadcaster',
       status: 'pending'
-    }).select('-password').sort({ createdAt: -1 });
+    }).select('-password -emailConfirmToken -emailConfirmTokenExpires -twoFactorCode -twoFactorSessionToken -twoFactorPendingToken -passwordResetToken -passwordResetTokenExpires -trustedDevices.deviceId').sort({ createdAt: -1 });
 
     res.json({
       total: pendingBroadcasters.length,
@@ -138,7 +139,7 @@ export const getAllBroadcasters = async (req: Request, res: Response): Promise<v
     }
 
     const broadcasters = await User.find(filter)
-      .select('-password')
+      .select('-password -emailConfirmToken -emailConfirmTokenExpires -twoFactorCode -twoFactorSessionToken -twoFactorPendingToken -passwordResetToken -passwordResetTokenExpires -trustedDevices.deviceId')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -190,7 +191,7 @@ export const getBroadcastersForManagement = async (req: AuthRequest, res: Respon
 
     // Busca paginada
     const broadcasters = await User.find(filter)
-      .select('-password')
+      .select('-password -emailConfirmToken -emailConfirmTokenExpires -twoFactorCode -twoFactorSessionToken -twoFactorPendingToken -passwordResetToken -passwordResetTokenExpires -trustedDevices.deviceId')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
@@ -212,7 +213,7 @@ export const getBroadcasterDetails = async (req: Request, res: Response): Promis
   try {
     const { id } = req.params;
 
-    const broadcaster = await User.findById(id).select('-password');
+    const broadcaster = await User.findById(id).select('-password -emailConfirmToken -emailConfirmTokenExpires -twoFactorCode -twoFactorSessionToken -twoFactorPendingToken -passwordResetToken -passwordResetTokenExpires -trustedDevices.deviceId');
 
     if (!broadcaster) {
       res.status(404).json({ error: 'Emissora não encontrada' });
@@ -622,7 +623,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
 
     // Busca usuários
     const users = await User.find(filter)
-      .select('-password -twoFactorSecret')
+      .select('-password -twoFactorSecret -emailConfirmToken -emailConfirmTokenExpires -twoFactorCode -twoFactorSessionToken -twoFactorPendingToken -passwordResetToken -passwordResetTokenExpires -trustedDevices.deviceId')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
@@ -700,7 +701,7 @@ export const getUserFullDetails = async (req: AuthRequest, res: Response) => {
   try {
     const { userId } = req.params;
 
-    const user = await User.findById(userId).select('-password -twoFactorSecret').lean();
+    const user = await User.findById(userId).select('-password -twoFactorSecret -emailConfirmToken -emailConfirmTokenExpires -twoFactorCode -twoFactorSessionToken -twoFactorPendingToken -passwordResetToken -passwordResetTokenExpires -trustedDevices.deviceId').lean();
 
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
@@ -844,6 +845,10 @@ export const adminResetUserPassword = async (req: AuthRequest, res: Response) =>
 
     // Revoga todas as sessoes ativas do usuario — impede uso de tokens roubados
     await revokeAllUserTokens(user._id.toString());
+
+    // Marca iat-floor para invalidar TODOS os access tokens existentes do usuario
+    // (admin nao tem acesso aos jtis individuais, entao usamos timestamp como gate)
+    await setUserIatFloor(user._id.toString()).catch(() => {});
 
     res.json({ message: 'Senha alterada com sucesso' });
 

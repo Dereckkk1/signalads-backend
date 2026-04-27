@@ -9,6 +9,8 @@ import { sendTwoFactorEnableEmail, sendTwoFactorLoginEmail, sendTwoFactorCodeEma
 import { AuthRequest, invalidateUserCache } from '../middleware/auth';
 import { isFreeEmailDomain, getEmailDomain } from '../utils/freeEmailDomains';
 import { generateAccessToken, generateRefreshToken, setAuthCookies, clearAuthCookies, rotateRefreshToken, revokeAllUserTokens } from '../utils/tokenService';
+import { denyAccessToken, setUserIatFloor } from '../utils/jwtDenylist';
+import AuditLog from '../models/AuditLog';
 
 /**
  * Retorna as permissoes de pagina efetivas de um sub-usuario.
@@ -198,6 +200,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const user = await User.findOne(searchQuery);
 
     if (!user) {
+      // Log forense: tentativa com identificador inexistente
+      await AuditLog.create({
+        action: 'auth.login_failed',
+        resource: 'user',
+        details: { emailOrCnpj, reason: 'user_not_found' },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }).catch(() => {});
       res.status(401).json({ error: 'Credenciais inválidas' });
       return;
     }
@@ -205,16 +215,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Verificar senha
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      // Log forense: senha errada para usuario existente
+      await AuditLog.create({
+        userId: user._id,
+        action: 'auth.login_failed',
+        resource: 'user',
+        details: { emailOrCnpj, reason: 'invalid_password' },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }).catch(() => {});
       res.status(401).json({ error: 'Credenciais inválidas' });
       return;
     }
 
-    // Verificar se email foi confirmado — mensagem generica para nao revelar estado da conta
+    // Verificar se email foi confirmado — mesma resposta generica de senha invalida
+    // para nao revelar diferenca entre senha errada e email nao confirmado.
+    // Reenvio de confirmacao deve ser oferecido pelo fluxo de cadastro/registro,
+    // nao por inspecao da resposta de login.
     if (user.emailConfirmed === false) {
-      res.status(401).json({
-        error: 'email_not_confirmed',
-        message: 'Credenciais inválidas ou email não confirmado. Verifique sua caixa de entrada.'
-      });
+      res.status(401).json({ error: 'Credenciais inválidas' });
       return;
     }
 
@@ -500,6 +519,14 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
 
     // Revoga todas as sessoes ativas — impede uso de tokens roubados apos troca de senha
     await revokeAllUserTokens(user._id.toString());
+
+    // Revoga o access_token atual via denylist de JTI
+    // (refresh ja foi invalidado acima; agora o access tambem nao pode mais ser usado)
+    await denyAccessToken(req.cookies?.access_token).catch(() => {});
+
+    // iat floor invalida tambem qualquer outro access token concorrente
+    // (ex: usuario logado em outra aba/dispositivo)
+    await setUserIatFloor(user._id.toString()).catch(() => {});
 
     res.json({ message: 'Senha alterada com sucesso' });
   } catch (error: any) {
@@ -823,6 +850,27 @@ export const getTwoFactorStatus = async (req: AuthRequest, res: Response): Promi
  */
 export const refreshTokenHandler = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Origin check — defesa em profundidade para o endpoint CSRF-exempt (#M4).
+    // SameSite=Lax já bloqueia cross-origin POST em browsers reais, mas um Origin
+    // allowlist garante que mesmo em cenários de subdomain takeover ou futura
+    // mudança de SameSite, origens não autorizadas não conseguem renovar tokens.
+    const origin = req.headers.origin || req.headers.referer || '';
+    if (origin) {
+      const allowedOrigins = [
+        'https://eradios.com.br',
+        'https://www.eradios.com.br',
+        'https://api.eradios.com.br',
+        ...(process.env.NODE_ENV !== 'production'
+          ? ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5000']
+          : []),
+      ];
+      const isAllowed = allowedOrigins.some(o => origin.startsWith(o));
+      if (!isAllowed) {
+        res.status(403).json({ error: 'Origem não permitida' });
+        return;
+      }
+    }
+
     const rawToken = req.cookies?.refresh_token;
     if (!rawToken) {
       res.status(401).json({ error: 'Refresh token não fornecido' });
@@ -963,7 +1011,15 @@ export const logoutHandler = async (req: AuthRequest, res: Response): Promise<vo
     // Revoga todos os refresh tokens do usuario se autenticado
     if (req.userId) {
       await revokeAllUserTokens(req.userId);
+      // Invalida cache de auth para que o status atualizado (ou ausencia)
+      // seja sempre revalidado na proxima request
+      await invalidateUserCache(req.userId).catch(() => {});
     }
+
+    // Revoga o access_token atual via denylist de JTI — fecha a janela de 15min
+    // entre logout e expiry natural do token. Sem isto, um token roubado/copiado
+    // continua valido apos logout do usuario legitimo.
+    await denyAccessToken(req.cookies?.access_token).catch(() => {});
 
     clearAuthCookies(res);
     res.json({ message: 'Logout realizado com sucesso' });

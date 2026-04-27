@@ -13,7 +13,44 @@ import { sendOrderReceivedToClient, sendNewOrderToAdmin } from '../services/emai
 import ExcelJS from 'exceljs';
 import { uploadFile } from '../config/storage';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { escapeRegex } from '../utils/stringUtils';
+
+/**
+ * Compara PIN do cliente com PIN armazenado.
+ * - Se armazenado for hash bcrypt ($2a$/$2b$/$2y$ prefix), usa bcrypt.compare.
+ * - Se for plaintext (legado), usa crypto.timingSafeEqual e devolve flag
+ *   `needsRehash=true` para que o caller possa migrar lazy-mente para bcrypt.
+ * Sempre constant-time para evitar timing attacks.
+ */
+async function comparePin(submitted: string, stored: string): Promise<{ ok: boolean; needsRehash: boolean }> {
+  if (typeof submitted !== 'string' || typeof stored !== 'string') {
+    return { ok: false, needsRehash: false };
+  }
+  // Bcrypt hash ja existe — caminho preferido
+  if (/^\$2[aby]\$/.test(stored)) {
+    const ok = await bcrypt.compare(submitted, stored);
+    return { ok, needsRehash: false };
+  }
+  // Legado: plaintext — comparacao constant-time
+  const a = Buffer.from(submitted, 'utf8');
+  const b = Buffer.from(stored, 'utf8');
+  if (a.length !== b.length) {
+    // timingSafeEqual exige tamanhos iguais — fazemos um dummy compare para
+    // manter o tempo aproximado constante e retornamos falha
+    crypto.timingSafeEqual(b, b);
+    return { ok: false, needsRehash: false };
+  }
+  const ok = crypto.timingSafeEqual(a, b);
+  return { ok, needsRehash: ok };
+}
+
+/**
+ * Hash de PIN para armazenamento.
+ */
+async function hashPin(pin: string): Promise<string> {
+  return bcrypt.hash(pin, 10);
+}
 
 const escapeHtml = (str: string): string =>
   str.replace(/[<>&"']/g, (c: string) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#x27;' }[c] || c));
@@ -488,6 +525,10 @@ export const getProposal = async (req: AuthRequest, res: Response): Promise<void
 /**
  * PUT /api/proposals/:id
  * Edita proposta (items, dados gerais, customizacao).
+ *
+ * Status guard: somente propostas em 'draft' ou 'returned' aceitam edicao livre.
+ * Em qualquer outro estado, apenas campos cosmeticos (title, description, customization,
+ * internalNotes) sao aceitos — para evitar reescrita de proposta ja enviada/aprovada.
  */
 export const updateProposal = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -503,8 +544,49 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const { title, description, clientId: rawClientId, agencyClientId, clientName, items, customization, validUntil, agencyCommission, isMonitoringEnabled, discount: discountInput } = req.body;
+    const { title, description, clientId: rawClientId, agencyClientId, clientName, items, customization, validUntil, agencyCommission, isMonitoringEnabled, discount: discountInput, internalNotes } = req.body;
     const clientId = rawClientId || agencyClientId;
+
+    // ── Status guard ────────────────────────────────────────────────────────
+    // Apenas propostas em rascunho ou devolvidas aceitam edicoes amplas.
+    // Em outros estados (sent/viewed/approved/rejected/expired/converted),
+    // permitimos apenas campos puramente cosmeticos para nao adulterar
+    // o que o cliente recebeu/aprovou.
+    const editableStatuses = ['draft', 'returned'];
+    const isFullEditable = editableStatuses.includes(proposal.status);
+
+    if (!isFullEditable) {
+      // Detecta se houve tentativa de mexer em algo nao-cosmetico
+      const triedFinancialEdit =
+        items !== undefined ||
+        agencyCommission !== undefined ||
+        isMonitoringEnabled !== undefined ||
+        discountInput !== undefined ||
+        validUntil !== undefined ||
+        clientId !== undefined ||
+        clientName !== undefined;
+
+      if (triedFinancialEdit) {
+        res.status(400).json({
+          error: `Proposta em estado "${proposal.status}" não pode ter itens, valores, cliente ou validade alterados`
+        });
+        return;
+      }
+
+      // Permite apenas edicao cosmetica
+      if (title !== undefined) proposal.title = title;
+      if (description !== undefined) proposal.description = description;
+      if (customization) {
+        proposal.customization = { ...proposal.customization, ...customization };
+      }
+      if (internalNotes !== undefined) (proposal as any).internalNotes = internalNotes;
+
+      await proposal.save();
+      await invalidateProposalCache(req.userId!, proposal.slug);
+      await createVersion(proposal._id.toString(), req.userId!, 'auto_update', proposal, 'Edição cosmética pós-envio');
+      res.json({ proposal });
+      return;
+    }
 
     // Atualizar campos basicos
     if (title !== undefined) proposal.title = title;
@@ -527,18 +609,194 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       }
     }
 
-    // Atualizar itens e recalcular financeiro
+    // ── Atualizar itens com REVALIDACAO server-side ──────────────────────────
+    // Mirror createProposal: refaz o snapshot de cada item buscando productId/sponsorshipId
+    // do banco. Cliente NAO controla unitPrice/totalPrice; e' calculado aqui.
+    // Aplica floor de 50% no adjustedPrice.
     if (items && Array.isArray(items) && items.length > 0) {
-      proposal.items = items;
+      const marketplaceItems = items.filter((i: any) => !i.isCustom && i.productId);
+      const customItems = items.filter((i: any) => i.isCustom);
+      const productItemsInput = marketplaceItems.filter((i: any) => i.itemType !== 'sponsorship');
+      const sponsorshipItemsInput = marketplaceItems.filter((i: any) => i.itemType === 'sponsorship');
 
+      const productIds = productItemsInput.map((i: any) => i.productId);
+      const products = productIds.length > 0
+        ? await Product.find({ _id: { $in: productIds } }).populate('broadcasterId')
+        : [];
+      const productMap = new Map(products.map(p => [p._id.toString(), p]));
+
+      const sponsorshipIds = sponsorshipItemsInput.map((i: any) => i.productId);
+      const sponsorships = sponsorshipIds.length > 0
+        ? await Sponsorship.find({ _id: { $in: sponsorshipIds } }).populate('broadcasterId')
+        : [];
+      const sponsorshipMap = new Map(sponsorships.map(s => [s._id.toString(), s]));
+
+      const proposalItems: any[] = [];
       let productsTotal = 0;
-      items.forEach((item: any) => {
-        const effectivePrice = item.adjustedPrice || item.unitPrice;
-        productsTotal += item.totalPrice || (effectivePrice * item.quantity);
-      });
+
+      for (const item of productItemsInput) {
+        const product = productMap.get(item.productId?.toString());
+        if (!product) {
+          res.status(400).json({ error: `Produto ${item.productId} não encontrado` });
+          return;
+        }
+
+        const unitPrice = (product as any).pricePerInsertion;
+        const netPrice = (product as any).netPrice || 0;
+
+        let effectivePrice = unitPrice;
+        if (item.adjustedPrice !== undefined && item.adjustedPrice !== null) {
+          const minPrice = unitPrice * 0.5;
+          if (item.adjustedPrice < minPrice) {
+            res.status(400).json({ error: `Preço ajustado para ${(product as any).spotType || 'item'} não pode ser menor que 50% do preço original (R$${minPrice.toFixed(2)})` });
+            return;
+          }
+          effectivePrice = item.adjustedPrice;
+        }
+        const totalPrice = parseFloat((effectivePrice * item.quantity).toFixed(2));
+        productsTotal += totalPrice;
+
+        const broadcaster: any = product.broadcasterId;
+        const bProfile = broadcaster?.broadcasterProfile;
+        const bAddress = broadcaster?.address;
+        const scheduleObj: Record<string, number> = {};
+        if (item.schedule) {
+          if (item.schedule instanceof Map) {
+            item.schedule.forEach((val: number, key: string) => { scheduleObj[key] = val; });
+          } else {
+            Object.assign(scheduleObj, item.schedule);
+          }
+        }
+
+        proposalItems.push({
+          productId: product._id.toString(),
+          productName: (product as any).spotType || item.productName,
+          productType: (product as any).spotType || '',
+          duration: (product as any).duration || 0,
+          broadcasterId: broadcaster?._id?.toString(),
+          broadcasterName: broadcaster?.companyName || broadcaster?.fantasyName || item.broadcasterName,
+          city: bAddress?.city || item.city || '',
+          state: bAddress?.state || item.state || '',
+          quantity: item.quantity,
+          unitPrice,
+          netPrice,
+          totalPrice,
+          adjustedPrice: item.adjustedPrice ?? undefined,
+          discountReason: item.discountReason || undefined,
+          needsRecording: !!item.needsRecording,
+          isCustom: false,
+          schedule: scheduleObj,
+          lat: bAddress?.latitude || undefined,
+          lng: bAddress?.longitude || undefined,
+          antennaClass: bProfile?.generalInfo?.antennaClass || undefined,
+          broadcasterLogo: bProfile?.logo || undefined,
+          dial: bProfile?.generalInfo?.dialFrequency || undefined,
+          band: bProfile?.generalInfo?.band || undefined,
+          population: bProfile?.coverage?.totalPopulation || undefined,
+          pmm: bProfile?.pmm || undefined,
+          categories: bProfile?.categories || undefined,
+          audienceGenderFemale: bProfile?.audienceProfile?.gender?.female || undefined,
+          audienceAgeRange: bProfile?.audienceProfile?.ageRange || undefined,
+          audienceSocialClass: bProfile?.audienceProfile?.socialClass
+            ? `${(bProfile.audienceProfile.socialClass.classeAB || 0) + (bProfile.audienceProfile.socialClass.classeC || 0)}% ABC`
+            : undefined,
+        });
+      }
+
+      for (const item of sponsorshipItemsInput) {
+        const sponsorship = sponsorshipMap.get(item.productId?.toString());
+        if (!sponsorship) {
+          res.status(400).json({ error: `Patrocínio ${item.productId} não encontrado` });
+          return;
+        }
+
+        const unitPrice = (sponsorship as any).pricePerMonth;
+        const netPrice = (sponsorship as any).netPrice || 0;
+
+        let effectivePrice = unitPrice;
+        if (item.adjustedPrice !== undefined && item.adjustedPrice !== null) {
+          const minPrice = unitPrice * 0.5;
+          if (item.adjustedPrice < minPrice) {
+            res.status(400).json({ error: `Preço ajustado para ${(sponsorship as any).programName || 'patrocínio'} não pode ser menor que 50% do preço original (R$${minPrice.toFixed(2)})` });
+            return;
+          }
+          effectivePrice = item.adjustedPrice;
+        }
+        const totalPrice = parseFloat((effectivePrice * (item.quantity || 1)).toFixed(2));
+        productsTotal += totalPrice;
+
+        const broadcaster: any = sponsorship.broadcasterId;
+        const bProfile = broadcaster?.broadcasterProfile;
+        const bAddress = broadcaster?.address;
+
+        proposalItems.push({
+          productId: sponsorship._id.toString(),
+          productName: (sponsorship as any).programName || item.productName,
+          productType: 'Patrocínio',
+          duration: 0,
+          broadcasterId: broadcaster?._id?.toString(),
+          broadcasterName: broadcaster?.companyName || broadcaster?.fantasyName || item.broadcasterName,
+          city: bAddress?.city || item.city || '',
+          state: bAddress?.state || item.state || '',
+          quantity: item.quantity || 1,
+          unitPrice,
+          netPrice,
+          totalPrice,
+          adjustedPrice: item.adjustedPrice ?? undefined,
+          discountReason: item.discountReason || undefined,
+          needsRecording: false,
+          isCustom: false,
+          schedule: {},
+          itemType: 'sponsorship',
+          sponsorshipId: sponsorship._id.toString(),
+          programName: (sponsorship as any).programName,
+          programTimeRange: (sponsorship as any).timeRange,
+          programDaysOfWeek: (sponsorship as any).daysOfWeek,
+          selectedMonth: item.selectedMonth || undefined,
+          sponsorshipInsertions: ((sponsorship as any).insertions || []).map((ins: any) => ({
+            name: ins.name, duration: ins.duration,
+            quantityPerDay: ins.quantityPerDay, requiresMaterial: ins.requiresMaterial,
+          })),
+          lat: bAddress?.latitude || undefined,
+          lng: bAddress?.longitude || undefined,
+          antennaClass: bProfile?.generalInfo?.antennaClass || undefined,
+          broadcasterLogo: bProfile?.logo || undefined,
+          dial: bProfile?.generalInfo?.dialFrequency || undefined,
+          band: bProfile?.generalInfo?.band || undefined,
+          population: bProfile?.coverage?.totalPopulation || undefined,
+          pmm: bProfile?.pmm || undefined,
+          categories: bProfile?.categories || undefined,
+          audienceGenderFemale: bProfile?.audienceProfile?.gender?.female || undefined,
+          audienceAgeRange: bProfile?.audienceProfile?.ageRange || undefined,
+          audienceSocialClass: bProfile?.audienceProfile?.socialClass
+            ? `${(bProfile.audienceProfile.socialClass.classeAB || 0) + (bProfile.audienceProfile.socialClass.classeC || 0)}% ABC`
+            : undefined,
+        });
+      }
+
+      for (const item of customItems) {
+        const unitPrice = item.unitPrice || 0;
+        if (unitPrice < 0.01) {
+          res.status(400).json({ error: 'Preço de item personalizado deve ser no mínimo R$ 0,01' });
+          return;
+        }
+        const totalPrice = parseFloat((unitPrice * (item.quantity || 1)).toFixed(2));
+        productsTotal += totalPrice;
+        proposalItems.push({
+          productName: item.productName || 'Item Personalizado',
+          productType: item.productType || 'custom',
+          duration: 0,
+          quantity: item.quantity || 1,
+          unitPrice, netPrice: 0, totalPrice,
+          isCustom: true,
+          customDescription: item.customDescription || undefined,
+        });
+      }
+
+      proposal.items = proposalItems as any;
 
       // Custo de produção
-      const recordingItems = items.filter((i: any) => i.needsRecording && !i.isCustom && !i.productName?.toLowerCase().startsWith('testemunhal'));
+      const recordingItems = proposalItems.filter((i: any) => i.needsRecording && !i.isCustom && !i.productName?.toLowerCase().startsWith('testemunhal'));
       const prodCost = recordingItems.length * 50;
 
       const grossAmount = parseFloat((productsTotal + prodCost).toFixed(2));
@@ -548,7 +806,7 @@ export const updateProposal = async (req: AuthRequest, res: Response): Promise<v
       let monitoringCost = 0;
       if (isMonitoringEnabled) {
         const monitorable = new Set<string>();
-        items.forEach((item: any) => {
+        proposalItems.forEach((item: any) => {
           if (!item.isCustom && !item.productName?.toLowerCase().startsWith('testemunhal') && item.broadcasterId) {
             monitorable.add(item.broadcasterId);
           }
@@ -1130,10 +1388,16 @@ export const respondToProposal = async (req: AuthRequest, res: Response): Promis
         res.status(429).json({ error: 'Muitas tentativas incorretas. Solicite um novo código à agência.' });
         return;
       }
-      if ((proposal as any).protection.pin !== String(pin)) {
+      const stored = String((proposal as any).protection.pin);
+      const { ok, needsRehash } = await comparePin(String(pin), stored);
+      if (!ok) {
         await Proposal.updateOne({ slug }, { $inc: { 'protection.failedAttempts': 1 } });
         res.status(401).json({ error: 'Código PIN incorreto' });
         return;
+      }
+      if (needsRehash) {
+        const newHash = await hashPin(String(pin));
+        await Proposal.updateOne({ slug }, { $set: { 'protection.pin': newHash } });
       }
     }
 
@@ -1148,6 +1412,19 @@ export const respondToProposal = async (req: AuthRequest, res: Response): Promis
     }
 
     if (proposal.status === 'expired') {
+      res.status(410).json({ error: 'Esta proposta expirou' });
+      return;
+    }
+
+    // ── Guard de validUntil (independe do cron) ────────────────────────────
+    // O cron de expiracao roda 1x/dia; entre o vencimento e o cron a proposta
+    // ainda estaria respondivel se confiarmos apenas em `status`. Aqui
+    // verificamos a data efetiva no momento da resposta.
+    if (proposal.validUntil && proposal.validUntil < new Date()) {
+      // Marca como expirada para refletir o estado real
+      try {
+        await Proposal.updateOne({ _id: proposal._id }, { $set: { status: 'expired' } });
+      } catch { /* nao blocking */ }
       res.status(410).json({ error: 'Esta proposta expirou' });
       return;
     }
@@ -1369,6 +1646,12 @@ export const convertToOrder = async (req: AuthRequest, res: Response): Promise<v
 
     if (proposal.convertedOrderId) {
       res.status(400).json({ error: 'Esta proposta já foi convertida em pedido' });
+      return;
+    }
+
+    // Bloqueia conversao apos vencimento (mesmo se cron ainda nao rodou)
+    if (proposal.validUntil && proposal.validUntil < new Date()) {
+      res.status(410).json({ error: 'Esta proposta expirou e não pode ser convertida' });
       return;
     }
 
@@ -1837,10 +2120,12 @@ export const setProtection = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     if (enabled) {
+      // Gera PIN em plaintext apenas para envio por email; armazena hash bcrypt no banco
       const pin = crypto.randomInt(100000, 999999).toString();
+      const pinHash = await hashPin(pin);
       proposal.protection = {
         enabled: true,
-        pin,
+        pin: pinHash,
         email: email || undefined,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24h
       };
@@ -1901,7 +2186,11 @@ export const verifyPin = async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
-    if (proposal.protection.pin !== pin) {
+    const stored = (proposal.protection.pin || '') as string;
+    const submitted = String(pin || '');
+    const { ok, needsRehash } = await comparePin(submitted, stored);
+
+    if (!ok) {
       // Incrementa contador de tentativas falhas
       await Proposal.updateOne(
         { slug },
@@ -1911,11 +2200,20 @@ export const verifyPin = async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
-    // Reset tentativas falhas no sucesso
-    await Proposal.updateOne(
-      { slug },
-      { $set: { 'protection.failedAttempts': 0 } }
-    );
+    // Migracao lazy: se PIN estava em plaintext e bateu, regrava como bcrypt
+    if (needsRehash) {
+      const newHash = await hashPin(submitted);
+      await Proposal.updateOne(
+        { slug },
+        { $set: { 'protection.pin': newHash, 'protection.failedAttempts': 0 } }
+      );
+    } else {
+      // Reset tentativas falhas no sucesso
+      await Proposal.updateOne(
+        { slug },
+        { $set: { 'protection.failedAttempts': 0 } }
+      );
+    }
 
     res.json({ verified: true });
   } catch (error) {

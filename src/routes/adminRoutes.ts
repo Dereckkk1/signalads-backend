@@ -61,15 +61,18 @@ import { Response } from 'express';
 
 const router = Router();
 
-// Configuração do Multer para upload de logo
+// Configuração do Multer para upload de logo.
+// Whitelist explícita ao invés de `startsWith('image/')` — SVG (XSS), TIFF,
+// BMP, x-icon, etc. ficam de fora. (#46, #48)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Apenas imagens são permitidas'));
+      cb(new Error('Apenas imagens JPEG, PNG ou WebP são permitidas'));
     }
   }
 });

@@ -231,7 +231,9 @@ describe('POST /api/auth/login', () => {
       .send({ emailOrCnpj: 'unconfirmed@empresa.com.br', password: STRONG_PASSWORD });
 
     expect(res.status).toBe(401);
-    expect(res.body.error).toBe('email_not_confirmed');
+    // Mesma resposta generica de senha invalida — nao revela diferenca entre
+    // senha errada e email nao confirmado (account enumeration mitigation)
+    expect(res.body.error).toBe('Credenciais inválidas');
   });
 
   it('should reject login for rejected/banned user', async () => {

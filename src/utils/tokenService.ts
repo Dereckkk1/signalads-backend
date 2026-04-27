@@ -9,12 +9,15 @@ const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
 
 /**
- * Gera access token JWT (curta duracao: 15min)
+ * Gera access token JWT (curta duracao: 15min).
+ * Inclui `jti` aleatorio para suportar revogacao individual via denylist
+ * (logout, troca de senha, reset por admin).
  */
 export const generateAccessToken = (userId: string): string => {
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) throw new Error('JWT_SECRET não está definido');
-  return jwt.sign({ userId }, jwtSecret, { expiresIn: ACCESS_TOKEN_EXPIRY });
+  const jti = crypto.randomUUID();
+  return jwt.sign({ userId, jti }, jwtSecret, { expiresIn: ACCESS_TOKEN_EXPIRY });
 };
 
 /**

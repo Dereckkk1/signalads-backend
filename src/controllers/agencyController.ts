@@ -200,7 +200,8 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
             }))
         });
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao carregar dashboard.', error });
+        console.error('agency.getDashboard:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 };
 export const getClients = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -216,7 +217,8 @@ export const getClients = async (req: AuthRequest, res: Response): Promise<void>
         const clients = await AgencyClient.find({ agencyId: userId }).sort({ name: 1 });
         res.json(clients);
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao buscar clientes.', error });
+        console.error('agency.getClients:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 };
 
@@ -259,7 +261,8 @@ export const createClient = async (req: AuthRequest, res: Response): Promise<voi
         await newClient.save();
         res.status(201).json(newClient);
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao criar cliente.', error });
+        console.error('agency.createClient:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 };
 
@@ -293,7 +296,8 @@ export const updateClient = async (req: AuthRequest, res: Response): Promise<voi
 
         res.json(updatedClient);
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao atualizar cliente.', error });
+        console.error('agency.updateClient:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 };
 
@@ -313,6 +317,7 @@ export const deleteClient = async (req: AuthRequest, res: Response): Promise<voi
 
         res.json({ message: 'Cliente removido com sucesso.' });
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao deletar cliente.', error });
+        console.error('agency.deleteClient:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 };

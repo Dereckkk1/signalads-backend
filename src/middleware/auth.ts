@@ -2,9 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { cacheGet, cacheSet, redis } from '../config/redis';
+import { isJtiDenied, getUserIatFloor } from '../utils/jwtDenylist';
 
-// TTL do cache de auth = 900s (15min, mesmo do JWT)
-const AUTH_CACHE_TTL = 900;
+// TTL do cache de auth = 60s.
+// Reduzido de 900s para fechar a janela de status stale apos ban/troca-de-role.
+// Cache continua absorvendo bursts (60s e' suficiente para isso); identidade
+// stale por mais de 1min e' risco que nao queremos correr.
+const AUTH_CACHE_TTL = 60;
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -49,7 +53,23 @@ export const authenticateToken = async (
       throw new Error('JWT_SECRET não está definido');
     }
 
-    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { userId: string };
+    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { userId: string; jti?: string; iat?: number };
+
+    // Verifica denylist de JTI — token revogado por logout/troca-de-senha/admin reset
+    if (decoded.jti && (await isJtiDenied(decoded.jti))) {
+      res.status(401).json({ error: 'Token inválido' });
+      return;
+    }
+
+    // Verifica iat floor — admin reset/ban revoga TODOS access tokens emitidos
+    // antes deste timestamp (mesmo que nao tenhamos o jti deles)
+    if (decoded.userId && typeof decoded.iat === 'number') {
+      const floor = await getUserIatFloor(decoded.userId);
+      if (floor !== null && decoded.iat < floor) {
+        res.status(401).json({ error: 'Token inválido' });
+        return;
+      }
+    }
 
     // Tenta cache Redis antes de ir ao MongoDB
     const cacheKey = `auth:user:${decoded.userId}`;
@@ -109,7 +129,22 @@ export const optionalAuthenticateToken = async (
       return;
     }
 
-    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { userId: string };
+    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { userId: string; jti?: string; iat?: number };
+
+    // Verifica denylist de JTI — mesmo no caminho opcional, token revogado nao deve autenticar
+    if (decoded.jti && (await isJtiDenied(decoded.jti))) {
+      next();
+      return;
+    }
+
+    // Verifica iat floor — token emitido antes de revogacao em massa nao autentica
+    if (decoded.userId && typeof decoded.iat === 'number') {
+      const floor = await getUserIatFloor(decoded.userId);
+      if (floor !== null && decoded.iat < floor) {
+        next();
+        return;
+      }
+    }
 
     // Tenta cache Redis
     const cacheKey = `auth:user:${decoded.userId}`;

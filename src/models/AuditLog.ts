@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IAuditLog extends Document {
-  userId: mongoose.Types.ObjectId;
+  userId?: mongoose.Types.ObjectId;
   action: string;
   resource: string;
   resourceId?: string;
@@ -11,8 +11,9 @@ export interface IAuditLog extends Document {
   timestamp: Date;
 }
 
+// userId e opcional para suportar eventos pre-autenticacao (ex: auth.login_failed)
 const AuditLogSchema = new Schema<IAuditLog>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: false, index: true },
   action: { type: String, required: true, index: true },
   resource: { type: String, required: true },
   resourceId: { type: String },

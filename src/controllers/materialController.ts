@@ -1,14 +1,26 @@
 import { Response } from 'express';
+import { fromBuffer } from 'file-type';
 import { AuthRequest } from '../middleware/auth';
 import Order from '../models/Order';
 import { User } from '../models/User';
 import { uploadFile } from '../config/storage';
-import { 
+import {
   sendMaterialRejectedByBroadcaster,
   sendMaterialProducedByBroadcaster,
   sendMaterialApprovedByClient,
   sendMaterialRejectedByClient
 } from '../services/emailService';
+
+// Magic bytes válidos para áudio (mesma lista de uploadController)
+const ALLOWED_AUDIO_MAGIC = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/wave'];
+
+// Sanitiza filename antes de persistir (remove HTML, controles, limita tamanho)
+const sanitizeFileName = (name: string): string => {
+  if (!name || typeof name !== 'string') return 'arquivo';
+  return name
+    .replace(/[<>"'&\x00-\x1f]/g, '_')
+    .slice(0, 200);
+};
 
 // Helper para validar itemIndex
 const getOrderItem = (order: any, itemIndex: string | undefined) => {
@@ -90,18 +102,28 @@ export const uploadBroadcasterProduction = async (req: AuthRequest, res: Respons
       return res.status(403).json({ error: 'Apenas a emissora pode enviar produção' });
     }
 
+    // Validação de magic bytes — impede HTML/polyglot/qualquer coisa não-áudio
+    // disfarçada com Content-Type: audio/mpeg (#46)
+    const sniffed = await fromBuffer(req.file.buffer);
+    if (!sniffed || !ALLOWED_AUDIO_MAGIC.includes(sniffed.mime)) {
+      return res.status(400).json({ error: 'Conteúdo do arquivo não corresponde a um áudio válido' });
+    }
+
+    // Sanitiza filename antes de qualquer persistência
+    const safeName = sanitizeFileName(req.file.originalname);
+
     // Upload do áudio para storage
     const audioUrl = await uploadFile(
-      req.file.buffer, 
-      req.file.originalname, 
-      'audio', 
+      req.file.buffer,
+      req.file.originalname,
+      'audio',
       req.file.mimetype
     );
 
     // Salva produção da emissora
     item.material.broadcasterProduction = {
       audioUrl,
-      audioFileName: req.file.originalname,
+      audioFileName: safeName,
       audioDuration: parseFloat(audioDuration) || 0,
       producedAt: new Date(),
       notes: notes || ''
@@ -118,7 +140,7 @@ export const uploadBroadcasterProduction = async (req: AuthRequest, res: Respons
       sender: 'broadcaster',
       message: notes || 'Áudio produzido pela emissora',
       fileUrl: audioUrl,
-      fileName: req.file.originalname,
+      fileName: safeName,
       action: 'uploaded',
       timestamp: new Date()
     });
@@ -136,13 +158,15 @@ export const uploadBroadcasterProduction = async (req: AuthRequest, res: Respons
       notes: notes || ''
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       production: item.material.broadcasterProduction,
-      audioUrl 
+      audioUrl
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Erro ao enviar produção' });
+    // Não vaza detalhes do GCS / bucket path para o cliente (#47)
+    console.error('[materialController.uploadBroadcasterProduction] erro:', error?.message || error);
+    res.status(500).json({ error: 'Erro ao processar upload' });
   }
 };
 

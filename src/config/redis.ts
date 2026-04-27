@@ -1,6 +1,23 @@
 import Redis from 'ioredis';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+// Suporte a REDIS_PASSWORD separado (preferível a embutir na URL).
+// Em produção com redis.conf usando `requirepass`, configure:
+//   REDIS_URL=redis://127.0.0.1:6379
+//   REDIS_PASSWORD=<senha_do_requirepass>
+const buildRedisUrl = (): string => {
+  const base = process.env.REDIS_URL || 'redis://localhost:6379';
+  const password = process.env.REDIS_PASSWORD;
+  if (!password) return base;
+  try {
+    const u = new URL(base);
+    u.password = password;
+    return u.toString();
+  } catch {
+    return base;
+  }
+};
+
+const REDIS_URL = buildRedisUrl();
 
 export const redis = new Redis(REDIS_URL, {
   maxRetriesPerRequest: 3,
@@ -10,6 +27,7 @@ export const redis = new Redis(REDIS_URL, {
   },
   lazyConnect: true,
 });
+
 
 redis.on('error', (err) => {
   console.error('[Redis] Connection error:', err.message);

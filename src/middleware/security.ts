@@ -8,9 +8,25 @@ import sanitizeHtml from 'sanitize-html';
 // ============================================================
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype', 'toString', 'valueOf']);
 
+// Hard cap on nesting depth. Legitimate payloads have depth <= 5.
+// 30 is a generous safety margin for any future feature; anything deeper
+// is rejected as suspicious / DoS attempt (defense in depth).
+const MAX_DEPTH = 30;
+
+class PayloadTooDeepError extends Error {
+    constructor() {
+        super('Payload muito profundo');
+        this.name = 'PayloadTooDeepError';
+    }
+}
+
 const sanitizeMongo = (obj: any, depth = 0): void => {
-    // Limite de profundidade para prevenir stack overflow em payloads aninhados
-    if (!obj || typeof obj !== 'object' || depth > 10) return;
+    if (!obj || typeof obj !== 'object') return;
+    // Fail closed: reject the whole request rather than silently letting
+    // operator-laden keys through at depths > MAX_DEPTH.
+    if (depth > MAX_DEPTH) {
+        throw new PayloadTooDeepError();
+    }
 
     const keys = Array.isArray(obj) ? Object.keys(obj) : Object.keys(obj);
     for (const key of keys) {
@@ -32,8 +48,11 @@ export const mongoSanitize = (req: Request, res: Response, next: NextFunction) =
         if (req.body) sanitizeMongo(req.body);
         if (req.query) sanitizeMongo(req.query);
         if (req.params) sanitizeMongo(req.params);
-    } catch {
-        // Sanitization error — continue silently
+    } catch (err) {
+        if (err instanceof PayloadTooDeepError) {
+            return res.status(400).json({ error: 'Payload muito profundo' });
+        }
+        // Outros erros de sanitização — segue silenciosamente
     }
     next();
 };

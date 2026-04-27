@@ -1,13 +1,35 @@
 import cron from 'node-cron';
 import Proposal from '../models/Proposal';
+import Order from '../models/Order';
+import SponsorshipBooking from '../models/SponsorshipBooking';
 
 /**
- * Cron Job — Expira propostas vencidas + alertas de expiração
+ * Cron Job — Expira propostas vencidas + alertas de expiração + libera bookings de patrocinio
  * Roda diariamente a meia-noite (00:00).
  */
 export function startExpireProposalsCron(): void {
   cron.schedule('0 0 * * *', async () => {
     try {
+      // 0. Liberar SponsorshipBookings cujo Order foi cancelado/expirado/refunded
+      try {
+        const releasedOrders = await Order.find({
+          status: { $in: ['cancelled', 'expired', 'refunded'] },
+          'items.itemType': 'sponsorship',
+        }).select('_id').lean();
+        const releasedIds = releasedOrders.map((o: any) => o._id);
+        if (releasedIds.length > 0) {
+          const released = await SponsorshipBooking.updateMany(
+            { orderId: { $in: releasedIds }, status: 'reserved' },
+            { $set: { status: 'cancelled' } }
+          );
+          if (released.modifiedCount > 0) {
+            console.log(`[Cron] ${released.modifiedCount} reserva(s) de patrocínio liberada(s)`);
+          }
+        }
+      } catch (bookingErr) {
+        console.error('[Cron] Erro ao liberar bookings de patrocinio:', bookingErr);
+      }
+
       // 1. Expirar propostas vencidas
       const result = await Proposal.updateMany(
         {

@@ -7,6 +7,8 @@ import {
   KanbanOwnerType,
 } from '../models/KanbanBoard';
 import { KanbanCardPlacement } from '../models/KanbanCardPlacement';
+import Proposal from '../models/Proposal';
+import Order from '../models/Order';
 
 const VALID_CONTEXTS: KanbanContext[] = ['proposals', 'orders'];
 const MAX_CUSTOM_COLUMNS = 20;
@@ -416,6 +418,30 @@ export const setPlacement = async (
     if (typeof columnId !== 'string') {
       res.status(400).json({ error: 'columnId deve ser string' });
       return;
+    }
+
+    // Valida que o cardId existe e pertence ao owner para nao bloatar o DB
+    // com placements de cards inexistentes/de terceiros.
+    if (scope.ownerId) {
+      const cardObjectId = new Types.ObjectId(String(cardId));
+      let cardExists = false;
+      if (context === 'proposals') {
+        const found = await Proposal.exists({
+          _id: cardObjectId,
+          $or: [{ agencyId: scope.ownerId }, { broadcasterId: scope.ownerId }],
+        });
+        cardExists = !!found;
+      } else if (context === 'orders') {
+        const found = await Order.exists({
+          _id: cardObjectId,
+          $or: [{ buyerId: scope.ownerId as any }, { 'items.broadcasterId': scope.ownerId as any }],
+        });
+        cardExists = !!found;
+      }
+      if (!cardExists) {
+        res.status(404).json({ error: 'Card nao encontrado' });
+        return;
+      }
     }
 
     const board = await KanbanBoard.findOne({

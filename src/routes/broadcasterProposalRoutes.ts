@@ -44,16 +44,18 @@ import {
 
 const router = express.Router();
 
-// Multer para upload de imagens (logo/cover)
+// Multer para upload de imagens (logo/cover).
+// SVG removido propositalmente: aceita <script>/onerror e seria servido via
+// storage com Content-Type que browsers podem executar (XSS stored). (#46)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Formato de imagem não suportado. Use JPEG, PNG, WebP ou SVG.'));
+      cb(new Error('Formato de imagem não suportado. Use JPEG, PNG ou WebP.'));
     }
   }
 });

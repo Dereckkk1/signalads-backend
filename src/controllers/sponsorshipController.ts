@@ -74,11 +74,13 @@ export const createSponsorship = async (req: AuthRequest, res: Response): Promis
     // Determina emissora alvo
     let targetBroadcasterId: string;
     if (user.userType === 'broadcaster') {
-      if (!req.userId) {
+      // Sub-user (sales) deve criar em nome do parent broadcaster, nao em nome proprio
+      const effectiveId = getEffectiveBroadcasterId(req);
+      if (!effectiveId) {
         res.status(401).json({ error: 'Usuário não autenticado' });
         return;
       }
-      targetBroadcasterId = req.userId;
+      targetBroadcasterId = effectiveId;
     } else {
       if (!broadcasterId) {
         res.status(400).json({ error: 'ID da emissora é obrigatório para administradores' });

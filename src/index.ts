@@ -1,7 +1,6 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import path from 'path';
 import connectDB from './config/database';
 import authRoutes from './routes/authRoutes';
 import adminRoutes from './routes/adminRoutes';
@@ -36,9 +35,9 @@ import { startExpireProposalsCron } from './cron/expireProposals';
 import { startProposalAlertsCron } from './cron/proposalAlerts';
 // Middlewares de Segurança
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 // import mongoSanitize from 'express-mongo-sanitize'; // Incompatible with Express 5
-import hpp from 'hpp';
+// import hpp from 'hpp'; // Incompatible com Express 5 (req.query e read-only). Substituido por dedupeQuery local.
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { redis } from './config/redis';
@@ -108,6 +107,15 @@ app.use(helmet({
   },
 }));
 
+// Permissions-Policy: desabilita APIs sensiveis nao usadas pela aplicacao (defesa em profundidade)
+app.use((req: Request, res: Response, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), fullscreen=(self), interest-cohort=()'
+  );
+  next();
+});
+
 // ─────────────────────────────────────────────────────────────
 // Rate Limiting dual: por IP + por userId autenticado
 //
@@ -152,7 +160,7 @@ const ipLimiter = rateLimit({
   legacyHeaders: false,
   skip: isHealthCheck,
   store: createRedisStore('ip'),
-  keyGenerator: (req) => req.ip || 'unknown',
+  keyGenerator: (req) => ipKeyGenerator(req.ip || 'unknown'),
   message: { error: 'Muitas requisições deste IP. Tente novamente em um minuto.' },
 });
 
@@ -168,6 +176,11 @@ const userLimiter = rateLimit({
   message: { error: 'Limite de requisições por conta atingido. Tente novamente em um minuto.' },
 });
 
+// IMPORTANTE: cookieParser DEVE rodar antes dos rate limiters — userLimiter
+// le req.cookies.access_token para extrair o userId. Se cookieParser rodar depois,
+// req.cookies fica undefined e o limiter por usuario nunca dispara.
+app.use(cookieParser());
+
 app.use(ipLimiter);
 app.use(userLimiter);
 
@@ -176,18 +189,37 @@ app.use(compression());
 
 // Middlewares Padrao
 // Body limit reduzido para 5mb (seguranca contra DoS). Uploads de audio usam multipart com limite proprio no multer.
-app.use(cookieParser());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+
+// HPP (HTTP Parameter Pollution) — substitui o pacote `hpp` que e no-op no Express 5
+// (req.query virou getter read-only). Colapsa duplicatas para o ULTIMO valor.
+const dedupeQuery = (req: Request, _res: Response, next: any) => {
+  if (req.query && typeof req.query === 'object') {
+    for (const k of Object.keys(req.query)) {
+      const v = (req.query as any)[k];
+      if (Array.isArray(v)) {
+        Object.defineProperty(req.query, k, {
+          value: v[v.length - 1],
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
+      }
+    }
+  }
+  next();
+};
 
 // Protecao contra NoSQL Injection, XSS, HPP e CSRF
 app.use(mongoSanitize); // Previne injecao de operadores MongoDB (Custom + prototype pollution)
 app.use(xssSanitize);   // Sanitiza input contra XSS (substitui xss-clean incompativel com Express 5)
-app.use(hpp());          // Previne poluicao de parametros HTTP
+app.use(dedupeQuery);   // Previne poluicao de parametros HTTP (substitui hpp@0.2.3 incompativel com Express 5)
 app.use(csrfProtection); // CSRF double-submit cookie (verifica X-CSRF-Token header)
 
-// Servir arquivos estáticos (uploads locais para desenvolvimento)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Static /uploads removido (Agent 6): uploads locais nao sao mais usados em producao,
+// arquivos vao para Google Cloud Storage. Servir uploads/ localmente expoe arquivos
+// fora do controle de auth da aplicacao.
 
 // Bloqueio de IPs (antes das rotas, admin routes isentas — ver checkBlockedIP)
 app.use(checkBlockedIP);

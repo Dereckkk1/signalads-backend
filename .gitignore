@@ -13,4 +13,5 @@ token.txt
 /data
 /dump
 /backups
+/uploads
 *.md

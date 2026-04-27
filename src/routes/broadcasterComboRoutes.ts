@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth';
+import { requirePermission } from '../middleware/requirePermission';
 import {
   listCombos,
   createCombo,
@@ -11,12 +12,13 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
+// Combos sao bundles de produtos/patrocinios — usam permissao 'products'
 router.route('/')
   .get(listCombos)
-  .post(createCombo);
+  .post(requirePermission('products'), createCombo);
 
 router.route('/:id')
-  .put(updateCombo)
-  .delete(deleteCombo);
+  .put(requirePermission('products'), updateCombo)
+  .delete(requirePermission('products'), deleteCombo);
 
 export default router;
