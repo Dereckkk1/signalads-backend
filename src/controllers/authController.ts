@@ -193,7 +193,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Verifica se é email ou número (CNPJ/CPF)
     const isEmail = emailOrCnpj.includes('@');
     const searchQuery = isEmail
-      ? { email: emailOrCnpj }
+      ? { email: emailOrCnpj.toLowerCase().trim() }
       : { cpfOrCnpj: emailOrCnpj };
 
     // Buscar usuário por email ou CNPJ/CPF
