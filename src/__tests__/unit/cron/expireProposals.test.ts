@@ -29,6 +29,25 @@ jest.mock('../../../models/Proposal', () => ({
     },
 }));
 
+// ── Mock Order e SponsorshipBooking — chamados no inicio do cron
+// para liberar bookings; sem mock ficam buffering 10s sem conexao Mongo.
+jest.mock('../../../models/Order', () => ({
+    __esModule: true,
+    default: {
+        find: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnThis(),
+            lean: jest.fn().mockResolvedValue([]),
+        }),
+    },
+}));
+
+jest.mock('../../../models/SponsorshipBooking', () => ({
+    __esModule: true,
+    default: {
+        updateMany: jest.fn().mockResolvedValue({ modifiedCount: 0 }),
+    },
+}));
+
 // ── Mock emailService (dynamic import) ──
 const mockSendEmail = jest.fn();
 const mockCreateEmailTemplate = jest.fn().mockReturnValue('<html>test</html>');
