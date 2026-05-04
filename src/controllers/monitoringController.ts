@@ -49,7 +49,7 @@ export const getOverview = async (req: Request, res: Response) => {
             SystemMetric.aggregate([
                 { $match: { timestamp: { $gte: since }, ...ipFilter } },
                 { $group: { _id: null, avg: { $avg: '$duration' } } },
-            ]),
+            ]).allowDiskUse(true),
         ]);
 
         const errorRate = totalRequests > 0
@@ -103,7 +103,7 @@ export const getRouteMetrics = async (req: Request, res: Response) => {
                 },
             },
             { $sort: { count: -1 } },
-        ]);
+        ]).allowDiskUse(true);
 
         const result = routes.map((r) => {
             const sorted = r.durations.sort((a: number, b: number) => a - b);
@@ -164,7 +164,7 @@ export const getErrors = async (req: Request, res: Response) => {
             },
             { $sort: { count: -1 } },
             { $limit: 50 },
-        ]);
+        ]).allowDiskUse(true);
 
         const result = errors.map((e) => ({
             route: e._id.route,
@@ -217,7 +217,7 @@ export const getVitals = async (req: Request, res: Response) => {
                 },
             },
             { $sort: { '_id.name': 1, count: -1 } },
-        ]);
+        ]).allowDiskUse(true);
 
         const result = vitals.map((v) => {
             const sorted = v.p75.sort((a: number, b: number) => a - b);
@@ -311,7 +311,7 @@ export const getTimeline = async (req: Request, res: Response) => {
                 },
             },
             { $sort: { _id: 1 } },
-        ]);
+        ]).allowDiskUse(true);
 
         const result = timeline.map((t) => ({
             period: t._id,
@@ -388,6 +388,8 @@ export const getTopActors = async (req: Request, res: Response) => {
 
         const actors = await SystemMetric.aggregate([
             { $match: { timestamp: { $gte: since }, ...ipFilter } },
+            { $sort: { timestamp: -1 } },
+            { $limit: 100000 }, // Cap memory — amostra os 100k requests mais recentes do periodo
             {
                 $group: {
                     _id: {
@@ -408,7 +410,7 @@ export const getTopActors = async (req: Request, res: Response) => {
             },
             { $sort: { totalRequests: -1 } },
             { $limit: 300 },
-        ]);
+        ]).allowDiskUse(true);
 
         const blockedIPsList = await BlockedIP.find().select('ip reason blockedAt').lean();
         const blockedIPMap = new Map(blockedIPsList.map((b) => [b.ip, b]));
@@ -479,7 +481,7 @@ export const getActorDetail = async (req: Request, res: Response) => {
                     },
                 },
                 { $sort: { _id: 1 } },
-            ]),
+            ]).allowDiskUse(true),
         ]);
 
         // Top rotas deste ator
