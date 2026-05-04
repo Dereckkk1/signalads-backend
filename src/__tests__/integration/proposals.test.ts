@@ -414,7 +414,7 @@ describe('PUT /api/proposals/:id', () => {
       agencyId: agency._id,
       title: 'Recalcular',
       slug: `recalc-${Date.now()}`,
-      items: [{ productName: 'Comercial 30s', quantity: 5, unitPrice: 100, totalPrice: 500, productType: 'Comercial 30s' }],
+      items: [{ productName: 'Comercial 30s', quantity: 5, unitPrice: 100, totalPrice: 500, productType: 'Comercial 30s', isCustom: true }],
       grossAmount: 500,
       techFee: 25,
       agencyCommission: 0,
@@ -429,7 +429,7 @@ describe('PUT /api/proposals/:id', () => {
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
       .send({
-        items: [{ productName: 'Comercial 30s', quantity: 10, unitPrice: 100, totalPrice: 1000, productType: 'Comercial 30s' }],
+        items: [{ productName: 'Comercial 30s', quantity: 10, unitPrice: 100, totalPrice: 1000, productType: 'Comercial 30s', isCustom: true }],
       });
 
     expect(res.status).toBe(200);
@@ -913,8 +913,8 @@ describe('POST /api/proposals/:id/protection', () => {
 
     const updated = await Proposal.findById(proposal._id);
     expect(updated!.protection?.enabled).toBe(true);
-    // PIN should be auto-generated (6 digits)
-    expect(updated!.protection?.pin).toMatch(/^\d{6}$/);
+    // PIN e armazenado como hash bcrypt (plaintext so vai por email)
+    expect(updated!.protection?.pin).toMatch(/^\$2[aby]\$/);
   });
 });
 

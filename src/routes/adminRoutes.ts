@@ -15,6 +15,7 @@ import {
   getUserFullDetails,
   updateUserStatus,
   updateUserRole,
+  updateBroadcasterMaxSubUsers,
   adminResetUserPassword,
   deleteUser,
   adminUploadRecordingAudio,
@@ -162,6 +163,7 @@ router.get('/users', authenticateToken, requireAdmin, getAllUsers);
 router.get('/users/:userId', authenticateToken, requireAdmin, getUserFullDetails);
 router.put('/users/:userId/status', authenticateToken, requireAdmin, auditLog('user.status_change', 'user'), updateUserStatus);
 router.put('/users/:userId/role', authenticateToken, requireAdmin, auditLog('user.role_change', 'user'), updateUserRole);
+router.put('/users/:userId/max-sub-users', authenticateToken, requireAdmin, auditLog('user.max_sub_users_change', 'user'), updateBroadcasterMaxSubUsers);
 router.put('/users/:userId/reset-password', authenticateToken, requireAdmin, auditLog('user.reset_password', 'user'), adminResetUserPassword);
 router.delete('/users/:userId', authenticateToken, requireAdmin, auditLog('user.delete', 'user'), deleteUser);
 

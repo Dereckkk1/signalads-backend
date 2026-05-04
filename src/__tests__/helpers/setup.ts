@@ -15,7 +15,9 @@ let mongoServer: MongoMemoryServer;
  * Call this in beforeAll().
  */
 export async function connectTestDB(): Promise<void> {
-  mongoServer = await MongoMemoryServer.create();
+  // launchTimeout aumentado para 60s: spawn paralelo do mongod no Windows
+  // pode estourar o default de 10s sob contencao de I/O.
+  mongoServer = await MongoMemoryServer.create({ instance: { launchTimeout: 60000 } });
   const uri = mongoServer.getUri();
   await mongoose.connect(uri);
 }

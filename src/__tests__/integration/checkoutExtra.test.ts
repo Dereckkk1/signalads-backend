@@ -21,6 +21,7 @@ import { Product } from '../../models/Product';
 import { Sponsorship } from '../../models/Sponsorship';
 import { Cart } from '../../models/Cart';
 import { User } from '../../models/User';
+import AgencyClient from '../../models/AgencyClient';
 
 function createCheckoutTestApp(): Application {
   const app = express();
@@ -321,7 +322,15 @@ describe('POST /api/payment/checkout — agencia com clientId', () => {
   it('aceita clientId no checkout da agencia', async () => {
     const { user: buyer, auth } = await createAgency();
     const { user: broadcaster } = await createBroadcaster();
-    const clientId = new mongoose.Types.ObjectId();
+
+    // Cria AgencyClient real ligado a esta agencia — o controller valida posse via AgencyClient.exists
+    const agencyClient = await AgencyClient.create({
+      agencyId: buyer._id,
+      name: 'Cliente Teste',
+      documentNumber: '12345678000190',
+      status: 'active',
+    });
+    const clientId = agencyClient._id as mongoose.Types.ObjectId;
 
     const product = await Product.create({
       broadcasterId: broadcaster._id,

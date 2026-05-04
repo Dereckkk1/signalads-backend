@@ -624,6 +624,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
     // Busca usuários
     const users = await User.find(filter)
       .select('-password -twoFactorSecret -emailConfirmToken -emailConfirmTokenExpires -twoFactorCode -twoFactorSessionToken -twoFactorPendingToken -passwordResetToken -passwordResetTokenExpires -trustedDevices.deviceId')
+      .populate('parentBroadcasterId', 'name companyName fantasyName broadcasterProfile.generalInfo.stationName')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
@@ -701,7 +702,10 @@ export const getUserFullDetails = async (req: AuthRequest, res: Response) => {
   try {
     const { userId } = req.params;
 
-    const user = await User.findById(userId).select('-password -twoFactorSecret -emailConfirmToken -emailConfirmTokenExpires -twoFactorCode -twoFactorSessionToken -twoFactorPendingToken -passwordResetToken -passwordResetTokenExpires -trustedDevices.deviceId').lean();
+    const user = await User.findById(userId)
+      .select('-password -twoFactorSecret -emailConfirmToken -emailConfirmTokenExpires -twoFactorCode -twoFactorSessionToken -twoFactorPendingToken -passwordResetToken -passwordResetTokenExpires -trustedDevices.deviceId')
+      .populate('parentBroadcasterId', 'name companyName fantasyName broadcasterProfile.generalInfo.stationName')
+      .lean();
 
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
@@ -854,6 +858,52 @@ export const adminResetUserPassword = async (req: AuthRequest, res: Response) =>
 
   } catch (error) {
     res.status(500).json({ message: 'Erro ao resetar senha' });
+  }
+};
+
+/**
+ * PUT /api/admin/users/:userId/max-sub-users
+ * Define o limite de sub-usuarios (vendedores) que uma emissora pode criar.
+ * Aplicavel apenas a managers de emissora (broadcasterRole !== 'sales').
+ * Body: { maxSubUsers: number } — 0 desabilita criacao de novos.
+ * Passar null/undefined remove o limite customizado (volta ao default).
+ */
+export const updateBroadcasterMaxSubUsers = async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { maxSubUsers } = req.body;
+
+    // Valida tipo: aceita number >= 0 ou null (remove)
+    if (maxSubUsers !== null && maxSubUsers !== undefined) {
+      if (typeof maxSubUsers !== 'number' || !Number.isInteger(maxSubUsers) || maxSubUsers < 0 || maxSubUsers > 1000) {
+        return res.status(400).json({ message: 'maxSubUsers deve ser um inteiro entre 0 e 1000, ou null' });
+      }
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+
+    if (user.userType !== 'broadcaster' || user.broadcasterRole === 'sales') {
+      return res.status(400).json({ message: 'Limite de sub-usuários só pode ser definido para emissoras (manager)' });
+    }
+
+    if (maxSubUsers === null || maxSubUsers === undefined) {
+      user.maxSubUsers = undefined;
+    } else {
+      user.maxSubUsers = maxSubUsers;
+    }
+
+    await user.save();
+    await invalidateUserCache(user._id.toString());
+
+    res.json({
+      message: 'Limite de sub-usuários atualizado',
+      user: { _id: user._id, maxSubUsers: user.maxSubUsers ?? null }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao atualizar limite de sub-usuários' });
   }
 };
 

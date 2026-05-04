@@ -10,6 +10,7 @@ import { User } from '../models/User';
 import Order from '../models/Order';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import { sendOrderReceivedToClient, sendNewOrderToAdmin } from '../services/emailService';
+import { shouldSendNotification } from '../services/notificationService';
 import ExcelJS from 'exceljs';
 import { uploadFile } from '../config/storage';
 import crypto from 'crypto';
@@ -1471,7 +1472,10 @@ export const respondToProposal = async (req: AuthRequest, res: Response): Promis
       const ownerIdForLookup = proposal.ownerType === 'broadcaster' ? proposal.broadcasterId : proposal.agencyId;
       const proposalsPath = proposal.ownerType === 'broadcaster' ? 'broadcaster/proposals' : 'proposals';
       const owner = await User.findById(ownerIdForLookup).lean();
-      if (owner?.email) {
+      const shouldSend = ownerIdForLookup
+        ? await shouldSendNotification(ownerIdForLookup as any, 'proposalAcceptedRejected')
+        : false;
+      if (owner?.email && shouldSend) {
         const emailSvc = (await import('../services/emailService')).default;
         const statusText = action === 'approve' ? 'aprovada' : 'recusada';
         const html = emailSvc.createEmailTemplate({
@@ -1749,15 +1753,23 @@ export const convertToOrder = async (req: AuthRequest, res: Response): Promise<v
     await invalidateProposalCache(req.userId!, proposal.slug);
 
     // Enviar emails — fire-and-forget
-    sendOrderReceivedToClient({
-      orderNumber: order.orderNumber,
-      buyerName: (buyer as any).name || '',
-      buyerEmail: (buyer as any).email,
-      items: orderItems.map(i => ({ productName: i.productName, broadcasterName: i.broadcasterName || '' })),
-      totalValue: totalAmount
-    }).catch(err => console.error('Email error (client):', err));
+    if (await shouldSendNotification((buyer as any)._id, 'ownOrderUpdates')) {
+      sendOrderReceivedToClient({
+        orderNumber: order.orderNumber,
+        buyerName: (buyer as any).name || '',
+        buyerEmail: (buyer as any).email,
+        items: orderItems.map(i => ({ productName: i.productName, broadcasterName: i.broadcasterName || '' })),
+        totalValue: totalAmount
+      }).catch(err => console.error('Email error (client):', err));
+    }
 
-    User.find({ userType: 'admin' }).select('email').then(admins => {
+    User.find({
+      userType: 'admin',
+      $or: [
+        { 'notificationPreferences.newOrders': { $ne: false } },
+        { notificationPreferences: { $exists: false } }
+      ]
+    }).select('email').then(admins => {
       const adminEmails = admins.map(a => a.email);
       if (adminEmails.length > 0) {
         sendNewOrderToAdmin({

@@ -9,7 +9,17 @@ import { sendSalesTeamInvite } from '../services/emailService';
 import Proposal from '../models/Proposal';
 import BroadcasterGroup from '../models/BroadcasterGroup';
 
-const MAX_SUB_USERS = 3;
+// Limite default quando a emissora nao tem maxSubUsers definido pelo admin
+export const DEFAULT_MAX_SUB_USERS = 3;
+
+/**
+ * Resolve o limite de sub-usuarios para uma emissora.
+ * Se o manager tem maxSubUsers definido, usa esse valor; caso contrario, usa o default.
+ */
+async function resolveMaxSubUsers(managerId: string): Promise<number> {
+  const manager = await User.findById(managerId).select('maxSubUsers').lean();
+  return manager?.maxSubUsers ?? DEFAULT_MAX_SUB_USERS;
+}
 
 /**
  * Retorna o broadcasterId efetivo (para manager = req.userId, para sales = parentBroadcasterId).
@@ -45,15 +55,18 @@ export const listSubUsers = async (req: AuthRequest, res: Response): Promise<voi
   try {
     if (!requireManager(req, res)) return;
 
-    const subUsers = await User.find({
-      parentBroadcasterId: req.userId,
-      broadcasterRole: 'sales'
-    })
-      .select('name email phone cpfOrCnpj status createdAt emailConfirmed groupId')
-      .sort({ createdAt: -1 })
-      .lean();
+    const [subUsers, maxSubUsers] = await Promise.all([
+      User.find({
+        parentBroadcasterId: req.userId,
+        broadcasterRole: 'sales'
+      })
+        .select('name email phone cpfOrCnpj status createdAt emailConfirmed groupId')
+        .sort({ createdAt: -1 })
+        .lean(),
+      resolveMaxSubUsers(req.userId!)
+    ]);
 
-    res.json({ subUsers, maxSubUsers: MAX_SUB_USERS });
+    res.json({ subUsers, maxSubUsers });
   } catch (error) {
     console.error('Erro ao listar sub-usuarios:', error);
     res.status(500).json({ error: 'Erro ao listar vendedores' });
@@ -89,14 +102,17 @@ export const createSubUser = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    // Verificar limite de sub-usuarios
-    const currentCount = await User.countDocuments({
-      parentBroadcasterId: req.userId,
-      broadcasterRole: 'sales'
-    });
+    // Verificar limite de sub-usuarios (configuravel pelo admin via User.maxSubUsers)
+    const [currentCount, maxSubUsers] = await Promise.all([
+      User.countDocuments({
+        parentBroadcasterId: req.userId,
+        broadcasterRole: 'sales'
+      }),
+      resolveMaxSubUsers(req.userId!)
+    ]);
 
-    if (currentCount >= MAX_SUB_USERS) {
-      res.status(400).json({ error: `Limite de ${MAX_SUB_USERS} vendedores atingido` });
+    if (currentCount >= maxSubUsers) {
+      res.status(400).json({ error: `Limite de ${maxSubUsers} vendedores atingido` });
       return;
     }
 
@@ -303,16 +319,19 @@ export const getSubUserStats = async (req: AuthRequest, res: Response): Promise<
   try {
     if (!requireManager(req, res)) return;
 
-    const subUsers = await User.find({
-      parentBroadcasterId: req.userId,
-      broadcasterRole: 'sales'
-    })
-      .select('name email phone cpfOrCnpj status createdAt emailConfirmed groupId')
-      .sort({ createdAt: -1 })
-      .lean();
+    const [subUsers, maxSubUsers] = await Promise.all([
+      User.find({
+        parentBroadcasterId: req.userId,
+        broadcasterRole: 'sales'
+      })
+        .select('name email phone cpfOrCnpj status createdAt emailConfirmed groupId')
+        .sort({ createdAt: -1 })
+        .lean(),
+      resolveMaxSubUsers(req.userId!)
+    ]);
 
     if (subUsers.length === 0) {
-      res.json({ subUsers: [], teamTotals: { totalProposals: 0, totalSent: 0, totalApproved: 0, totalValue: 0, approvedValue: 0, conversionRate: 0 }, maxSubUsers: MAX_SUB_USERS });
+      res.json({ subUsers: [], teamTotals: { totalProposals: 0, totalSent: 0, totalApproved: 0, totalValue: 0, approvedValue: 0, conversionRate: 0 }, maxSubUsers });
       return;
     }
 
@@ -432,7 +451,7 @@ export const getSubUserStats = async (req: AuthRequest, res: Response): Promise<
       ? Math.round((teamTotals.totalApproved / teamTotals.totalSent) * 100)
       : 0;
 
-    res.json({ subUsers: enrichedSubUsers, teamTotals, maxSubUsers: MAX_SUB_USERS });
+    res.json({ subUsers: enrichedSubUsers, teamTotals, maxSubUsers });
   } catch (error) {
     console.error('Erro ao buscar stats de sub-usuarios:', error);
     res.status(500).json({ error: 'Erro ao buscar estatisticas da equipe' });

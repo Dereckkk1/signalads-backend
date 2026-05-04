@@ -363,10 +363,25 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       return;
     }
 
-    // Para sub-usuarios (sales), buscar permissoes do grupo
+    // Para sub-usuarios (sales), buscar permissoes do grupo + dados do manager (nome da emissora pai)
     let groupPermissions: PagePermission[] | undefined;
+    let parentBroadcaster: { _id: any; name?: string; companyName?: string; fantasyName?: string; stationName?: string } | undefined;
     if (user.broadcasterRole === 'sales') {
       groupPermissions = await getSalesPermissions(user.groupId);
+      if (user.parentBroadcasterId) {
+        const parent = await User.findById(user.parentBroadcasterId)
+          .select('name companyName fantasyName broadcasterProfile.generalInfo.stationName')
+          .lean();
+        if (parent) {
+          parentBroadcaster = {
+            _id: parent._id,
+            name: parent.name,
+            companyName: parent.companyName,
+            fantasyName: parent.fantasyName,
+            stationName: parent.broadcasterProfile?.generalInfo?.stationName
+          };
+        }
+      }
     }
 
     res.json({
@@ -388,8 +403,10 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       broadcasterProfile: user.broadcasterProfile,
       broadcasterRole: user.broadcasterRole || undefined,
       parentBroadcasterId: user.parentBroadcasterId || undefined,
+      parentBroadcaster: parentBroadcaster || undefined,
       groupId: user.groupId || undefined,
-      groupPermissions: groupPermissions || undefined
+      groupPermissions: groupPermissions || undefined,
+      maxSubUsers: user.maxSubUsers ?? undefined
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar usuário' });
@@ -1053,5 +1070,96 @@ export const updateCompletedTours = async (req: AuthRequest, res: Response): Pro
     res.json({ completedTours: user.completedTours });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao atualizar tours concluídos' });
+  }
+};
+
+// === PREFERENCIAS DE NOTIFICACAO POR EMAIL ===
+
+const NOTIFICATION_KEYS = [
+  'newOrders',
+  'proposalAcceptedRejected',
+  'marketplaceOrders',
+  'ownOrderUpdates'
+] as const;
+type NotificationKey = typeof NOTIFICATION_KEYS[number];
+
+const DEFAULT_NOTIFICATION_PREFERENCES: Record<NotificationKey, boolean> = {
+  newOrders: true,
+  proposalAcceptedRejected: true,
+  marketplaceOrders: true,
+  ownOrderUpdates: true
+};
+
+function buildPreferencesPayload(raw: Partial<Record<NotificationKey, boolean>> | undefined | null): Record<NotificationKey, boolean> {
+  const result: Record<NotificationKey, boolean> = { ...DEFAULT_NOTIFICATION_PREFERENCES };
+  for (const key of NOTIFICATION_KEYS) {
+    if (typeof raw?.[key] === 'boolean') result[key] = raw[key] as boolean;
+  }
+  return result;
+}
+
+/**
+ * GET /api/auth/me/notifications
+ * Retorna as preferencias de notificacao do user logado (com defaults).
+ */
+export const getNotificationPreferences = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const user = await User.findById(req.userId).select('notificationPreferences').lean();
+    if (!user) {
+      res.status(404).json({ error: 'Usuario nao encontrado' });
+      return;
+    }
+    const result = buildPreferencesPayload(user.notificationPreferences);
+    res.json({ notificationPreferences: result });
+  } catch (error) {
+    console.error('Erro ao buscar preferencias de notificacao:', error);
+    res.status(500).json({ error: 'Erro ao buscar preferencias' });
+  }
+};
+
+/**
+ * PATCH /api/auth/me/notifications
+ * Atualiza preferencias parcialmente. Body: { [key]: boolean, ... }
+ */
+export const updateNotificationPreferences = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const body = req.body || {};
+    const keys = Object.keys(body);
+    if (keys.length === 0) {
+      res.status(400).json({ error: 'Envie ao menos uma preferencia' });
+      return;
+    }
+    for (const key of keys) {
+      if (!NOTIFICATION_KEYS.includes(key as NotificationKey)) {
+        res.status(400).json({ error: `Preferencia desconhecida: ${key}` });
+        return;
+      }
+      if (typeof body[key] !== 'boolean') {
+        res.status(400).json({ error: `O valor de '${key}' deve ser boolean` });
+        return;
+      }
+    }
+
+    const update: Record<string, boolean> = {};
+    for (const key of keys) {
+      update[`notificationPreferences.${key}`] = body[key];
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $set: update },
+      { new: true }
+    ).select('notificationPreferences').lean();
+
+    if (!user) {
+      res.status(404).json({ error: 'Usuario nao encontrado' });
+      return;
+    }
+
+    const result = buildPreferencesPayload(user.notificationPreferences);
+    res.json({ notificationPreferences: result });
+  } catch (error) {
+    console.error('Erro ao atualizar preferencias de notificacao:', error);
+    res.status(500).json({ error: 'Erro ao atualizar preferencias' });
   }
 };

@@ -828,3 +828,134 @@ describe('DELETE /api/admin/users/:userId', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ─────────────────────────────────────────────────
+// PUT /api/admin/users/:userId/max-sub-users
+// Admin define limite custom de sub-usuarios para uma emissora
+// ─────────────────────────────────────────────────
+describe('PUT /api/admin/users/:userId/max-sub-users', () => {
+  it('admin define maxSubUsers customizado para emissora', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: broadcaster } = await createBroadcaster();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${broadcaster._id}/max-sub-users`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ maxSubUsers: 10 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.maxSubUsers).toBe(10);
+
+    const updated = await User.findById(broadcaster._id);
+    expect(updated?.maxSubUsers).toBe(10);
+  });
+
+  it('admin remove limite customizado passando null', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: broadcaster } = await createBroadcaster();
+    await User.findByIdAndUpdate(broadcaster._id, { maxSubUsers: 5 });
+
+    const res = await request(app)
+      .put(`/api/admin/users/${broadcaster._id}/max-sub-users`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ maxSubUsers: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.maxSubUsers).toBeNull();
+
+    const updated = await User.findById(broadcaster._id);
+    expect(updated?.maxSubUsers).toBeUndefined();
+  });
+
+  it('rejeita maxSubUsers negativo (400)', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: broadcaster } = await createBroadcaster();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${broadcaster._id}/max-sub-users`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ maxSubUsers: -1 });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejeita maxSubUsers nao inteiro (400)', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: broadcaster } = await createBroadcaster();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${broadcaster._id}/max-sub-users`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ maxSubUsers: 'abc' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejeita aplicar a usuario que nao e broadcaster manager (400)', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: advertiser } = await createAdvertiser();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${advertiser._id}/max-sub-users`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ maxSubUsers: 5 });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejeita aplicar a sub-usuario sales (400)', async () => {
+    const { auth: adminAuth } = await createAdmin();
+    const { user: manager } = await createBroadcaster();
+
+    const subUser = await User.create({
+      name: 'Vendedor Sub',
+      email: `sub-max-${Date.now()}@emissora.com.br`,
+      password: 'hashedpassword12',
+      phone: '11999999999',
+      cpfOrCnpj: '12345678901234',
+      userType: 'broadcaster',
+      broadcasterRole: 'sales',
+      parentBroadcasterId: manager._id,
+      status: 'approved',
+      emailConfirmed: true,
+    });
+
+    const res = await request(app)
+      .put(`/api/admin/users/${subUser._id}/max-sub-users`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ maxSubUsers: 5 });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 404 para usuario inexistente', async () => {
+    const { auth: adminAuth } = await createAdmin();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${new mongoose.Types.ObjectId()}/max-sub-users`)
+      .set('Cookie', adminAuth.cookieHeader)
+      .set('X-CSRF-Token', adminAuth.csrfHeader)
+      .send({ maxSubUsers: 5 });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('retorna 403 para nao-admin', async () => {
+    const { auth: advAuth } = await createAdvertiser();
+    const { user: broadcaster } = await createBroadcaster();
+
+    const res = await request(app)
+      .put(`/api/admin/users/${broadcaster._id}/max-sub-users`)
+      .set('Cookie', advAuth.cookieHeader)
+      .set('X-CSRF-Token', advAuth.csrfHeader)
+      .send({ maxSubUsers: 5 });
+
+    expect(res.status).toBe(403);
+  });
+});

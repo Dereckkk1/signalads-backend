@@ -25,6 +25,7 @@ import {
 } from '../helpers/authHelper';
 import { KanbanBoard } from '../../models/KanbanBoard';
 import { KanbanCardPlacement } from '../../models/KanbanCardPlacement';
+import Proposal from '../../models/Proposal';
 
 let app: Application;
 
@@ -334,7 +335,18 @@ describe('PUT /api/kanban/:context/placements', () => {
       .send({ name: 'Follow', color: PINK, icon: 'Target' });
 
     const columnId = create.body.column._id;
-    const cardId = new mongoose.Types.ObjectId().toString();
+
+    // Card precisa existir e pertencer ao owner — controller valida via Proposal.exists
+    const proposal = await Proposal.create({
+      broadcasterId: broadcaster._id,
+      title: 'Kanban Card',
+      slug: `kanban-${Date.now()}`,
+      items: [{ productName: 'Item', quantity: 1, unitPrice: 100, totalPrice: 100, productType: 'Comercial 30s', isCustom: true }],
+      grossAmount: 100,
+      totalAmount: 100,
+      status: 'draft',
+    });
+    const cardId = (proposal._id as mongoose.Types.ObjectId).toString();
 
     const res = await request(app)
       .put('/api/kanban/proposals/placements')

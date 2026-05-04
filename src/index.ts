@@ -45,6 +45,7 @@ import { createRedisStore } from './config/rateLimitStore';
 import { mongoSanitize, xssSanitize, dedupeQuery } from './middleware/security';
 import { csrfProtection } from './middleware/csrf';
 import { metricsMiddleware, checkBlockedIP } from './middleware/metrics';
+import { checkSuspiciousPath } from './middleware/suspiciousPath';
 import { loadBlockedIPs } from './utils/ipBlockList';
 import healthRoutes from './routes/healthRoutes';
 
@@ -73,7 +74,7 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
 
 app.use(cors({
   origin: allowedOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
     'Authorization',
@@ -201,6 +202,10 @@ app.use(csrfProtection); // CSRF double-submit cookie (verifica X-CSRF-Token hea
 // Static /uploads removido (Agent 6): uploads locais nao sao mais usados em producao,
 // arquivos vao para Google Cloud Storage. Servir uploads/ localmente expoe arquivos
 // fora do controle de auth da aplicacao.
+
+// Bloqueio instantaneo de paths suspeitos (.env, wp-admin, .git, etc.)
+// Vem ANTES do checkBlockedIP para tambem registrar o IP na blocklist na primeira tentativa.
+app.use(checkSuspiciousPath);
 
 // Bloqueio de IPs (antes das rotas, admin routes isentas — ver checkBlockedIP)
 app.use(checkBlockedIP);

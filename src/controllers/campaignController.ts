@@ -4,6 +4,7 @@ import Order from '../models/Order';
 import { Product } from '../models/Product';
 import { User } from '../models/User';
 import { sendOrderApprovedToClient, sendOrderRejectedToClient, sendNewOrderToBroadcaster } from '../services/emailService';
+import { shouldSendNotification } from '../services/notificationService';
 
 /**
  * Controller de Campanhas
@@ -75,19 +76,21 @@ export const processAutoApprovalForCatalogItems = async (orderId: string): Promi
       await order.save();
 
       // Envia email para cliente
-      try {
-        await sendOrderApprovedToClient({
-          orderNumber: order.orderNumber,
-          buyerEmail: order.buyerEmail,
-          buyerName: order.buyerName,
-          broadcasterName: 'E-rádios (Parceiros)',
-          broadcasterEmail: '',
-          totalValue: order.totalAmount,
-          itemsCount: order.items.length,
-          createdAt: order.createdAt
-        });
-      } catch (emailErr) {
-        // Email error silenced in production
+      if (await shouldSendNotification(order.buyerId, 'ownOrderUpdates')) {
+        try {
+          await sendOrderApprovedToClient({
+            orderNumber: order.orderNumber,
+            buyerEmail: order.buyerEmail,
+            buyerName: order.buyerName,
+            broadcasterName: 'E-rádios (Parceiros)',
+            broadcasterEmail: '',
+            totalValue: order.totalAmount,
+            itemsCount: order.items.length,
+            createdAt: order.createdAt
+          });
+        } catch (emailErr) {
+          // Email error silenced in production
+        }
       }
 
       return { allCatalog: true, catalogItems, regularItems, autoApproved: true };
@@ -110,19 +113,21 @@ export const processAutoApprovalForCatalogItems = async (orderId: string): Promi
             (sum: number, item: any) => sum + item.quantity, 0
           );
 
-          try {
-            await sendNewOrderToBroadcaster({
-              orderNumber: order.orderNumber,
-              buyerName: order.buyerName,
-              buyerEmail: order.buyerEmail,
-              broadcasterName: broadcaster.fantasyName || broadcaster.companyName || 'Emissora',
-              broadcasterEmail: broadcaster.email,
-              totalValue,
-              itemsCount,
-              createdAt: order.createdAt
-            });
-          } catch (emailErr) {
-            // Email error silenced in production
+          if (await shouldSendNotification(broadcasterId, 'marketplaceOrders')) {
+            try {
+              await sendNewOrderToBroadcaster({
+                orderNumber: order.orderNumber,
+                buyerName: order.buyerName,
+                buyerEmail: order.buyerEmail,
+                broadcasterName: broadcaster.fantasyName || broadcaster.companyName || 'Emissora',
+                broadcasterEmail: broadcaster.email,
+                totalValue,
+                itemsCount,
+                createdAt: order.createdAt
+              });
+            } catch (emailErr) {
+              // Email error silenced in production
+            }
           }
         }
       }
@@ -475,7 +480,7 @@ export const approveBroadcasterItems = async (req: AuthRequest, res: Response) =
         (item: any) => item.broadcasterId === userId
       ) || order.items[0];
 
-      if (firstBroadcasterItem) {
+      if (firstBroadcasterItem && await shouldSendNotification(order.buyerId, 'ownOrderUpdates')) {
         await sendOrderApprovedToClient({
           orderNumber: order.orderNumber,
           buyerEmail: order.buyerEmail,
@@ -517,16 +522,18 @@ export const approveBroadcasterItems = async (req: AuthRequest, res: Response) =
 
     const broadcasterSplit = order.splits.find((s: any) => s.recipientType === 'broadcaster');
 
-    sendOrderApprovedToClient({
-      orderNumber: order.orderNumber,
-      buyerName: order.buyerName,
-      buyerEmail: order.buyerEmail,
-      broadcasterName,
-      broadcasterEmail: broadcaster?.email || '',
-      totalValue: broadcasterSplit?.amount || 0,
-      itemsCount: broadcasterItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
-      createdAt: order.createdAt
-    }).catch(() => {});
+    if (await shouldSendNotification(order.buyerId, 'ownOrderUpdates')) {
+      sendOrderApprovedToClient({
+        orderNumber: order.orderNumber,
+        buyerName: order.buyerName,
+        buyerEmail: order.buyerEmail,
+        broadcasterName,
+        broadcasterEmail: broadcaster?.email || '',
+        totalValue: broadcasterSplit?.amount || 0,
+        itemsCount: broadcasterItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
+        createdAt: order.createdAt
+      }).catch(() => {});
+    }
 
     res.json({
       success: true,
@@ -618,17 +625,19 @@ export const rejectBroadcasterItems = async (req: AuthRequest, res: Response) =>
     const broadcasterName = broadcaster?.fantasyName || broadcaster?.companyName || 'Emissora';
 
     // Envia email para o cliente
-    sendOrderRejectedToClient({
-      orderNumber: order.orderNumber,
-      buyerName: order.buyerName,
-      buyerEmail: order.buyerEmail,
-      broadcasterName,
-      broadcasterEmail: broadcaster?.email || '',
-      totalValue: totalRefund,
-      itemsCount: broadcasterItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
-      createdAt: order.createdAt,
-      reason
-    }).catch(() => {});
+    if (await shouldSendNotification(order.buyerId, 'ownOrderUpdates')) {
+      sendOrderRejectedToClient({
+        orderNumber: order.orderNumber,
+        buyerName: order.buyerName,
+        buyerEmail: order.buyerEmail,
+        broadcasterName,
+        broadcasterEmail: broadcaster?.email || '',
+        totalValue: totalRefund,
+        itemsCount: broadcasterItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
+        createdAt: order.createdAt,
+        reason
+      }).catch(() => {});
+    }
 
     res.json({
       success: true,

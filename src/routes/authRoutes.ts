@@ -16,7 +16,9 @@ import {
   getTwoFactorStatus,
   refreshTokenHandler,
   logoutHandler,
-  updateCompletedTours
+  updateCompletedTours,
+  getNotificationPreferences,
+  updateNotificationPreferences
 } from '../controllers/authController';
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
 import { auditLog } from '../middleware/auditLog';
@@ -150,5 +152,9 @@ router.post('/refresh', refreshLimiter, refreshTokenHandler);
 
 // Logout — semi-publico: funciona mesmo com token expirado (#51)
 router.post('/logout', optionalAuthenticateToken, logoutHandler);
+
+// Preferencias de notificacao por email (#feat: notification-preferences)
+router.get('/me/notifications', authenticateToken, getNotificationPreferences);
+router.patch('/me/notifications', authenticateToken, updateNotificationPreferences);
 
 export default router;

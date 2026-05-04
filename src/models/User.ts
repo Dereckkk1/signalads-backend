@@ -133,6 +133,15 @@ export interface IUser extends Document {
   broadcasterRole?: 'manager' | 'sales'; // manager = usuário principal, sales = vendedor
   parentBroadcasterId?: any; // ref ao broadcaster pai (só para sales)
   groupId?: any; // ref ao grupo de permissões (só para sales)
+  maxSubUsers?: number; // limite de sub-usuarios que esta emissora pode criar (apenas para manager). Admin define
+
+  // === PREFERENCIAS DE NOTIFICACAO POR EMAIL ===
+  notificationPreferences?: {
+    newOrders?: boolean;              // admin: novo pedido na plataforma
+    proposalAcceptedRejected?: boolean; // broadcaster, agency: proposta aprovada/recusada
+    marketplaceOrders?: boolean;      // broadcaster: novo pedido do marketplace
+    ownOrderUpdates?: boolean;        // advertiser, agency: atualizacoes do proprio pedido
+  };
 }
 
 const userSchema = new Schema<IUser>(
@@ -368,6 +377,18 @@ const userSchema = new Schema<IUser>(
       type: Schema.Types.ObjectId,
       ref: 'BroadcasterGroup',
       default: undefined
+    },
+    maxSubUsers: {
+      type: Number,
+      min: 0,
+      max: 1000,
+      default: undefined
+    },
+    notificationPreferences: {
+      newOrders: { type: Boolean, default: true },
+      proposalAcceptedRejected: { type: Boolean, default: true },
+      marketplaceOrders: { type: Boolean, default: true },
+      ownOrderUpdates: { type: Boolean, default: true }
     }
   },
   {

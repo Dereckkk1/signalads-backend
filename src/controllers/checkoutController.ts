@@ -8,6 +8,7 @@ import Order from '../models/Order';
 import AgencyClient from '../models/AgencyClient';
 import SponsorshipBooking from '../models/SponsorshipBooking';
 import { sendOrderReceivedToClient, sendNewOrderToAdmin } from '../services/emailService';
+import { shouldSendNotification } from '../services/notificationService';
 
 // Gera schedule automático para patrocínio: cada dia do mês que bate com daysOfWeek
 function generateSponsorshipSchedule(selectedMonth: string, daysOfWeek: number[]): Record<string, number> {
@@ -373,16 +374,24 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
     await cart.save();
 
     // 9. Enviar emails — fire-and-forget (nao bloqueia response do checkout)
-    sendOrderReceivedToClient({
-      orderNumber: order.orderNumber,
-      buyerName: user.name || '',
-      buyerEmail: user.email,
-      items: orderItems.map(i => ({ productName: i.productName, broadcasterName: i.broadcasterName })),
-      totalValue: totalAmount
-    }).catch(err => console.error('Email error (client):', err));
+    if (await shouldSendNotification(req.userId!, 'ownOrderUpdates')) {
+      sendOrderReceivedToClient({
+        orderNumber: order.orderNumber,
+        buyerName: user.name || '',
+        buyerEmail: user.email,
+        items: orderItems.map(i => ({ productName: i.productName, broadcasterName: i.broadcasterName })),
+        totalValue: totalAmount
+      }).catch(err => console.error('Email error (client):', err));
+    }
 
     // Notificar admins (fire-and-forget)
-    User.find({ userType: 'admin' }).select('email').then(admins => {
+    User.find({
+      userType: 'admin',
+      $or: [
+        { 'notificationPreferences.newOrders': { $ne: false } },
+        { notificationPreferences: { $exists: false } }
+      ]
+    }).select('email').then(admins => {
       const adminEmails = admins.map(a => a.email);
       if (adminEmails.length > 0) {
         sendNewOrderToAdmin({

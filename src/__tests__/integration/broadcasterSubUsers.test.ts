@@ -186,7 +186,7 @@ describe('POST /api/broadcaster/sub-users', () => {
     expect(res.body.error).toMatch(/nome/i);
   });
 
-  it('rejeita quando limite de 3 sub-usuarios atingido', async () => {
+  it('rejeita quando limite default de 3 sub-usuarios atingido', async () => {
     const { user: manager, auth } = await createBroadcaster();
 
     // Criar 3 sub-usuarios
@@ -213,6 +213,76 @@ describe('POST /api/broadcaster/sub-users', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/limite/i);
+    expect(res.body.error).toMatch(/3/);
+  });
+
+  it('respeita maxSubUsers customizado (admin define 5, permite criar 5)', async () => {
+    const { user: manager, auth } = await createBroadcaster();
+    // Admin definiu limite custom de 5 para esta emissora
+    await User.findByIdAndUpdate(manager._id, { maxSubUsers: 5 });
+
+    // Cria 4 sub-usuarios — deve permitir um quinto
+    for (let i = 0; i < 4; i++) {
+      await User.create({
+        name: `Vendedor ${i}`,
+        email: `custom-limite-${i}-${Date.now()}@emissora.com.br`,
+        password: 'hashedpassword12',
+        phone: '11999999999',
+        cpfOrCnpj: '12345678901234',
+        userType: 'broadcaster',
+        broadcasterRole: 'sales',
+        parentBroadcasterId: manager._id,
+        status: 'approved',
+        emailConfirmed: true,
+      });
+    }
+
+    const res = await request(app)
+      .post('/api/broadcaster/sub-users')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ ...SUB_USER_PAYLOAD, email: `quinto-${Date.now()}@emissora.com.br` });
+
+    expect(res.status).toBe(201);
+  });
+
+  it('respeita maxSubUsers customizado para baixo (admin define 1, bloqueia segundo)', async () => {
+    const { user: manager, auth } = await createBroadcaster();
+    await User.findByIdAndUpdate(manager._id, { maxSubUsers: 1 });
+
+    await User.create({
+      name: 'Unico Vendedor',
+      email: `unico-${Date.now()}@emissora.com.br`,
+      password: 'hashedpassword12',
+      phone: '11999999999',
+      cpfOrCnpj: '12345678901234',
+      userType: 'broadcaster',
+      broadcasterRole: 'sales',
+      parentBroadcasterId: manager._id,
+      status: 'approved',
+      emailConfirmed: true,
+    });
+
+    const res = await request(app)
+      .post('/api/broadcaster/sub-users')
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ ...SUB_USER_PAYLOAD, email: `segundo-${Date.now()}@emissora.com.br` });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/limite de 1/i);
+  });
+
+  it('listagem retorna maxSubUsers customizado quando admin define', async () => {
+    const { user: manager, auth } = await createBroadcaster();
+    await User.findByIdAndUpdate(manager._id, { maxSubUsers: 7 });
+
+    const res = await request(app)
+      .get('/api/broadcaster/sub-users')
+      .set('Cookie', auth.cookieHeader);
+
+    expect(res.status).toBe(200);
+    expect(res.body.maxSubUsers).toBe(7);
   });
 
   it('retorna 403 para advertiser', async () => {

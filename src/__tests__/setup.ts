@@ -36,7 +36,9 @@ beforeAll(async () => {
     }
 
     // Cria servidor MongoDB em memoria — completamente isolado
-    mongod = await MongoMemoryServer.create();
+    // launchTimeout aumentado para 60s: spawn paralelo do mongod no Windows
+    // pode estourar o default de 10s sob contencao de I/O.
+    mongod = await MongoMemoryServer.create({ instance: { launchTimeout: 60000 } });
     const uri = mongod.getUri();
     await mongoose.connect(uri);
 

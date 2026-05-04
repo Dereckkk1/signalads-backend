@@ -1,36 +1,32 @@
 import { Request, Response, NextFunction } from 'express';
 
 /**
- * Middleware de Cache-Control para habilitar cache no browser e CDN (Cloudflare).
+ * Express middleware factory that sets the `Cache-Control` header
+ * for downstream CDN / browser caching of public marketplace endpoints.
  *
- * Tipos:
- * - 'public'  → GET endpoints publicos (marketplace, cities, comparador, mapa).
- *               Browser cacheia por maxAge, CDN por sMaxAge.
- * - 'private' → GET endpoints autenticados (perfil, campanhas, pedidos).
- *               Apenas browser cacheia, CDN nao.
- * - 'none'    → Mutations (POST/PUT/DELETE) e endpoints sensiveis.
- *               Nenhum cache.
+ * Usage:
+ *   router.get('/something', setCacheHeaders('public', 30, 60), handler);
  *
- * Seguranca: endpoints privados NUNCA recebem Cache-Control public.
- * Mutations NUNCA sao cacheadas.
+ * @param directive       Cache-Control directive ("public" | "private" | "no-store" ...)
+ * @param sMaxAgeSeconds  Shared (CDN) max-age in seconds
+ * @param maxAgeSeconds   Browser max-age in seconds
  */
-export function setCacheHeaders(
-  type: 'public' | 'private' | 'none',
-  maxAge: number = 30,
-  sMaxAge?: number
-) {
+export const setCacheHeaders = (
+  directive: 'public' | 'private' | 'no-store' = 'public',
+  sMaxAgeSeconds = 60,
+  maxAgeSeconds = 30
+) => {
   return (_req: Request, res: Response, next: NextFunction): void => {
-    switch (type) {
-      case 'public':
-        res.set('Cache-Control', `public, max-age=${maxAge}, s-maxage=${sMaxAge ?? maxAge * 2}`);
-        break;
-      case 'private':
-        res.set('Cache-Control', `private, max-age=${maxAge}, must-revalidate`);
-        break;
-      case 'none':
-        res.set('Cache-Control', 'no-store');
-        break;
+    if (directive === 'no-store') {
+      res.setHeader('Cache-Control', 'no-store');
+    } else {
+      res.setHeader(
+        'Cache-Control',
+        `${directive}, max-age=${maxAgeSeconds}, s-maxage=${sMaxAgeSeconds}`
+      );
     }
     next();
   };
-}
+};
+
+export default setCacheHeaders;

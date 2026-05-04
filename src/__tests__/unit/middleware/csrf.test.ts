@@ -375,3 +375,96 @@ describe('csrfProtection — edge cases', () => {
         expect(next).toHaveBeenCalled();
     });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// Origin/Referer validation em rotas isentas (refresh)
+// ═══════════════════════════════════════════════════════════════
+describe('csrfProtection — Origin/Referer em /api/auth/refresh', () => {
+    it('permite refresh com Origin permitido', () => {
+        const req = createMockRequest({
+            method: 'POST',
+            path: '/api/auth/refresh',
+            headers: { origin: 'http://localhost:3000' },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        csrfProtection(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(next).toHaveBeenCalled();
+    });
+
+    it('bloqueia refresh com Origin nao permitido', () => {
+        const req = createMockRequest({
+            method: 'POST',
+            path: '/api/auth/refresh',
+            headers: { origin: 'https://evil.com' },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        csrfProtection(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(next).not.toHaveBeenCalled();
+        expect(res.statusCode).toBe(403);
+        expect(res.jsonData.error).toMatch(/origem/i);
+    });
+
+    it('permite refresh com Referer permitido (sem Origin)', () => {
+        const req = createMockRequest({
+            method: 'POST',
+            path: '/api/auth/refresh',
+            headers: { referer: 'http://localhost:3000/dashboard' },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        csrfProtection(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(next).toHaveBeenCalled();
+    });
+
+    it('bloqueia refresh com Referer nao permitido', () => {
+        const req = createMockRequest({
+            method: 'POST',
+            path: '/api/auth/refresh',
+            headers: { referer: 'https://evil.com/page' },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        csrfProtection(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(next).not.toHaveBeenCalled();
+        expect(res.statusCode).toBe(403);
+    });
+
+    it('bloqueia refresh com Referer malformado', () => {
+        const req = createMockRequest({
+            method: 'POST',
+            path: '/api/auth/refresh',
+            headers: { referer: 'not-a-valid-url' },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        csrfProtection(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(next).not.toHaveBeenCalled();
+        expect(res.statusCode).toBe(403);
+    });
+
+    it('permite refresh server-to-server (sem Origin nem Referer)', () => {
+        const req = createMockRequest({
+            method: 'POST',
+            path: '/api/auth/refresh',
+            headers: {},
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        csrfProtection(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(next).toHaveBeenCalled();
+    });
+});

@@ -35,6 +35,23 @@ jest.mock('../../config/rateLimitStore', () => ({
 }));
 
 // ------------------------------------------------------------------
+// express-rate-limit mock — no-op em testes para evitar 429
+// (MemoryStore default persiste contagem entre testes do mesmo worker).
+// Nenhum teste asserta comportamento de rate limit (429); o lockout
+// de 2FA e application-level, nao framework-level.
+// ------------------------------------------------------------------
+jest.mock('express-rate-limit', () => {
+  const noopMiddleware = (_req: any, _res: any, next: any) => next();
+  const factory: any = () => noopMiddleware;
+  factory.ipKeyGenerator = (ip: string) => ip || 'unknown';
+  return {
+    __esModule: true,
+    default: factory,
+    ipKeyGenerator: factory.ipKeyGenerator,
+  };
+});
+
+// ------------------------------------------------------------------
 // Email service mock — all email functions are silent no-ops.
 // ------------------------------------------------------------------
 jest.mock('../../services/emailService', () => {
