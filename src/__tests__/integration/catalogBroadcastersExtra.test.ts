@@ -99,11 +99,8 @@ describe('POST /api/admin/catalog-broadcasters/:id/complete-profile', () => {
         },
       });
 
-    // Endpoint executa business logic complexa; aceita sucesso ou erro interno
-    expect([200, 500]).toContain(res.status);
-    if (res.status === 200) {
-      expect(res.body.message).toMatch(/sucesso/i);
-    }
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/sucesso/i);
   });
 
   it('retorna 404 para emissora catalogo inexistente', async () => {

@@ -826,11 +826,16 @@ export const completeCatalogProfile = async (req: AuthRequest, res: Response) =>
       return res.status(404).json({ message: 'Emissora catálogo não encontrada' });
     }
 
-    // Atualiza perfil completo
-    broadcaster.broadcasterProfile = {
-      ...broadcaster.broadcasterProfile,
-      ...broadcasterProfile
-    };
+    // Atualiza perfil completo. Spread direto do subdocumento Mongoose injeta
+    // chaves com valor undefined (campos nao setados) que o cast para Object
+    // rejeita na validacao. Convertemos para plain object e removemos undefined.
+    const currentProfile = (broadcaster.broadcasterProfile as any)?.toObject?.() ?? {};
+    const incomingProfile = broadcasterProfile && typeof broadcasterProfile === 'object' ? broadcasterProfile : {};
+    const mergedProfile: Record<string, any> = { ...currentProfile, ...incomingProfile };
+    for (const key of Object.keys(mergedProfile)) {
+      if (mergedProfile[key] === undefined) delete mergedProfile[key];
+    }
+    broadcaster.broadcasterProfile = mergedProfile as any;
     broadcaster.onboardingCompleted = true;
 
     await broadcaster.save();
