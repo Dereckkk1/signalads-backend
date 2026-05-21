@@ -26,6 +26,8 @@ interface CreditCardInput {
   expiryYear?: string;
   ccv?: string;
   cpfCnpj?: string;
+  phone?: string;
+  cep?: string;
 }
 
 function onlyDigits(value: unknown): string {
@@ -487,7 +489,7 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
             name: String(card.holderName || ''),
             email: user.email,
             cpfCnpj: onlyDigits(card.cpfCnpj),
-            postalCode: user.address?.cep || '00000000',
+            postalCode: onlyDigits(card.cep) || onlyDigits(user.address?.cep) || '00000000',
             addressNumber: user.address?.number || 'S/N',
             phone: onlyDigits(user.phone),
           },
