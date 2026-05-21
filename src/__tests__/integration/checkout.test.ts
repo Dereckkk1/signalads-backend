@@ -5,7 +5,31 @@
  * POST   /api/payment/checkout
  */
 
+// Mock do asaasService — isola testes do gateway real.
+jest.mock('../../services/asaasService', () => ({
+  getOrCreateCustomer: jest.fn().mockResolvedValue('cus_test'),
+  createCreditCardCharge: jest.fn().mockResolvedValue({
+    asaasPaymentId: 'pay_cc_1',
+    status: 'CONFIRMED',
+    invoiceUrl: 'https://sandbox.asaas.com/i/cc',
+    cardBrand: 'VISA',
+    cardLastDigits: '1111',
+  }),
+  createPixCharge: jest.fn().mockResolvedValue({
+    asaasPaymentId: 'pay_pix_1',
+    status: 'PENDING',
+    invoiceUrl: 'https://sandbox.asaas.com/i/pix',
+  }),
+  getPixQrCode: jest.fn().mockResolvedValue({
+    pixQrCode: 'base64img',
+    pixCopyPaste: '00020126',
+    expiresAt: '2026-05-22',
+  }),
+  sanitizeForLog: jest.fn((x: any) => x),
+}));
+
 import '../helpers/mocks';
+import * as asaasService from '../../services/asaasService';
 
 import request from 'supertest';
 import { Application } from 'express';
@@ -116,7 +140,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(201);
     expect(res.body.order).toBeDefined();
@@ -133,7 +157,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(201);
     expect(res.body.order).toBeDefined();
@@ -147,7 +171,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(201);
 
@@ -166,7 +190,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/vazio|checkout/i);
@@ -179,7 +203,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/vazio|checkout/i);
@@ -192,7 +216,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toMatch(/anunciantes|agências/i);
@@ -205,7 +229,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(403);
   });
@@ -213,7 +237,7 @@ describe('POST /api/payment/checkout', () => {
   it('should return 401 when unauthenticated', async () => {
     const res = await request(app)
       .post('/api/payment/checkout')
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(401);
   });
@@ -226,7 +250,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res1.status).toBe(201);
 
@@ -235,7 +259,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res2.status).toBe(400);
     expect(res2.body.error).toMatch(/vazio|checkout/i);
@@ -248,7 +272,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(201);
 
@@ -273,7 +297,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({ agencyCommission: 10 });
+      .send({ paymentMethod: 'pending_contact', agencyCommission: 10 });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toMatch(/agências/i);
@@ -286,7 +310,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({ agencyCommission: 10 });
+      .send({ paymentMethod: 'pending_contact', agencyCommission: 10 });
 
     expect(res.status).toBe(201);
     expect(res.body.order).toBeDefined();
@@ -304,7 +328,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({ agencyCommission: 35 });
+      .send({ paymentMethod: 'pending_contact', agencyCommission: 35 });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/0 e 30%/i);
@@ -317,7 +341,7 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({ isMonitoringEnabled: true });
+      .send({ paymentMethod: 'pending_contact', isMonitoringEnabled: true });
 
     expect(res.status).toBe(201);
 
@@ -337,9 +361,187 @@ describe('POST /api/payment/checkout', () => {
       .post('/api/payment/checkout')
       .set('Cookie', buyerAuth.cookieHeader)
       .set('X-CSRF-Token', buyerAuth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/não encontrado|indisponível/i);
+  });
+
+  // ───────────────────────────────────────────────────────────────────
+  // Asaas payment methods (Fase 3)
+  // ───────────────────────────────────────────────────────────────────
+
+  describe('paymentMethod validation', () => {
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should reject when paymentMethod is missing', async () => {
+      const { buyerAuth } = await createCartWithItems('advertiser');
+
+      const res = await request(app)
+        .post('/api/payment/checkout')
+        .set('Cookie', buyerAuth.cookieHeader)
+        .set('X-CSRF-Token', buyerAuth.csrfHeader)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/método de pagamento/i);
+    });
+
+    it('should reject when paymentMethod is invalid', async () => {
+      const { buyerAuth } = await createCartWithItems('advertiser');
+
+      const res = await request(app)
+        .post('/api/payment/checkout')
+        .set('Cookie', buyerAuth.cookieHeader)
+        .set('X-CSRF-Token', buyerAuth.csrfHeader)
+        .send({ paymentMethod: 'bitcoin' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/método de pagamento/i);
+    });
+
+    it('should reject credit_card without card data', async () => {
+      const { buyerAuth } = await createCartWithItems('advertiser');
+
+      const res = await request(app)
+        .post('/api/payment/checkout')
+        .set('Cookie', buyerAuth.cookieHeader)
+        .set('X-CSRF-Token', buyerAuth.csrfHeader)
+        .send({ paymentMethod: 'credit_card' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/cartão/i);
+    });
+  });
+
+  describe('credit_card flow', () => {
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    const validCard = {
+      number: '4111 1111 1111 1111',
+      holderName: 'Test Holder',
+      expiryMonth: '12',
+      expiryYear: '2030',
+      ccv: '123',
+      cpfCnpj: '123.456.789-09',
+    };
+
+    it('should create paid order with credit_card (happy path)', async () => {
+      const { buyerAuth } = await createCartWithItems('advertiser');
+
+      const res = await request(app)
+        .post('/api/payment/checkout')
+        .set('Cookie', buyerAuth.cookieHeader)
+        .set('X-CSRF-Token', buyerAuth.csrfHeader)
+        .send({
+          paymentMethod: 'credit_card',
+          card: validCard,
+          installments: 3,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.order.status).toBe('paid');
+      expect(res.body.order.payment.method).toBe('credit_card');
+      expect(res.body.order.payment.status).toBe('received');
+      expect(res.body.order.payment.cardBrand).toBe('VISA');
+      expect(res.body.order.payment.cardLastDigits).toBe('1111');
+      expect(res.body.order.payment.installments).toBe(3);
+      expect(res.body.message).toMatch(/aprovado/i);
+
+      // Validate Asaas was called with sanitized digit-only cpfCnpj
+      expect(asaasService.getOrCreateCustomer).toHaveBeenCalled();
+      expect(asaasService.createCreditCardCharge).toHaveBeenCalledTimes(1);
+      const callArg = (asaasService.createCreditCardCharge as jest.Mock).mock.calls[0][0];
+      expect(callArg.creditCard.number).toBe('4111111111111111');
+      expect(callArg.creditCardHolderInfo.cpfCnpj).toBe('12345678909');
+      expect(callArg.installmentCount).toBe(3);
+
+      // Order should be persisted with payment info
+      const persisted = await Order.findById(res.body.order._id);
+      expect(persisted!.status).toBe('paid');
+      expect(persisted!.payment.asaasPaymentId).toBe('pay_cc_1');
+    });
+
+    it('should rollback cart and return 402 when card is declined', async () => {
+      (asaasService.createCreditCardCharge as jest.Mock).mockRejectedValueOnce(
+        new Error('Cartão recusado pelo banco emissor')
+      );
+
+      const { buyerAuth, cart } = await createCartWithItems('advertiser');
+
+      const res = await request(app)
+        .post('/api/payment/checkout')
+        .set('Cookie', buyerAuth.cookieHeader)
+        .set('X-CSRF-Token', buyerAuth.csrfHeader)
+        .send({
+          paymentMethod: 'credit_card',
+          card: validCard,
+        });
+
+      expect(res.status).toBe(402);
+      expect(res.body.error).toMatch(/recusado/i);
+
+      // Cart should be released for retry (checkedOut=false, items preserved)
+      const updatedCart = await Cart.findById(cart._id);
+      expect((updatedCart as any).checkedOut).toBeFalsy();
+      expect(updatedCart!.items.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('pix flow', () => {
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should create pending_payment order with PIX (happy path)', async () => {
+      const { buyerAuth } = await createCartWithItems('advertiser');
+
+      const res = await request(app)
+        .post('/api/payment/checkout')
+        .set('Cookie', buyerAuth.cookieHeader)
+        .set('X-CSRF-Token', buyerAuth.csrfHeader)
+        .send({ paymentMethod: 'pix' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.order.status).toBe('pending_payment');
+      expect(res.body.order.payment.method).toBe('pix');
+      expect(res.body.order.payment.status).toBe('pending');
+      expect(res.body.order.payment.pixQrCode).toBe('base64img');
+      expect(res.body.order.payment.pixCopyPaste).toBe('00020126');
+      expect(res.body.redirectTo).toMatch(/^\/orders\//);
+
+      expect(asaasService.createPixCharge).toHaveBeenCalledTimes(1);
+      expect(asaasService.getPixQrCode).toHaveBeenCalledWith('pay_pix_1');
+    });
+  });
+
+  describe('pending_contact regression', () => {
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should NOT call Asaas for pending_contact', async () => {
+      const { buyerAuth } = await createCartWithItems('advertiser');
+
+      const res = await request(app)
+        .post('/api/payment/checkout')
+        .set('Cookie', buyerAuth.cookieHeader)
+        .set('X-CSRF-Token', buyerAuth.csrfHeader)
+        .send({ paymentMethod: 'pending_contact' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.order.status).toBe('pending_contact');
+      expect(res.body.order.payment.method).toBe('pending_contact');
+
+      // Asaas should NOT have been touched
+      expect(asaasService.getOrCreateCustomer).not.toHaveBeenCalled();
+      expect(asaasService.createCreditCardCharge).not.toHaveBeenCalled();
+      expect(asaasService.createPixCharge).not.toHaveBeenCalled();
+      expect(asaasService.getPixQrCode).not.toHaveBeenCalled();
+    });
   });
 });

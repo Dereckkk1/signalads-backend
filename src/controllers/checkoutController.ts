@@ -9,6 +9,39 @@ import AgencyClient from '../models/AgencyClient';
 import SponsorshipBooking from '../models/SponsorshipBooking';
 import { sendOrderReceivedToClient, sendNewOrderToAdmin } from '../services/emailService';
 import { shouldSendNotification } from '../services/notificationService';
+import {
+  getOrCreateCustomer,
+  createCreditCardCharge,
+  createPixCharge,
+  getPixQrCode,
+  sanitizeForLog,
+} from '../services/asaasService';
+
+type CheckoutPaymentMethod = 'credit_card' | 'pix' | 'pending_contact';
+
+interface CreditCardInput {
+  number?: string;
+  holderName?: string;
+  expiryMonth?: string;
+  expiryYear?: string;
+  ccv?: string;
+  cpfCnpj?: string;
+}
+
+function onlyDigits(value: unknown): string {
+  return String(value || '').replace(/\D+/g, '');
+}
+
+function todayYMD(): string {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+function tomorrowYMD(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + 1);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
 
 // Gera schedule automático para patrocínio: cada dia do mês que bate com daysOfWeek
 function generateSponsorshipSchedule(selectedMonth: string, daysOfWeek: number[]): Record<string, number> {
@@ -47,7 +80,53 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
-    const { isMonitoringEnabled, agencyCommission: agencyCommPct, clientId } = req.body;
+    const {
+      isMonitoringEnabled,
+      agencyCommission: agencyCommPct,
+      clientId,
+      paymentMethod,
+      card,
+      installments,
+    } = req.body as {
+      isMonitoringEnabled?: boolean;
+      agencyCommission?: number;
+      clientId?: string;
+      paymentMethod?: CheckoutPaymentMethod;
+      card?: CreditCardInput;
+      installments?: number;
+    };
+
+    // ─── Validação do método de pagamento ────────────────────────────
+    const validMethods: CheckoutPaymentMethod[] = ['credit_card', 'pix', 'pending_contact'];
+    if (!paymentMethod || !validMethods.includes(paymentMethod)) {
+      res.status(400).json({ error: 'Método de pagamento inválido' });
+      return;
+    }
+
+    if (paymentMethod === 'credit_card') {
+      const requiredCardFields: (keyof CreditCardInput)[] = [
+        'number',
+        'holderName',
+        'expiryMonth',
+        'expiryYear',
+        'ccv',
+        'cpfCnpj',
+      ];
+      const missing = requiredCardFields.filter((f) => !card || !card[f]);
+      if (!card || missing.length > 0) {
+        res.status(400).json({
+          error: `Dados do cartão incompletos: ${missing.join(', ')}`,
+        });
+        return;
+      }
+      if (installments !== undefined) {
+        const inst = Number(installments);
+        if (!Number.isFinite(inst) || !Number.isInteger(inst) || inst < 1 || inst > 12) {
+          res.status(400).json({ error: 'Número de parcelas deve estar entre 1 e 12' });
+          return;
+        }
+      }
+    }
 
     // Comissao de agencia so permitida para usuarios do tipo agency
     if (agencyCommPct !== undefined && agencyCommPct > 0) {
@@ -284,7 +363,29 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
 
     const totalAmount = parseFloat((grossAmount + techFee + agencyCommission + monitoringCost).toFixed(2));
 
-    // 7. Criar pedido
+    // Valor mínimo para gateway (Asaas): R$ 5,00
+    if ((paymentMethod === 'credit_card' || paymentMethod === 'pix') && totalAmount < 5) {
+      try { await Cart.updateOne({ userId: req.userId }, { $set: { checkedOut: false } }); } catch {}
+      res.status(400).json({ error: 'Valor mínimo R$ 5,00 para pagamento online' });
+      return;
+    }
+
+    // 7. Criar pedido (status e payment inicial dependem do método)
+    const paymentDoc: any = {
+      method: paymentMethod,
+      status: 'pending',
+      walletAmountUsed: 0,
+      chargedAmount: totalAmount,
+      totalAmount: totalAmount,
+    };
+
+    const initialStatus =
+      paymentMethod === 'credit_card'
+        ? 'pending_payment'
+        : paymentMethod === 'pix'
+        ? 'pending_payment'
+        : 'pending_contact';
+
     const order = new Order({
       buyerId: user._id,
       buyerName: user.name,
@@ -293,15 +394,9 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
       buyerDocument: user.cpfOrCnpj || user.cpf || '',
       items: orderItems,
       clientId: clientId || undefined,
-      payment: {
-        method: 'pending_contact',
-        status: 'pending',
-        walletAmountUsed: 0,
-        chargedAmount: totalAmount,
-        totalAmount: totalAmount
-      },
+      payment: paymentDoc,
       splits: [],
-      status: 'pending_contact',
+      status: initialStatus,
       grossAmount,
       broadcasterAmount,
       platformSplit,
@@ -366,6 +461,99 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
+    // 7.6. Branch por método de pagamento — chama Asaas para credit_card/pix
+    let redirectTo: string | undefined;
+    if (paymentMethod === 'credit_card' && card) {
+      try {
+        const customerId = await getOrCreateCustomer(user as any);
+        const installmentCount = Number(installments) >= 1 ? Number(installments) : 1;
+        const installmentValue = parseFloat((totalAmount / installmentCount).toFixed(2));
+        const cardNumberClean = String(card.number || '').replace(/\s+/g, '');
+        const charge = await createCreditCardCharge({
+          customerId,
+          value: totalAmount,
+          dueDate: todayYMD(),
+          installmentCount,
+          installmentValue,
+          externalReference: `cart_${cart._id}_${Date.now()}`,
+          creditCard: {
+            holderName: String(card.holderName || ''),
+            number: cardNumberClean,
+            expiryMonth: String(card.expiryMonth || ''),
+            expiryYear: String(card.expiryYear || ''),
+            ccv: String(card.ccv || ''),
+          },
+          creditCardHolderInfo: {
+            name: String(card.holderName || ''),
+            email: user.email,
+            cpfCnpj: onlyDigits(card.cpfCnpj),
+            postalCode: user.address?.cep || '00000000',
+            addressNumber: user.address?.number || 'S/N',
+            phone: onlyDigits(user.phone),
+          },
+        });
+
+        order.payment.asaasPaymentId = charge.asaasPaymentId;
+        if (charge.invoiceUrl) order.payment.asaasInvoiceUrl = charge.invoiceUrl;
+        if (charge.cardBrand) order.payment.cardBrand = charge.cardBrand;
+        if (charge.cardLastDigits) order.payment.cardLastDigits = charge.cardLastDigits;
+        order.payment.installments = installmentCount;
+        order.payment.status = 'received';
+        order.payment.paidAt = new Date();
+        order.paidAt = new Date();
+        order.status = 'paid';
+      } catch (err: any) {
+        // Cleanup: liberar reservas de patrocinio e resetar carrinho
+        if (sponsorshipBookingsCreated.length > 0) {
+          const ids = sponsorshipBookingsCreated.map((b) => b._id);
+          await SponsorshipBooking.deleteMany({ _id: { $in: ids } }).catch(() => {});
+        }
+        try {
+          cart.items = cart.items;
+          (cart as any).checkedOut = false;
+          await cart.save();
+        } catch {}
+        console.error('[checkout.credit_card] payment failed', sanitizeForLog({ message: err?.message }));
+        res.status(402).json({ error: err?.message || 'Pagamento recusado' });
+        return;
+      }
+    } else if (paymentMethod === 'pix') {
+      try {
+        const customerId = await getOrCreateCustomer(user as any);
+        const charge = await createPixCharge({
+          customerId,
+          value: totalAmount,
+          dueDate: tomorrowYMD(),
+          externalReference: `cart_${cart._id}_${Date.now()}`,
+        });
+        const qr = await getPixQrCode(charge.asaasPaymentId);
+
+        order.payment.asaasPaymentId = charge.asaasPaymentId;
+        if (charge.invoiceUrl) order.payment.asaasInvoiceUrl = charge.invoiceUrl;
+        order.payment.pixQrCode = qr.pixQrCode;
+        order.payment.pixCopyPaste = qr.pixCopyPaste;
+        if (qr.expiresAt) {
+          // Asaas devolve string "YYYY-MM-DD HH:mm:ss" — converter pra Date
+          order.payment.pixExpiresAt = new Date(qr.expiresAt.replace(' ', 'T'));
+        }
+        order.payment.status = 'pending';
+        order.status = 'pending_payment';
+        redirectTo = `/orders/${order._id}`;
+      } catch (err: any) {
+        if (sponsorshipBookingsCreated.length > 0) {
+          const ids = sponsorshipBookingsCreated.map((b) => b._id);
+          await SponsorshipBooking.deleteMany({ _id: { $in: ids } }).catch(() => {});
+        }
+        try {
+          (cart as any).checkedOut = false;
+          await cart.save();
+        } catch {}
+        console.error('[checkout.pix] payment failed', sanitizeForLog({ message: err?.message }));
+        res.status(502).json({ error: err?.message || 'Erro ao gerar cobrança PIX' });
+        return;
+      }
+    }
+
     await order.save();
 
     // 8. Limpar carrinho e resetar flag de checkout
@@ -407,16 +595,38 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
       }
     }).catch(err => console.error('Admin lookup error:', err));
 
-    res.status(201).json({
+    const message =
+      paymentMethod === 'credit_card'
+        ? 'Pagamento aprovado'
+        : paymentMethod === 'pix'
+        ? 'Cobrança PIX gerada. Pague para concluir o pedido.'
+        : 'Pedido recebido. Aguardando contato do admin.';
+
+    const responseBody: any = {
       order: {
         _id: order._id,
         orderNumber: order.orderNumber,
         status: order.status,
         totalAmount: order.totalAmount,
         items: order.items,
-        createdAt: order.createdAt
-      }
-    });
+        createdAt: order.createdAt,
+        payment: {
+          method: order.payment.method,
+          status: order.payment.status,
+          pixQrCode: order.payment.pixQrCode,
+          pixCopyPaste: order.payment.pixCopyPaste,
+          pixExpiresAt: order.payment.pixExpiresAt,
+          cardBrand: order.payment.cardBrand,
+          cardLastDigits: order.payment.cardLastDigits,
+          installments: order.payment.installments,
+          asaasInvoiceUrl: order.payment.asaasInvoiceUrl,
+        },
+      },
+      message,
+    };
+    if (redirectTo) responseBody.redirectTo = redirectTo;
+
+    res.status(201).json(responseBody);
   } catch (error) {
     // Reseta flag de checkout para permitir nova tentativa
     try { await Cart.updateOne({ userId: req.userId }, { $set: { checkedOut: false } }); } catch {}

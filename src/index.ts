@@ -18,6 +18,7 @@ import blockedDomainRoutes from './routes/blockedDomainRoutes';
 import productRequestRoutes from './routes/productRequestRoutes';
 import profileRequestRoutes from './routes/profileRequestRoutes';
 import paymentRoutes from './routes/paymentRoutes';
+import orderRoutes from './routes/orderRoutes';
 import proposalRoutes from './routes/proposalRoutes';
 import broadcasterProposalRoutes from './routes/broadcasterProposalRoutes';
 import broadcasterSubUserRoutes from './routes/broadcasterSubUserRoutes';
@@ -233,6 +234,7 @@ app.use('/api/blocked-domains', blockedDomainRoutes); // Rotas de domínios bloq
 app.use('/api/product-requests', productRequestRoutes); // Rotas de solicitações de produtos (emissoras)
 app.use('/api/profile-requests', profileRequestRoutes); // Rotas de solicitações de perfil (emissoras)
 app.use('/api/payment', paymentRoutes); // Checkout (criação de pedido)
+app.use('/api/orders', orderRoutes); // Detalhe de pedido (owner ou admin)
 app.use('/api/proposals', proposalRoutes); // Propostas comerciais de agências
 app.use('/api/broadcaster-proposals', broadcasterProposalRoutes); // Propostas comerciais de emissoras
 app.use('/api/broadcaster', broadcasterSubUserRoutes); // Sub-usuarios de emissoras

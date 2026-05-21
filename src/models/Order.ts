@@ -186,6 +186,7 @@ export interface IPayment {
   asaasBoletoUrl?: string; // URL do boleto (para A Faturar)
   pixQrCode?: string;
   pixCopyPaste?: string;
+  pixExpiresAt?: Date;
   cardBrand?: string;
   cardLastDigits?: string;
   installments?: number;
@@ -446,6 +447,7 @@ const OrderSchema = new Schema<IOrder>({
     asaasBoletoUrl: String, // URL do boleto (para A Faturar)
     pixQrCode: String,
     pixCopyPaste: String,
+    pixExpiresAt: Date,
     cardBrand: String,
     cardLastDigits: String,
     installments: Number,

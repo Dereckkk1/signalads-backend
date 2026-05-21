@@ -106,7 +106,7 @@ describe('POST /api/payment/checkout — patrocinio', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(201);
     expect(res.body.order).toBeDefined();
@@ -153,7 +153,7 @@ describe('POST /api/payment/checkout — patrocinio', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/mês não selecionado/i);
@@ -200,7 +200,7 @@ describe('POST /api/payment/checkout — patrocinio', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/Patrocínio|não encontrado/i);
@@ -262,7 +262,7 @@ describe('POST /api/payment/checkout — patrocinio', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(201);
     expect(res.body.order.items).toHaveLength(2);
@@ -309,7 +309,7 @@ describe('POST /api/payment/checkout — custo de producao', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     expect(res.status).toBe(201);
     // totalAmount inclui producao (R$50 por gravacao unica) alem dos produtos
@@ -359,7 +359,7 @@ describe('POST /api/payment/checkout — agencia com clientId', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({ agencyCommission: 10, clientId: clientId.toString() });
+      .send({ paymentMethod: 'pending_contact', agencyCommission: 10, clientId: clientId.toString() });
 
     expect(res.status).toBe(201);
     // clientId nao e retornado no response body — verificar no banco
@@ -405,7 +405,7 @@ describe('POST /api/payment/checkout — usuario nao encontrado', () => {
       .post('/api/payment/checkout')
       .set('Cookie', auth.cookieHeader)
       .set('X-CSRF-Token', auth.csrfHeader)
-      .send({});
+      .send({ paymentMethod: 'pending_contact' });
 
     // Auth middleware retorna 401 quando usuario nao existe no banco
     expect(res.status).toBe(401);

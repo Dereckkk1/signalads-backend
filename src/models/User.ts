@@ -14,6 +14,7 @@ export interface IUser extends Document {
   razaoSocial?: string; // Razão social para faturamento (CNPJ)
   // Campos específicos para broadcaster
   cnpj?: string;
+  asaasCustomerId?: string;  // ID do customer Asaas, criado lazy no 1o checkout
   address?: {
     cep: string;
     street: string;
@@ -184,6 +185,7 @@ const userSchema = new Schema<IUser>(
       type: String,
       trim: true
     },
+    asaasCustomerId: { type: String, default: null, index: true },
     companyName: {
       type: String,
       trim: true
