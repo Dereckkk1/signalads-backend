@@ -11,7 +11,6 @@ import cookieParser from 'cookie-parser';
 
 import { mongoSanitize, xssSanitize, dedupeQuery } from '../../middleware/security';
 import { csrfProtection } from '../../middleware/csrf';
-import { checkSuspiciousPath } from '../../middleware/suspiciousPath';
 
 // Routes
 import authRoutes from '../../routes/authRoutes';
@@ -34,7 +33,6 @@ export function createTestApp(): Application {
   app.use(xssSanitize);
   app.use(dedupeQuery);
   app.use(csrfProtection);
-  app.use(checkSuspiciousPath);
 
   // --- Routes ---
   app.use('/api', healthRoutes);

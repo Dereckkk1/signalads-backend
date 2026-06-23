@@ -46,8 +46,7 @@ import { createRedisStore } from './config/rateLimitStore';
 import { mongoSanitize, xssSanitize, dedupeQuery } from './middleware/security';
 import { csrfProtection } from './middleware/csrf';
 import { metricsMiddleware, checkBlockedIP } from './middleware/metrics';
-import { checkSuspiciousPath } from './middleware/suspiciousPath';
-import { loadBlockedIPs } from './utils/ipBlockList';
+import { loadBlockedIPs, purgeLegacyAutoBlocks } from './utils/ipBlockList';
 import healthRoutes from './routes/healthRoutes';
 
 dotenv.config();
@@ -204,11 +203,9 @@ app.use(csrfProtection); // CSRF double-submit cookie (verifica X-CSRF-Token hea
 // arquivos vao para Google Cloud Storage. Servir uploads/ localmente expoe arquivos
 // fora do controle de auth da aplicacao.
 
-// Bloqueio instantaneo de paths suspeitos (.env, wp-admin, .git, etc.)
-// Vem ANTES do checkBlockedIP para tambem registrar o IP na blocklist na primeira tentativa.
-app.use(checkSuspiciousPath);
-
-// Bloqueio de IPs (antes das rotas, admin routes isentas — ver checkBlockedIP)
+// Bloqueio de IPs — apenas blocks MANUAIS feitos por admin (auto-block
+// automático foi descontinuado; paths suspeitos caem no handler 404 padrão).
+// Admin routes isentas — ver checkBlockedIP.
 app.use(checkBlockedIP);
 
 // Coleta de métricas de performance (antes das rotas para capturar tudo)
@@ -306,7 +303,9 @@ const startServer = async () => {
       console.log(`📍 http://localhost:${PORT}`);
     });
 
-    // Carrega IPs bloqueados em memória para checagem rápida
+    // Remove auto-blocks de IP legados (auto-block descontinuado) e carrega
+    // a blocklist (apenas blocks manuais) em memória para checagem rápida.
+    await purgeLegacyAutoBlocks();
     await loadBlockedIPs();
 
     // Inicia crons

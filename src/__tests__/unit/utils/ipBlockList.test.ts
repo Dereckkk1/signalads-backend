@@ -7,7 +7,7 @@
 jest.mock('../../../models/BlockedIP');
 
 import BlockedIP from '../../../models/BlockedIP';
-import { loadBlockedIPs, blockedIPsSet } from '../../../utils/ipBlockList';
+import { loadBlockedIPs, purgeLegacyAutoBlocks, blockedIPsSet } from '../../../utils/ipBlockList';
 
 const mockedBlockedIP = BlockedIP as jest.Mocked<typeof BlockedIP>;
 
@@ -139,5 +139,44 @@ describe('loadBlockedIPs', () => {
 
     expect(blockedIPsSet.has('5.5.5.5')).toBe(true);
     expect(blockedIPsSet.has('6.6.6.6')).toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// purgeLegacyAutoBlocks
+// Remove blocks automaticos legados (auto-block por IP descontinuado).
+// Mantem blocks manuais (feitos por um admin com email real).
+// ═══════════════════════════════════════════════════════════════
+describe('purgeLegacyAutoBlocks', () => {
+  it('deleta apenas entradas com blockedByEmail = auto-block@sistema', async () => {
+    mockedBlockedIP.deleteMany = jest.fn().mockResolvedValue({ deletedCount: 3 }) as any;
+
+    await purgeLegacyAutoBlocks();
+
+    expect(mockedBlockedIP.deleteMany).toHaveBeenCalledWith({
+      blockedByEmail: 'auto-block@sistema',
+    });
+  });
+
+  it('retorna a quantidade de IPs removidos', async () => {
+    mockedBlockedIP.deleteMany = jest.fn().mockResolvedValue({ deletedCount: 5 }) as any;
+
+    const removed = await purgeLegacyAutoBlocks();
+
+    expect(removed).toBe(5);
+  });
+
+  it('retorna 0 quando nao ha auto-blocks para remover', async () => {
+    mockedBlockedIP.deleteMany = jest.fn().mockResolvedValue({ deletedCount: 0 }) as any;
+
+    const removed = await purgeLegacyAutoBlocks();
+
+    expect(removed).toBe(0);
+  });
+
+  it('nao lanca erro quando o banco falha (captura silenciosamente e retorna 0)', async () => {
+    mockedBlockedIP.deleteMany = jest.fn().mockRejectedValue(new Error('MongoDB timeout')) as any;
+
+    await expect(purgeLegacyAutoBlocks()).resolves.toBe(0);
   });
 });
