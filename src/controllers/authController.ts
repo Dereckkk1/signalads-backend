@@ -228,19 +228,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verificar se email foi confirmado — mesma resposta generica de senha invalida
-    // para nao revelar diferenca entre senha errada e email nao confirmado.
-    // Reenvio de confirmacao deve ser oferecido pelo fluxo de cadastro/registro,
-    // nao por inspecao da resposta de login.
+    // Email nao confirmado: sinal acionavel SO depois da senha correta. Como a
+    // senha ja foi validada acima, isto NAO eh account enumeration — quem chega
+    // aqui ja provou conhecer a credencial valida. Os ramos user_not_found e
+    // invalid_password permanecem 401 generico (a existencia/estado da conta nao
+    // vaza para quem nao tem a senha). Frontend (Login + LoginModal) trata o
+    // codigo 'email_not_confirmed' com mensagem acionavel.
     if (user.emailConfirmed === false) {
-      res.status(401).json({ error: 'Credenciais inválidas' });
+      res.status(403).json({
+        error: 'email_not_confirmed',
+        message: 'Seu email ainda não foi confirmado. Verifique sua caixa de entrada e clique no link de confirmação.'
+      });
       return;
     }
 
-    // Verificar ban — mensagem generica (nao revelar status exato da conta)
+    // Conta rejeitada/banida: tambem so revelado apos senha correta (mesmo racional).
     if (user.status === 'rejected') {
-      res.status(401).json({
-        error: 'Credenciais inválidas'
+      res.status(403).json({
+        error: 'account_rejected',
+        message: 'Sua conta foi rejeitada. Entre em contato com o suporte para mais informações.'
       });
       return;
     }

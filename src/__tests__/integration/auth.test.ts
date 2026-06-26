@@ -219,7 +219,7 @@ describe('POST /api/auth/login', () => {
     expect(res.body.error).toMatch(/inválidas/i);
   });
 
-  it('should reject login when email is not confirmed', async () => {
+  it('should return 403 email_not_confirmed when email is not confirmed (after correct password)', async () => {
     await createTestUser({
       email: 'unconfirmed@empresa.com.br',
       password: STRONG_PASSWORD,
@@ -230,13 +230,32 @@ describe('POST /api/auth/login', () => {
       .post('/api/auth/login')
       .send({ emailOrCnpj: 'unconfirmed@empresa.com.br', password: STRONG_PASSWORD });
 
+    // Sinal acionavel SO depois da senha correta. A existencia da conta nao eh
+    // revelada a quem nao tem credenciais validas — os ramos user_not_found e
+    // invalid_password permanecem 401 generico (anti-enumeration preservado).
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('email_not_confirmed');
+    expect(res.body.message).toBeDefined();
+  });
+
+  it('should NOT reveal email_not_confirmed when password is wrong (anti-enumeration boundary)', async () => {
+    await createTestUser({
+      email: 'unconfirmed2@empresa.com.br',
+      password: STRONG_PASSWORD,
+      emailConfirmed: false,
+    });
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ emailOrCnpj: 'unconfirmed2@empresa.com.br', password: 'WrongPass999!' });
+
+    // Senha errada => 401 generico, MESMO com email nao confirmado. O estado da
+    // conta so eh revelado a quem prova conhecer a senha correta.
     expect(res.status).toBe(401);
-    // Mesma resposta generica de senha invalida — nao revela diferenca entre
-    // senha errada e email nao confirmado (account enumeration mitigation)
     expect(res.body.error).toBe('Credenciais inválidas');
   });
 
-  it('should reject login for rejected/banned user', async () => {
+  it('should return 403 account_rejected for rejected/banned user (after correct password)', async () => {
     await createTestUser({
       email: 'banned@empresa.com.br',
       password: STRONG_PASSWORD,
@@ -248,8 +267,9 @@ describe('POST /api/auth/login', () => {
       .post('/api/auth/login')
       .send({ emailOrCnpj: 'banned@empresa.com.br', password: STRONG_PASSWORD });
 
-    expect(res.status).toBe(401);
-    expect(res.body.error).toMatch(/inválidas/i);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('account_rejected');
+    expect(res.body.message).toBeDefined();
   });
 
   it('should reject when emailOrCnpj is missing', async () => {
