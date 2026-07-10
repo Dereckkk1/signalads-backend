@@ -11,7 +11,7 @@ import {
   getMapProducts,
   searchBroadcastersForCompare
 } from '../controllers/productController';
-import { getShelves, getSimilar } from '../controllers/shelvesController';
+import { getShelves, getSimilar, getSuggestions } from '../controllers/shelvesController';
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
 import { setCacheHeaders } from '../middleware/cacheControl';
 import { requirePermission } from '../middleware/requirePermission';
@@ -32,6 +32,7 @@ router.get('/compare/search', optionalAuthenticateToken, setCacheHeaders('public
 router.get('/marketplace/cities', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getMarketplaceCities);
 router.get('/marketplace/shelves', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getShelves);
 router.get('/marketplace/similar', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getSimilar);
+router.get('/marketplace/suggest', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getSuggestions);
 router.get('/marketplace/broadcaster/:broadcasterId', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getMarketplaceBroadcasterDetails);
 router.get('/marketplace', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getAllActiveProducts);
 

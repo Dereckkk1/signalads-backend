@@ -155,3 +155,59 @@ export const getSimilar = async (req: AuthRequest, res: Response): Promise<void>
     res.status(500).json({ error: 'Erro ao carregar emissoras similares' });
   }
 };
+
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * GET /api/products/marketplace/suggest?q=
+ * Autocomplete: gêneros (categorias), emissoras (por nome) e cidades por prefixo.
+ * Mín. 2 chars. Regex 'i' (não normaliza acentos — aceitável p/ v1).
+ */
+export const getSuggestions = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const q = String(req.query.q ?? '').trim();
+    if (q.length < 2) {
+      res.status(400).json({ error: 'Busca muito curta' });
+      return;
+    }
+    const rx = new RegExp(escapeRegex(q), 'i');
+
+    const [genreRows, broadcasters, cityRows] = await Promise.all([
+      User.aggregate([
+        { $match: { ...ACTIVE_BROADCASTER, 'broadcasterProfile.categories': rx } },
+        { $unwind: '$broadcasterProfile.categories' },
+        { $match: { 'broadcasterProfile.categories': rx } },
+        { $group: { _id: '$broadcasterProfile.categories', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 3 },
+      ]),
+      User.find({ ...ACTIVE_BROADCASTER, 'broadcasterProfile.generalInfo.stationName': rx })
+        .select('broadcasterProfile.generalInfo broadcasterProfile.categories broadcasterProfile.logo address')
+        .sort({ 'broadcasterProfile.pmm': -1 })
+        .limit(4)
+        .lean(),
+      User.aggregate([
+        { $match: { ...ACTIVE_BROADCASTER, 'address.city': rx } },
+        { $group: { _id: { city: '$address.city', state: '$address.state' }, count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 3 },
+      ]),
+    ]);
+
+    res.json({
+      genres: genreRows.map((g: any) => ({ name: g._id, count: g.count })),
+      broadcasters: broadcasters.map((u: any) => ({
+        broadcasterId: u._id,
+        stationName: u.broadcasterProfile?.generalInfo?.stationName,
+        dialFrequency: u.broadcasterProfile?.generalInfo?.dialFrequency,
+        city: u.address?.city,
+        state: u.address?.state,
+        logo: u.broadcasterProfile?.logo ?? null,
+        categories: u.broadcasterProfile?.categories ?? [],
+      })),
+      cities: cityRows.map((c: any) => ({ city: c._id.city, state: c._id.state, count: c.count })),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao buscar sugestões' });
+  }
+};

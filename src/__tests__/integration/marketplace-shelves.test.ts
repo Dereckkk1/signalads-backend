@@ -11,9 +11,7 @@ import { Application } from 'express';
 
 import { createTestApp } from '../helpers/createTestApp';
 import { connectTestDB, clearTestDB, disconnectTestDB } from '../helpers/setup';
-import { createBroadcaster } from '../helpers/authHelper';
-import { Product } from '../../models/Product';
-import { User } from '../../models/User';
+import { seedStation } from '../helpers/stationFactory';
 
 let app: Application;
 
@@ -31,33 +29,6 @@ afterEach(async () => {
 afterAll(async () => {
   await disconnectTestDB();
 });
-
-// pricePerInsertion é required + recalculado no pre('save'); passamos explícito (netPrice*1.25).
-async function seedStation(name: string, city: string, pmm: number, freq: string, cat = 'Hits') {
-  const s = await createBroadcaster();
-  await User.updateOne({ _id: s.user._id }, {
-    $set: {
-      'address.city': city,
-      'address.state': 'SC',
-      broadcasterProfile: {
-        generalInfo: { stationName: name, dialFrequency: freq, band: 'FM', streamingUrl: 'https://x/stream' },
-        categories: [cat],
-        coverage: { totalPopulation: pmm * 10000, cities: [city] },
-        pmm,
-      },
-    },
-  });
-  await Product.create({
-    broadcasterId: s.user._id,
-    spotType: 'Comercial 30s',
-    duration: 30,
-    timeSlot: '06:00-12:00',
-    netPrice: 64.35,
-    pricePerInsertion: 80.44,
-    isActive: true,
-  });
-  return s;
-}
 
 describe('GET /api/products/marketplace/shelves', () => {
   it('devolve líderes da cidade ordenados por pmm desc + dial por frequência', async () => {
