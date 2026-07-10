@@ -1122,6 +1122,90 @@ export const getMarketplaceBroadcasterDetails = async (req: AuthRequest, res: Re
   }
 };
 
+// Página pública da emissora por slug — /api/products/marketplace/station/:slug
+// Emissora ativa = aprovada OU catálogo (cadastrada pelo admin). Reusa a anatomia
+// de card do marketplace (minPrice/cpm/campaignsCount) + perfil completo + produtos ativos.
+export const getStationBySlug = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { slug } = req.params;
+
+    const broadcaster = await User.findOne({
+      userType: 'broadcaster',
+      'broadcasterProfile.slug': slug,
+      $or: [{ status: 'approved' }, { isCatalogOnly: true }],
+    })
+      .select('-password')
+      .lean();
+
+    if (!broadcaster) {
+      res.status(404).json({ error: 'Emissora não encontrada' });
+      return;
+    }
+
+    const bp: any = broadcaster.broadcasterProfile ?? {};
+    const g: any = bp.generalInfo ?? {};
+
+    const activeProducts = await Product.find({
+      broadcasterId: broadcaster._id,
+      isActive: true,
+    })
+      .select('_id spotType duration timeSlot pricePerInsertion')
+      .lean();
+
+    let minPrice: number | null = null;
+    for (const p of activeProducts as any[]) {
+      if (typeof p.pricePerInsertion === 'number') {
+        if (minPrice === null || p.pricePerInsertion < minPrice) {
+          minPrice = p.pricePerInsertion;
+        }
+      }
+    }
+
+    const pop = bp.coverage?.totalPopulation ?? 0;
+    const cpm =
+      pop > 0 && minPrice !== null
+        ? Number((minPrice / (pop / 1000)).toFixed(2))
+        : null;
+
+    const bid = String(broadcaster._id);
+    const counts = await campaignCountsByBroadcaster([bid]);
+    const onAir = earliestOnAirDate().toISOString().slice(0, 10);
+
+    res.json({
+      station: {
+        broadcasterId: broadcaster._id,
+        stationName: g.stationName,
+        dialFrequency: g.dialFrequency,
+        band: g.band,
+        streamingUrl: g.streamingUrl ?? bp.coverage?.streamingUrl ?? null,
+        city: broadcaster.address?.city,
+        state: broadcaster.address?.state,
+        logo: bp.logo ?? null,
+        categories: bp.categories ?? [],
+        totalPopulation: pop,
+        pmm: bp.pmm ?? 0,
+        minPrice,
+        cpm,
+        campaignsCount: counts[bid] ?? 0,
+        earliestOnAir: onAir,
+        slug: bp.slug,
+        audienceProfile: bp.audienceProfile ?? null,
+        coverage: bp.coverage ?? null,
+        generalInfo: g,
+        products: (activeProducts as any[]).map((p) => ({
+          _id: p._id,
+          spotType: p.spotType,
+          duration: p.duration,
+          timeSlot: p.timeSlot,
+          pricePerInsertion: p.pricePerInsertion,
+        })),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao buscar emissora' });
+  }
+};
+
 // Obter emissoras para o mapa — aggregation leve, agrupado por emissora
 // Payload ~70% menor: sem broadcaster duplicado por produto, sem dados sensíveis
 export const getMapProducts = async (req: AuthRequest, res: Response): Promise<void> => {

@@ -8,6 +8,7 @@ import {
   getAllActiveProducts,
   getMarketplaceCities,
   getMarketplaceBroadcasterDetails,
+  getStationBySlug,
   getMapProducts,
   searchBroadcastersForCompare
 } from '../controllers/productController';
@@ -34,6 +35,7 @@ router.get('/marketplace/shelves', optionalAuthenticateToken, setCacheHeaders('p
 router.get('/marketplace/similar', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getSimilar);
 router.get('/marketplace/suggest', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getSuggestions);
 router.get('/marketplace/regions', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getMarketplaceRegions);
+router.get('/marketplace/station/:slug', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getStationBySlug);
 router.get('/marketplace/broadcaster/:broadcasterId', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getMarketplaceBroadcasterDetails);
 router.get('/marketplace', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getAllActiveProducts);
 

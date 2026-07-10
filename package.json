@@ -7,6 +7,7 @@
     "dev": "nodemon src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
+    "slugs:generate": "ts-node src/scripts/generateStationSlugs.ts",
     "start:cluster": "pm2 start ecosystem.config.js --env production",
     "reload": "pm2 reload signalads-backend",
     "stop": "pm2 stop signalads-backend",

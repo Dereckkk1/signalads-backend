@@ -35,6 +35,8 @@ export interface IUser extends Document {
   onboardingCompleted?: boolean;
   completedTours?: string[];
   broadcasterProfile?: {
+    // Slug canônico para a página pública /emissora/:slug (único, esparso)
+    slug?: string;
     // Etapa 1: Informações Gerais
     generalInfo?: {
       stationName?: string;
@@ -230,6 +232,7 @@ const userSchema = new Schema<IUser>(
       default: []
     },
     broadcasterProfile: {
+      slug: { type: String, index: { unique: true, sparse: true } },
       generalInfo: {
         stationName: String,
         dialFrequency: String,
