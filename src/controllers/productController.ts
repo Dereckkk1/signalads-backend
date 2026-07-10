@@ -8,6 +8,8 @@ import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import crypto from 'crypto';
 import { getEffectiveBroadcasterId } from './broadcasterSubUserController';
 import NodeGeocoder from 'node-geocoder';
+import { campaignCountsByBroadcaster } from '../services/socialProofService';
+import { earliestOnAirDate } from '../utils/businessDays';
 
 /**
  * Gera cache key normalizada: ordena keys e arrays, gera hash curto.
@@ -1015,6 +1017,23 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       acc[curr._id] = curr.maxPMM || 0;
       return acc;
     }, {} as Record<string, number>);
+
+    // Social proof + "no ar a partir de" — só para as emissoras desta página (máx `limit` ids).
+    // Uma agregação em Order (índice items.broadcasterId). Ausência no mapa = 0 campanhas.
+    const proofCounts = await campaignCountsByBroadcaster(
+      paginatedBroadcasterIds.map((id: any) => id.toString())
+    );
+    const onAirFrom = earliestOnAirDate().toISOString().slice(0, 10);
+    for (const p of products as any[]) {
+      const bid = p.broadcasterId?._id?.toString();
+      p.campaignsCount = bid ? (proofCounts[bid] ?? 0) : 0;
+      p.earliestOnAir = onAirFrom;
+    }
+    for (const b of broadcastersWithoutProducts as any[]) {
+      const bid = b._id?.toString();
+      b.campaignsCount = bid ? (proofCounts[bid] ?? 0) : 0;
+      b.earliestOnAir = onAirFrom;
+    }
 
     // totalBroadcasters vem do countDocuments — reflete o total real de emissoras que batem com os filtros
     const finalTotalItems = totalBroadcasters;

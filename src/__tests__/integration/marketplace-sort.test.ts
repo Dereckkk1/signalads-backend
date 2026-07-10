@@ -100,4 +100,15 @@ describe('GET /api/products/marketplace?sort=', () => {
     // default ordena por pmm desc → Alpha (pmm 90) primeiro
     expect(firstStationName(res)).toBe('Alpha FM');
   });
+
+  it('anexa social proof (campaignsCount) e earliestOnAir em cada produto', async () => {
+    await seedTwoStations();
+    const res = await request(app).get('/api/products/marketplace');
+    expect(res.status).toBe(200);
+    expect(res.body.products.length).toBeGreaterThan(0);
+    expect(res.body.products[0]).toHaveProperty('campaignsCount');
+    expect(res.body.products[0].campaignsCount).toBe(0); // nenhum pedido completed no seed
+    expect(res.body.products[0]).toHaveProperty('earliestOnAir');
+    expect(res.body.products[0].earliestOnAir).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
 });
