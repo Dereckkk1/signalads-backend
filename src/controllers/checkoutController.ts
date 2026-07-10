@@ -390,7 +390,11 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
 
     const order = new Order({
       buyerId: user._id,
-      buyerName: user.name,
+      // `name` é opcional no User; compradores PJ (agência/anunciante com CNPJ)
+      // usam companyName/razaoSocial. buyerName é required no Order, então
+      // aplicamos o mesmo fallback usado na conversão de proposta (proposalController)
+      // e garantimos valor não-vazio com o email (sempre presente).
+      buyerName: user.name || user.companyName || user.fantasyName || user.razaoSocial || user.email,
       buyerEmail: user.email,
       buyerPhone: user.phone || '',
       buyerDocument: user.cpfOrCnpj || user.cpf || '',

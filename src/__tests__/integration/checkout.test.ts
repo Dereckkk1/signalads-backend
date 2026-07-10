@@ -51,6 +51,7 @@ import {
 import { Product } from '../../models/Product';
 import { Cart } from '../../models/Cart';
 import Order from '../../models/Order';
+import { User } from '../../models/User';
 
 function createCheckoutTestApp(): Application {
   const app = express();
@@ -162,6 +163,29 @@ describe('POST /api/payment/checkout', () => {
     expect(res.status).toBe(201);
     expect(res.body.order).toBeDefined();
     expect(res.body.order.status).toBe('pending_contact');
+  });
+
+  // Regressão: comprador PJ (agência/anunciante com CNPJ) tem `name` opcional
+  // vazio — preenche companyName/razaoSocial. Order.buyerName é required, então
+  // `buyerName: user.name` sem fallback quebrava o checkout com 500 (ValidationError).
+  it('should create an order when buyer has no `name`, falling back to companyName', async () => {
+    const { buyer, buyerAuth } = await createCartWithItems('agency');
+
+    // Simula comprador PJ real: sem `name` no documento, só companyName ('Agency Co')
+    await User.updateOne({ _id: buyer._id }, { $unset: { name: 1 } });
+
+    const res = await request(app)
+      .post('/api/payment/checkout')
+      .set('Cookie', buyerAuth.cookieHeader)
+      .set('X-CSRF-Token', buyerAuth.csrfHeader)
+      .send({ paymentMethod: 'pending_contact' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.order).toBeDefined();
+
+    // buyerName cai no fallback e nunca fica vazio
+    const order = await Order.findById(res.body.order._id);
+    expect(order!.buyerName).toBe('Agency Co');
   });
 
   it('should clear the cart after successful checkout', async () => {
