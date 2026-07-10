@@ -717,3 +717,44 @@ export const getCampaignDetails = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
+const MONTHS_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+/**
+ * GET /api/campaigns/last-completed
+ * Resumo do último pedido concluído do comprador (base do banner "Repetir campanha").
+ */
+export const getLastCompleted = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ error: 'Usuário não autenticado' });
+      return;
+    }
+    const order = await Order.findOne({
+      buyerId: req.userId,
+      status: { $in: ['completed', 'completed_billing'] },
+    }).sort({ createdAt: -1 }).lean();
+
+    if (!order) {
+      res.json({ order: null });
+      return;
+    }
+
+    const stationNames = [...new Set((order.items || []).map((i: any) => i.broadcasterName).filter(Boolean))];
+    const insertionsCount = (order.items || []).reduce((s: number, i: any) => s + (i.quantity ?? 0), 0);
+    res.json({
+      order: {
+        _id: order._id,
+        orderNumber: order.orderNumber,
+        month: MONTHS_PT[new Date(order.createdAt as any).getMonth()],
+        stationNames,
+        stationsCount: stationNames.length,
+        insertionsCount,
+        totalAmount: order.totalAmount,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao buscar última campanha' });
+  }
+};

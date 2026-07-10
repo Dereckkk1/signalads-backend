@@ -9,6 +9,7 @@ import {
   removeItem,
   clearCart,
   syncCart,
+  repeatOrder,
   updateSponsorshipMonth,
   updateSponsorshipMaterial
 } from '../controllers/cartController';
@@ -47,5 +48,8 @@ router.delete('/', clearCart);
 
 // Sincronizar carrinho completo
 router.post('/sync', syncCart);
+
+// Repetir campanha: reconstrói itens de um pedido concluído no carrinho
+router.post('/repeat/:orderId', repeatOrder);
 
 export default router;

@@ -17,6 +17,7 @@ import authRoutes from '../../routes/authRoutes';
 import adminRoutes from '../../routes/adminRoutes';
 import productRoutes from '../../routes/productRoutes';
 import cartRoutes from '../../routes/cartRoutes';
+import campaignRoutes from '../../routes/campaignRoutes';
 import healthRoutes from '../../routes/healthRoutes';
 import kanbanRoutes from '../../routes/kanbanRoutes';
 
@@ -40,6 +41,7 @@ export function createTestApp(): Application {
   app.use('/api/admin', adminRoutes);
   app.use('/api/products', productRoutes);
   app.use('/api/cart', cartRoutes);
+  app.use('/api/campaigns', campaignRoutes);
   app.use('/api/kanban', kanbanRoutes);
 
   // Root test route

@@ -7,13 +7,16 @@ import {
   getBroadcasterOrders,
   approveBroadcasterItems,
   rejectBroadcasterItems,
-  getCampaignDetails
+  getCampaignDetails,
+  getLastCompleted
 } from '../controllers/campaignController';
 
 const router = Router();
 
 // Rotas para Compradores (Advertiser/Agency)
 router.get('/my-campaigns', authenticateToken, getMyCampaigns);
+// ANTES de '/:orderId' para não ser capturada como parâmetro
+router.get('/last-completed', authenticateToken, getLastCompleted);
 
 // Rotas para Emissoras (Broadcaster) — exigem permissao 'campaigns' para sub-users
 router.get('/broadcaster-orders', authenticateToken, requirePermission('campaigns'), getBroadcasterOrders);

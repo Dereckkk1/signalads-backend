@@ -3,6 +3,7 @@ import { Cart, ICartItem } from '../models/Cart';
 import { Product } from '../models/Product';
 import { Sponsorship } from '../models/Sponsorship';
 import { User } from '../models/User';
+import Order from '../models/Order';
 import { AuthRequest } from '../middleware/auth';
 
 const MAX_CART_QUANTITY = 10000;
@@ -333,6 +334,87 @@ export const addItem = async (req: AuthRequest, res: Response): Promise<void> =>
     res.json(cart);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao adicionar item ao carrinho' });
+  }
+};
+
+/**
+ * POST /api/cart/repeat/:orderId
+ * Reconstrói os itens de um pedido concluído no carrinho do usuário com PREÇOS ATUAIS.
+ * Produtos inativos (ou emissora removida) são pulados. Mescla por productId (soma
+ * quantidade se já existe). Patrocínios não são reconstruídos (mês fechado).
+ */
+export const repeatOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ error: 'Usuário não autenticado' });
+      return;
+    }
+    const order = await Order.findById(req.params.orderId).lean();
+    if (!order) {
+      res.status(404).json({ error: 'Pedido não encontrado' });
+      return;
+    }
+    if (String(order.buyerId) !== String(req.userId)) {
+      res.status(403).json({ error: 'Este pedido não pertence a você' });
+      return;
+    }
+
+    const builtItems: any[] = [];
+    const skipped: any[] = [];
+    for (const it of (order.items || []) as any[]) {
+      if (it.itemType === 'sponsorship') {
+        skipped.push({ productName: it.productName, reason: 'patrocínio (recontratar manualmente)' });
+        continue;
+      }
+      const prod = await Product.findOne({ _id: it.productId, isActive: true })
+        .populate('broadcasterId', '_id companyName fantasyName broadcasterProfile address status')
+        .lean();
+      if (!prod || !(prod as any).broadcasterId) {
+        skipped.push({ productName: it.productName, reason: 'produto inativo' });
+        continue;
+      }
+      const p: any = prod;
+      const owner: any = p.broadcasterId;
+      const g = owner.broadcasterProfile?.generalInfo ?? {};
+      builtItems.push({
+        productId: p._id,
+        productName: p.spotType,
+        productSchedule: p.timeSlot,
+        broadcasterId: owner._id,
+        broadcasterName: owner.companyName || owner.fantasyName || it.broadcasterName || '',
+        broadcasterDial: g.dialFrequency || '',
+        broadcasterBand: g.band || '',
+        broadcasterLogo: owner.broadcasterProfile?.logo || '',
+        broadcasterCity: owner.address?.city || '',
+        price: p.pricePerInsertion, // preço ATUAL
+        quantity: it.quantity ?? 1,
+        duration: p.duration,
+        schedule: {},
+        addedAt: new Date(),
+      });
+    }
+
+    // Mescla no carrinho salvo (mesmo caminho de persistência do addItem)
+    let cart = await Cart.findOne({ userId: req.userId });
+    if (!cart) {
+      cart = new Cart({ userId: req.userId, items: [] });
+    }
+    for (const newItem of builtItems) {
+      const idx = cart.items.findIndex(
+        (item) => item.productId.toString() === String(newItem.productId) && (!item.itemType || item.itemType === 'product')
+      );
+      if (idx !== -1 && cart.items[idx]) {
+        cart.items[idx]!.quantity = (cart.items[idx]!.quantity || 0) + newItem.quantity;
+        cart.items[idx]!.price = newItem.price; // atualiza p/ preço atual
+      } else {
+        cart.items.push(newItem);
+      }
+    }
+    await cart.save();
+
+    res.json({ added: builtItems.length, skipped, items: builtItems });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao repetir campanha' });
   }
 };
 
