@@ -12,6 +12,7 @@ import { revokeAllUserTokens } from '../utils/tokenService';
 import { setUserIatFloor } from '../utils/jwtDenylist';
 import QuoteRequest from '../models/QuoteRequest';
 import { PLATFORM_COMMISSION_RATE } from '../models/Product';
+import { ATTENTION_STATUSES } from '../constants/orderStatuses';
 import {
   sendOrderPendingPaymentToClient,
   sendOrderPaidConfirmedToClient,
@@ -1125,5 +1126,19 @@ export const adminDeleteRecordingAudio = async (req: AuthRequest, res: Response)
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: 'Erro ao remover áudio' });
+  }
+};
+
+/**
+ * Contagem única de pedidos que exigem ação do admin.
+ * Consumido por sidebar, dashboard e header da gestão de pedidos para
+ * eliminar contagens divergentes entre telas.
+ */
+export const getAttentionCount = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const count = await OrderModel.countDocuments({ status: { $in: [...ATTENTION_STATUSES] } });
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao contar pedidos pendentes' });
   }
 };

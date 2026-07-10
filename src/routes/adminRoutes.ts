@@ -19,7 +19,8 @@ import {
   adminResetUserPassword,
   deleteUser,
   adminUploadRecordingAudio,
-  adminDeleteRecordingAudio
+  adminDeleteRecordingAudio,
+  getAttentionCount
 } from '../controllers/adminController';
 import {
   createCatalogBroadcaster,
@@ -121,6 +122,7 @@ router.put('/broadcasters/:broadcasterId/reject', authenticateToken, requireAdmi
 // ========================
 // ROTAS DE PEDIDOS (gestão completa)
 // ========================
+router.get('/orders/attention-count', authenticateToken, requireAdmin, getAttentionCount);
 router.get('/orders/full', authenticateToken, requireAdmin, getFullOrdersForAdmin);
 router.post('/orders/:orderId/approve', authenticateToken, requireAdmin, auditLog('order.approve', 'order'), adminApproveOrder);
 router.put('/orders/:orderId/status', authenticateToken, requireAdmin, auditLog('order.status_change', 'order'), updateOrderStatus);
