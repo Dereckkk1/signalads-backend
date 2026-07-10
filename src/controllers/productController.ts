@@ -697,6 +697,12 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     // Definição de Ordenação Dinâmica
     let sortOptions: any = {};
 
+    // Ordenação explícita escolhida pelo usuário. Quando presente, sobrepõe a
+    // ordenação por proximidade/pmm. Preço/CPM exigem o menor preço por emissora.
+    const SORT_KEYS = ['menor_preco', 'maior_alcance', 'menor_cpm', 'az'];
+    const sortParam = typeof req.query.sort === 'string' ? req.query.sort : '';
+    const useExplicitSort = SORT_KEYS.includes(sortParam);
+
     // Parseia filtros de target para uso tanto no sort do banco quanto no sort por proximidade
     let targetGender: string | null = null;
     let targetSocialClass: string | null = null;
@@ -796,7 +802,46 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
 
     const hasValidCoords = userLat !== null && userLng !== null && !Number.isNaN(userLat) && !Number.isNaN(userLng);
 
-    if (hasValidCoords && !req.query.city) {
+    // Ordenação explícita: ordena a lista completa de emissoras que batem com os
+    // filtros (bypassa proximidade/pmm) e pagina em memória.
+    if (useExplicitSort) {
+      const matching = await User.find(broadcasterQuery)
+        .select('_id broadcasterProfile.generalInfo.stationName broadcasterProfile.coverage.totalPopulation broadcasterProfile.pmm')
+        .limit(5000)
+        .lean();
+
+      let priceByBroadcaster: Record<string, number> = {};
+      if (sortParam === 'menor_preco' || sortParam === 'menor_cpm') {
+        const matchingIds = matching.map((b: any) => b._id);
+        const priceAgg = await Product.aggregate([
+          { $match: { isActive: true, broadcasterId: { $in: matchingIds } } },
+          { $group: { _id: '$broadcasterId', minPrice: { $min: '$pricePerInsertion' } } }
+        ]);
+        priceByBroadcaster = priceAgg.reduce((acc: Record<string, number>, r: any) => {
+          acc[String(r._id)] = r.minPrice;
+          return acc;
+        }, {} as Record<string, number>);
+      }
+
+      const minPrice = (b: any) => priceByBroadcaster[String(b._id)] ?? Infinity;
+      const reach = (b: any) => b.broadcasterProfile?.coverage?.totalPopulation ?? 0;
+      const cpm = (b: any) => {
+        const r = reach(b);
+        return r > 0 ? minPrice(b) / (r / 1000) : Infinity;
+      };
+      const comparators: Record<string, (x: any, y: any) => number> = {
+        menor_preco: (x, y) => minPrice(x) - minPrice(y),
+        maior_alcance: (x, y) => reach(y) - reach(x),
+        menor_cpm: (x, y) => cpm(x) - cpm(y),
+        az: (x, y) => (x.broadcasterProfile?.generalInfo?.stationName || '')
+          .localeCompare(y.broadcasterProfile?.generalInfo?.stationName || '', 'pt-BR'),
+      };
+      matching.sort(comparators[sortParam]);
+      paginatedBroadcasters = matching.slice(skip, skip + limit);
+      proximitySortApplied = false;
+    }
+
+    if (!useExplicitSort && hasValidCoords && !req.query.city) {
       try {
         // Busca emissoras que batem com os filtros para ordenar em memória por proximidade
         // Limita a 3000 para evitar OOM em datasets grandes — cobre 99% dos cenários reais
