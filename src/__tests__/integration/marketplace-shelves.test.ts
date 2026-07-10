@@ -73,3 +73,22 @@ describe('GET /api/products/marketplace/similar', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('GET /api/products/marketplace/regions', () => {
+  it('lista cidades com estado e contagem, ordenadas por contagem desc', async () => {
+    await seedStation('A FM', 'Joinville', 90, '89.5');
+    await seedStation('B FM', 'Joinville', 50, '99.1');
+    await seedStation('C FM', 'Blumenau', 70, '101.1');
+
+    const res = await request(app).get('/api/products/marketplace/regions');
+    expect(res.status).toBe(200);
+    expect(res.body.regions[0]).toEqual({ city: 'Joinville', state: 'SC', count: 2 });
+    expect(res.body.regions.map((r: any) => r.city)).toContain('Blumenau');
+  });
+
+  it('devolve lista vazia sem emissoras', async () => {
+    const res = await request(app).get('/api/products/marketplace/regions');
+    expect(res.status).toBe(200);
+    expect(res.body.regions).toEqual([]);
+  });
+});

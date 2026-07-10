@@ -156,6 +156,26 @@ export const getSimilar = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
+/**
+ * GET /api/products/marketplace/regions
+ * Cidades (com UF) que têm emissoras ativas + contagem, ordenadas por contagem desc.
+ * Base do RegionSelector — precisa do estado (o /marketplace/cities só devolve nomes).
+ */
+export const getMarketplaceRegions = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const rows = await User.aggregate([
+      { $match: { ...ACTIVE_BROADCASTER, 'address.city': { $exists: true, $nin: [null, ''] } } },
+      { $group: { _id: { city: '$address.city', state: '$address.state' }, count: { $sum: 1 } } },
+      { $sort: { count: -1, '_id.city': 1 } },
+    ]);
+    res.json({
+      regions: rows.map((r: any) => ({ city: r._id.city, state: r._id.state, count: r.count })),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao carregar regiões' });
+  }
+};
+
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
