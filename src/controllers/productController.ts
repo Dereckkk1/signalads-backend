@@ -1108,6 +1108,12 @@ export const getMarketplaceBroadcasterDetails = async (req: AuthRequest, res: Re
       return;
     }
 
+    // Produtos ativos — permitem "+ Plano" (adicionar ao carrinho) direto dos cards do marketplace
+    const products = await Product.find({ broadcasterId: broadcaster._id, isActive: true })
+      .select('spotType duration timeSlot pricePerInsertion')
+      .sort({ pricePerInsertion: 1 })
+      .lean();
+
     // Retorna perfil unificado
     res.json({
       id: broadcaster._id,
@@ -1115,7 +1121,16 @@ export const getMarketplaceBroadcasterDetails = async (req: AuthRequest, res: Re
       location: broadcaster.address?.city || '',
       address: broadcaster.address, // Inclui endereço completo (com coordenadas)
       profile: broadcaster.broadcasterProfile || {},
-      isCatalogOnly: broadcaster.isCatalogOnly || false
+      isCatalogOnly: broadcaster.isCatalogOnly || false,
+      products: products.map((p: any) => ({
+        id: String(p._id),
+        name: p.spotType,
+        spotType: p.spotType,
+        duration: p.duration,
+        timeSlot: p.timeSlot,
+        price: p.pricePerInsertion,
+        pricePerInsertion: p.pricePerInsertion,
+      })),
     });
 
   } catch (error) {

@@ -100,7 +100,7 @@ export const getShelves = async (req: AuthRequest, res: Response): Promise<void>
       region: { city: city ?? null, state: state ?? null },
       fallback,
       total: cards.length,
-      leaders: cards.slice(0, 3),
+      leaders: cards.slice(0, 8),
       dial,
     });
   } catch (error) {
@@ -127,32 +127,61 @@ export const getSimilar = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const cats = [...new Set(seen.flatMap((s: any) => s.broadcasterProfile?.categories ?? []))];
-    const states = [...new Set(seen.map((s: any) => s.address?.state).filter(Boolean))];
+    // Perfil das emissoras já vistas (gênero, região, pmm, preço).
+    const seenCats = new Set<string>(seen.flatMap((s: any) => s.broadcasterProfile?.categories ?? []));
+    const seenStates = new Set<string>(seen.map((s: any) => s.address?.state).filter(Boolean));
+    const seenCities = new Set<string>(seen.map((s: any) => s.address?.city).filter(Boolean));
+    const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+    const seenPmm = avg(seen.map((s: any) => s.broadcasterProfile?.pmm ?? 0).filter((v: number) => v > 0));
+    const seenCards = await toCards(seen);
+    const seenPrice = avg(seenCards.map((c: any) => c.minPrice).filter((v: any) => v != null));
+    const seenName = (s: any) => s?.broadcasterProfile?.generalInfo?.stationName;
 
-    const candidates = await User.find({
+    // Pool amplo: mesmo gênero OU mesma UF das vistas (fora as já vistas).
+    const pool = await User.find({
       ...ACTIVE_BROADCASTER,
       _id: { $nin: ids },
       $or: [
-        { 'broadcasterProfile.categories': { $in: cats } },
-        { 'address.state': { $in: states } },
+        { 'broadcasterProfile.categories': { $in: [...seenCats] } },
+        { 'address.state': { $in: [...seenStates] } },
       ],
     })
-      .sort({ 'broadcasterProfile.pmm': -1 })
-      .limit(6)
+      .limit(60)
       .lean();
 
-    const cards = (await toCards(candidates)).slice(0, 3);
+    const poolCards = await toCards(pool); // só compráveis (com produto ativo)
 
-    const reasonFor = (card: any) => {
-      const match = seen.find((s: any) =>
-        (s.broadcasterProfile?.categories ?? []).some((c: string) => card.categories.includes(c)));
-      return match
-        ? { type: 'audience', refName: match.broadcasterProfile?.generalInfo?.stationName }
-        : { type: 'region', refName: seen[0]?.broadcasterProfile?.generalInfo?.stationName };
+    // Score cirúrgico: gênero (peso alto) + proximidade de cidade/UF + pmm + preço.
+    const score = (c: any) => {
+      const genre = (c.categories || []).filter((cat: string) => seenCats.has(cat)).length * 3;
+      const city = c.city && seenCities.has(c.city) ? 5 : 0;
+      const state = c.state && seenStates.has(c.state) ? 3 : 0;
+      const pmm = seenPmm > 0 && c.pmm > 0 ? Math.max(0, 1 - Math.abs(c.pmm - seenPmm) / seenPmm) * 2 : 0;
+      const price = seenPrice > 0 && c.minPrice ? Math.max(0, 1 - Math.abs(c.minPrice - seenPrice) / seenPrice) * 1.5 : 0;
+      return genre + city + state + pmm + price;
     };
 
-    res.json({ items: cards.map((c) => ({ ...c, reason: reasonFor(c) })) });
+    const ranked = poolCards
+      .map((c: any) => ({ c, s: score(c) }))
+      .filter((x: any) => x.s > 0)
+      .sort((a: any, b: any) => b.s - a.s)
+      .slice(0, 8)
+      .map((x: any) => x.c);
+
+    const reasonFor = (card: any) => {
+      const sharedCat = (card.categories || []).find((cat: string) => seenCats.has(cat));
+      if (sharedCat) {
+        const ref = seen.find((s: any) => (s.broadcasterProfile?.categories ?? []).includes(sharedCat));
+        if (ref) return { type: 'audience', refName: seenName(ref) };
+      }
+      const ref =
+        seen.find((s: any) => s.address?.city && s.address.city === card.city) ||
+        seen.find((s: any) => s.address?.state && s.address.state === card.state) ||
+        seen[0];
+      return { type: 'region', refName: seenName(ref) };
+    };
+
+    res.json({ items: ranked.map((c: any) => ({ ...c, reason: reasonFor(c) })) });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao carregar emissoras similares' });
   }
