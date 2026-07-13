@@ -34,6 +34,7 @@ import broadcasterComboRoutes from './routes/broadcasterComboRoutes';
 import { startBackupCron } from './cron/backupCron';
 import { startExpireProposalsCron } from './cron/expireProposals';
 import { startProposalAlertsCron } from './cron/proposalAlerts';
+import { startCartReminderCron } from './cron/cartReminder';
 // Middlewares de Segurança
 import helmet from 'helmet';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
@@ -312,6 +313,7 @@ const startServer = async () => {
     startBackupCron();
     startExpireProposalsCron();
     startProposalAlertsCron();
+    startCartReminderCron();
   } catch (error) {
     console.error('Erro ao iniciar servidor:', error);
     process.exit(1);

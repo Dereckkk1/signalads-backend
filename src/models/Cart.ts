@@ -75,7 +75,9 @@ export interface ICart extends Document {
   userId: Types.ObjectId;
   items: ICartItem[];
   lastUpdated: Date;
+  reminderSentAt?: Date;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const scheduleSchema = new Schema({
@@ -200,6 +202,10 @@ const cartSchema = new Schema<ICart>(
     lastUpdated: {
       type: Date,
       default: Date.now
+    },
+    // Lembrete de carrinho abandonado — timestamp do envio (evita reenvio)
+    reminderSentAt: {
+      type: Date
     }
   },
   {

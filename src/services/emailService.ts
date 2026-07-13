@@ -2405,11 +2405,49 @@ export const sendOrderCancelledByAdminToClient = async (data: {
   });
 };
 
+/**
+ * Lembrete de carrinho abandonado (cron cartReminder).
+ * Assunto: "Seu plano de mídia está esperando por você"; CTA → /cart.
+ */
+export const sendCartReminder = async (
+  email: string,
+  data: { name?: string; itemsCount: number; stationNames: string[] }
+) => {
+  const content = `
+    ${greeting(data.name || 'Anunciante')}
+
+    ${paragraph('Você deixou um plano de mídia montado no seu carrinho — as emissoras estão esperando! 🎧')}
+
+    ${infoCard('Seu carrinho', [
+      { label: 'Itens', value: `${data.itemsCount}` },
+      { label: 'Emissoras', value: data.stationNames.length ? data.stationNames.join(', ') : '—' },
+    ], colors.tertiary)}
+
+    ${paragraph('Conclua seu pedido em poucos cliques e coloque sua campanha no ar.', { center: true })}
+  `;
+
+  await sendEmail({
+    to: email,
+    subject: 'Seu plano de mídia está esperando por você',
+    html: createEmailTemplate({
+      title: 'Seu carrinho está te esperando',
+      subtitle: 'Conclua seu pedido',
+      icon: '🛒',
+      content,
+      buttonText: 'Concluir pedido',
+      buttonUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/cart`,
+      buttonColor: colors.tertiary,
+      preheader: `Você tem ${data.itemsCount} item(ns) no carrinho esperando`,
+    }),
+  });
+};
+
 // ===========================================
 // EXPORT DEFAULT
 // ===========================================
 
 export default {
+  sendCartReminder,
   sendNewOrderToBroadcaster,
   sendOrderConfirmationToClient,
   sendOrderApprovedToClient,

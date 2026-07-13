@@ -56,10 +56,13 @@ jest.mock('express-rate-limit', () => {
 // ------------------------------------------------------------------
 jest.mock('../../services/emailService', () => {
   const noop = jest.fn().mockResolvedValue(undefined);
+  // Fn dedicada (não o noop compartilhado) p/ o teste de cart-reminder poder asserir chamadas.
+  const sendCartReminder = jest.fn().mockResolvedValue(undefined);
   const createEmailTemplate = jest.fn().mockReturnValue('<html>mock</html>');
   const sendEmail = jest.fn().mockResolvedValue({ success: true, messageId: 'mock-id' });
   const templateNoop = jest.fn().mockReturnValue('');
   const namedExports = {
+    sendCartReminder,
     sendEmailConfirmation: noop,
     sendPasswordResetEmail: noop,
     sendTwoFactorEnableEmail: noop,
