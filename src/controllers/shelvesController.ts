@@ -38,6 +38,7 @@ async function toCards(users: any[]) {
     .map((u) => {
       const g = u.broadcasterProfile?.generalInfo ?? {};
       const pop = u.broadcasterProfile?.coverage?.totalPopulation ?? 0;
+      const pmm = u.broadcasterProfile?.pmm ?? 0;
       const price = minPrice[String(u._id)] as number; // garantido pelo filter acima
       return {
         broadcasterId: u._id,
@@ -50,9 +51,10 @@ async function toCards(users: any[]) {
         state: u.address?.state,
         categories: u.broadcasterProfile?.categories ?? [],
         totalPopulation: pop,
-        pmm: u.broadcasterProfile?.pmm ?? 0,
+        pmm,
         minPrice: price,
-        cpm: pop > 0 ? Number((price / (pop / 1000)).toFixed(2)) : null,
+        // CPM = custo por mil IMPACTOS (pmm = ouvintes/minuto), não alcance. Alinha com a Simulação.
+        cpm: pmm > 0 ? Number((price / (pmm / 1000)).toFixed(2)) : null,
         campaignsCount: counts[String(u._id)] ?? 0,
         earliestOnAir: onAir,
       };

@@ -827,9 +827,10 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
 
       const minPrice = (b: any) => priceByBroadcaster[String(b._id)] ?? Infinity;
       const reach = (b: any) => b.broadcasterProfile?.coverage?.totalPopulation ?? 0;
+      // CPM por mil IMPACTOS (pmm), não alcance — alinha com o CPM exibido nos cards/Simulação.
       const cpm = (b: any) => {
-        const r = reach(b);
-        return r > 0 ? minPrice(b) / (r / 1000) : Infinity;
+        const pmm = b.broadcasterProfile?.pmm ?? 0;
+        return pmm > 0 ? minPrice(b) / (pmm / 1000) : Infinity;
       };
       const comparators: Record<string, (x: any, y: any) => number> = {
         menor_preco: (x, y) => minPrice(x) - minPrice(y),
@@ -1162,9 +1163,11 @@ export const getStationBySlug = async (req: AuthRequest, res: Response): Promise
     }
 
     const pop = bp.coverage?.totalPopulation ?? 0;
+    // CPM = custo por mil IMPACTOS (pmm = ouvintes/minuto), não alcance.
+    const pmmVal = bp.pmm ?? 0;
     const cpm =
-      pop > 0 && minPrice !== null
-        ? Number((minPrice / (pop / 1000)).toFixed(2))
+      pmmVal > 0 && minPrice !== null
+        ? Number((minPrice / (pmmVal / 1000)).toFixed(2))
         : null;
 
     const bid = String(broadcaster._id);
