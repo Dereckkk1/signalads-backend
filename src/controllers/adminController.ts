@@ -6,6 +6,7 @@ import { invalidateUserCache } from '../middleware/auth';
 import OrderModel, { IOrder } from '../models/Order';
 import { AuthRequest } from '../middleware/auth';
 import { escapeRegex } from '../utils/stringUtils';
+import { geocodeCityCoords } from '../utils/geocode';
 import { Cart } from '../models/Cart';
 import bcrypt from 'bcryptjs';
 import { revokeAllUserTokens } from '../utils/tokenService';
@@ -58,6 +59,17 @@ export const approveBroadcaster = async (req: Request, res: Response): Promise<v
 
     broadcaster.status = 'approved';
     delete broadcaster.rejectionReason; // Remove o campo em vez de setar undefined
+
+    // Preenche coordenadas da cidade se ainda não tiver — base do sort por proximidade
+    // do marketplace. Best-effort: não bloqueia a aprovação se o geocoding falhar.
+    if (broadcaster.address?.city && (broadcaster.address.latitude == null || broadcaster.address.longitude == null)) {
+      const coords = await geocodeCityCoords(broadcaster.address.city, broadcaster.address.state);
+      if (coords) {
+        broadcaster.address.latitude = coords.latitude;
+        broadcaster.address.longitude = coords.longitude;
+      }
+    }
+
     await broadcaster.save();
 
     // Invalida caches do marketplace/mapa/comparador (nova emissora aprovada)

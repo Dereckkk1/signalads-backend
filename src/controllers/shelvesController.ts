@@ -5,6 +5,7 @@ import { Product } from '../models/Product';
 import { AuthRequest } from '../middleware/auth';
 import { campaignCountsByBroadcaster } from '../services/socialProofService';
 import { earliestOnAirDate } from '../utils/businessDays';
+import { getDistanceKm } from '../utils/geo';
 
 // Emissora ativa no marketplace: aprovada OU catálogo (cadastrada pelo admin).
 const ACTIVE_BROADCASTER = {
@@ -57,6 +58,9 @@ async function toCards(users: any[]) {
         cpm: pmm > 0 ? Number((price / (pmm / 1000)).toFixed(2)) : null,
         campaignsCount: counts[String(u._id)] ?? 0,
         earliestOnAir: onAir,
+        // Perfil de audiência (gênero/faixa etária/classe social) — mesma fonte do BroadcasterModal.
+        // Enriquece o card na decisão ("quem eu alcanço?"); null quando a emissora não preencheu.
+        audienceProfile: u.broadcasterProfile?.audienceProfile ?? null,
       };
     });
 }
@@ -91,6 +95,12 @@ export const getShelves = async (req: AuthRequest, res: Response): Promise<void>
     }
 
     const cards = await toCards(users);
+
+    // Líder = só quem tem audiência "Alta" na região: pmm >= 50% do líder da região
+    // (mesma régua do card "Audiência (Região)"). Evita listar emissoras pequenas como líderes.
+    const maxPmm = Math.max(...users.map((u: any) => u.broadcasterProfile?.pmm ?? 0), 0);
+    const leaders = (maxPmm > 0 ? cards.filter((c) => (c.pmm || 0) >= maxPmm * 0.5) : cards).slice(0, 3);
+
     const dial = [...cards]
       .filter((c) => c.dialFrequency)
       .sort((a, b) => parseFloat(a.dialFrequency) - parseFloat(b.dialFrequency))
@@ -100,7 +110,7 @@ export const getShelves = async (req: AuthRequest, res: Response): Promise<void>
       region: { city: city ?? null, state: state ?? null },
       fallback,
       total: cards.length,
-      leaders: cards.slice(0, 8),
+      leaders,
       dial,
     });
   } catch (error) {
@@ -188,19 +198,86 @@ export const getSimilar = async (req: AuthRequest, res: Response): Promise<void>
 };
 
 /**
+ * GET /api/products/marketplace/by-ids?ids=<id1>,<id2>
+ * Cards completos das emissoras informadas, na MESMA ordem dos ids (recência do histórico).
+ * Base da shelf "Últimas acessadas" — mesma anatomia dos demais cards do marketplace.
+ */
+export const getByIds = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const raw = String(req.query.ids ?? '');
+    const ids = raw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 12);
+    if (ids.length === 0 || ids.some((id) => !Types.ObjectId.isValid(id))) {
+      res.status(400).json({ error: 'Parâmetro ids inválido' });
+      return;
+    }
+
+    const users = await User.find({ ...ACTIVE_BROADCASTER, _id: { $in: ids } }).lean();
+    const cards = await toCards(users); // só compráveis (com produto ativo)
+
+    // Preserva a ordem dos ids (mais recentes primeiro).
+    const rank = new Map(ids.map((id, i) => [id, i]));
+    const items = cards.sort(
+      (a: any, b: any) => (rank.get(String(a.broadcasterId)) ?? 0) - (rank.get(String(b.broadcasterId)) ?? 0)
+    );
+
+    res.json({ items });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao carregar últimas acessadas' });
+  }
+};
+
+/**
  * GET /api/products/marketplace/regions
  * Cidades (com UF) que têm emissoras ativas + contagem, ordenadas por contagem desc.
  * Base do RegionSelector — precisa do estado (o /marketplace/cities só devolve nomes).
  */
-export const getMarketplaceRegions = async (_req: AuthRequest, res: Response): Promise<void> => {
+export const getMarketplaceRegions = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    // Coordenadas opcionais (geolocalização do visitante). Quando presentes e válidas,
+    // ordena as cidades pela mais PRÓXIMA (não pela contagem) — assim um anônimo cuja
+    // cidade não tem emissora recebe a cidade com emissora mais perto dele.
+    const lat = parseFloat(String(req.query.lat));
+    const lng = parseFloat(String(req.query.lng));
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
     const rows = await User.aggregate([
       { $match: { ...ACTIVE_BROADCASTER, 'address.city': { $exists: true, $nin: [null, ''] } } },
-      { $group: { _id: { city: '$address.city', state: '$address.state' }, count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: { city: '$address.city', state: '$address.state' },
+          count: { $sum: 1 },
+          lat: { $avg: '$address.latitude' },
+          lng: { $avg: '$address.longitude' },
+        },
+      },
       { $sort: { count: -1, '_id.city': 1 } },
     ]);
+
+    let regions = rows.map((r: any) => ({
+      city: r._id.city,
+      state: r._id.state,
+      count: r.count,
+      lat: r.lat,
+      lng: r.lng,
+    }));
+
+    if (hasCoords) {
+      // Cidades sem coordenada conhecida vão para o fim (distância infinita).
+      regions = regions
+        .map((r) => ({
+          r,
+          dist:
+            Number.isFinite(r.lat) && Number.isFinite(r.lng)
+              ? getDistanceKm(lat, lng, r.lat as number, r.lng as number)
+              : Infinity,
+        }))
+        .sort((a, b) => a.dist - b.dist)
+        .map((x) => x.r);
+    }
+
+    // Resposta mantém o formato público { city, state, count } — coordenadas internas omitidas.
     res.json({
-      regions: rows.map((r: any) => ({ city: r._id.city, state: r._id.state, count: r.count })),
+      regions: regions.map(({ city, state, count }) => ({ city, state, count })),
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao carregar regiões' });
@@ -260,5 +337,37 @@ export const getSuggestions = async (req: AuthRequest, res: Response): Promise<v
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar sugestões' });
+  }
+};
+
+/**
+ * GET /api/products/marketplace/by-genre?genre=&city=&state=
+ * Emissoras que tocam um gênero (perfil), priorizando a região do usuário.
+ * Base da shelf "Rádios que também tocam {perfil}".
+ */
+export const getByGenre = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const genre = String(req.query.genre ?? '').trim();
+    if (!genre) {
+      res.json({ genre: null, items: [] });
+      return;
+    }
+    const { state, city } = req.query as { state?: string; city?: string };
+
+    const query: any = { ...ACTIVE_BROADCASTER, 'broadcasterProfile.categories': genre };
+    if (state) query['address.state'] = state;
+
+    const users = await User.find(query)
+      .sort({ 'broadcasterProfile.pmm': -1 })
+      .limit(48)
+      .lean();
+
+    const cards = await toCards(users);
+    // Emissoras da cidade da região primeiro (mantendo a ordem por pmm dentro de cada grupo)
+    const inCity = city ? cards.filter((c) => c.city === city) : [];
+    const rest = cards.filter((c) => !city || c.city !== city);
+    res.json({ genre, items: [...inCity, ...rest].slice(0, 24) });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao carregar emissoras por perfil' });
   }
 };

@@ -565,6 +565,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       ageRanges: req.query.ageRanges, genders: req.query.genders,
       socialClasses: req.query.socialClasses,
       lat: req.query.lat, lng: req.query.lng,
+      nearCity: req.query.nearCity, nearState: req.query.nearState,
     });
 
     const cached = await cacheGet(cacheKey);
@@ -674,7 +675,8 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
         'companyName',
         'broadcasterProfile.generalInfo.stationName',
         'broadcasterProfile.generalInfo.dialFrequency',
-        'address.city'
+        'address.city',
+        'broadcasterProfile.categories' // permite buscar por gênero (ex.: "Sertanejo")
       ];
 
       // Quebra em tokens e filtra tokens muito curtos (1 char) exceto números
@@ -757,7 +759,28 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
     let userLng = req.query.lng ? parseFloat(req.query.lng as string) : null;
     let userCity: string | null = null;
 
-    // Se as coordenadas não vieram na query (navegador bloqueado/não autorizado) 
+    // Âncora de proximidade pela REGIÃO pesquisada (modo Descoberta). Tem prioridade
+    // sobre a localização do usuário logado — foi uma escolha explícita de navegação.
+    // Geocodifica a cidade da região (cache Redis 24h) e usa como origem do sort.
+    const nearCity = typeof req.query.nearCity === 'string' ? req.query.nearCity.trim() : '';
+    const nearState = typeof req.query.nearState === 'string' ? req.query.nearState.trim() : '';
+    let hasRegionAnchor = false;
+    if (nearCity) {
+      try {
+        const geoQuery = nearState ? `${nearCity}, ${nearState}, Brasil` : `${nearCity}, Brasil`;
+        const geoData = await getCachedGeocode(geoQuery);
+        if (geoData && geoData.length > 0 && geoData[0] && geoData[0].latitude != null && geoData[0].longitude != null) {
+          userLat = geoData[0].latitude;
+          userLng = geoData[0].longitude;
+          userCity = nearCity;
+          hasRegionAnchor = true;
+        }
+      } catch (err) {
+        // Geocoding da região falhou — segue para o fallback (localização do usuário logado)
+      }
+    }
+
+    // Se as coordenadas não vieram na query (navegador bloqueado/não autorizado)
     // e o usuário estiver logado, buscar do banco de dados (endereço de registro)
     if (req.userId && (userLat === null || userLng === null || Number.isNaN(userLat) || Number.isNaN(userLng))) {
       try {
@@ -844,7 +867,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       proximitySortApplied = false;
     }
 
-    if (!useExplicitSort && hasValidCoords && !req.query.city) {
+    if (!useExplicitSort && hasValidCoords && (hasRegionAnchor || !req.query.city)) {
       try {
         // Busca emissoras que batem com os filtros para ordenar em memória por proximidade
         // Limita a 3000 para evitar OOM em datasets grandes — cobre 99% dos cenários reais
@@ -1045,6 +1068,7 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
       broadcastersWithoutProducts,
       cityMaxPmm,
       isSortedByProximity: proximitySortApplied,
+      proximityCity: proximitySortApplied ? userCity : null,
       pagination: {
         currentPage: page,
         totalPages: finalTotalPages,

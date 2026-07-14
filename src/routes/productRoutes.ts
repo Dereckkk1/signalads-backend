@@ -12,7 +12,7 @@ import {
   getMapProducts,
   searchBroadcastersForCompare
 } from '../controllers/productController';
-import { getShelves, getSimilar, getSuggestions, getMarketplaceRegions } from '../controllers/shelvesController';
+import { getShelves, getSimilar, getSuggestions, getMarketplaceRegions, getByGenre, getByIds } from '../controllers/shelvesController';
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
 import { setCacheHeaders } from '../middleware/cacheControl';
 import { requirePermission } from '../middleware/requirePermission';
@@ -35,6 +35,8 @@ router.get('/marketplace/shelves', optionalAuthenticateToken, setCacheHeaders('p
 router.get('/marketplace/similar', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getSimilar);
 router.get('/marketplace/suggest', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getSuggestions);
 router.get('/marketplace/regions', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getMarketplaceRegions);
+router.get('/marketplace/by-genre', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getByGenre);
+router.get('/marketplace/by-ids', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getByIds);
 router.get('/marketplace/station/:slug', optionalAuthenticateToken, setCacheHeaders('public', 60, 120), getStationBySlug);
 router.get('/marketplace/broadcaster/:broadcasterId', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getMarketplaceBroadcasterDetails);
 router.get('/marketplace', optionalAuthenticateToken, setCacheHeaders('public', 30, 60), getAllActiveProducts);

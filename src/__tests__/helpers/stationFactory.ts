@@ -7,13 +7,20 @@ import { createBroadcaster } from './authHelper';
 import { User } from '../../models/User';
 import { Product } from '../../models/Product';
 
+type AudienceProfile = {
+  gender?: { male: number; female: number };
+  ageRange?: string;
+  socialClass?: { classeAB: number; classeC: number; classeDE: number };
+};
+
 export async function seedStation(
   name: string,
   city: string,
   pmm: number,
   freq: string,
   cat = 'Hits',
-  state = 'SC'
+  state = 'SC',
+  audienceProfile?: AudienceProfile
 ) {
   const s = await createBroadcaster();
   await User.updateOne({ _id: s.user._id }, {
@@ -25,6 +32,7 @@ export async function seedStation(
         categories: [cat],
         coverage: { totalPopulation: pmm * 10000, cities: [city] },
         pmm,
+        ...(audienceProfile ? { audienceProfile } : {}),
       },
     },
   });
