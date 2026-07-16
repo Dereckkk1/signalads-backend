@@ -31,6 +31,7 @@ import sponsorshipRoutes from './routes/sponsorshipRoutes';
 import insertionTimeSlotRoutes from './routes/insertionTimeSlotRoutes';
 import kanbanRoutes from './routes/kanbanRoutes';
 import broadcasterComboRoutes from './routes/broadcasterComboRoutes';
+import onboardingRoutes from './routes/onboardingRoutes';
 import { startBackupCron } from './cron/backupCron';
 import { startExpireProposalsCron } from './cron/expireProposals';
 import { startProposalAlertsCron } from './cron/proposalAlerts';
@@ -245,6 +246,7 @@ app.use('/api/sponsorships', sponsorshipRoutes); // Patrocínios de programas (e
 app.use('/api/insertion-time-slots', insertionTimeSlotRoutes); // Faixas horárias reutilizáveis (emissoras)
 app.use('/api/kanban', kanbanRoutes); // Colunas customizadas + drag-n-drop de propostas/pedidos
 app.use('/api/broadcaster-combos', broadcasterComboRoutes); // Combos pré-definidos de produtos/patrocínios (emissoras)
+app.use('/api/onboarding', onboardingRoutes); // Onboarding self-service de emissoras (perfil passo-a-passo)
 
 // Rota de teste
 app.get('/', (req: Request, res: Response) => {

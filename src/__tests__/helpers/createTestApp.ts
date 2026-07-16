@@ -20,6 +20,7 @@ import cartRoutes from '../../routes/cartRoutes';
 import campaignRoutes from '../../routes/campaignRoutes';
 import healthRoutes from '../../routes/healthRoutes';
 import kanbanRoutes from '../../routes/kanbanRoutes';
+import onboardingRoutes from '../../routes/onboardingRoutes';
 
 export function createTestApp(): Application {
   const app = express();
@@ -43,6 +44,7 @@ export function createTestApp(): Application {
   app.use('/api/cart', cartRoutes);
   app.use('/api/campaigns', campaignRoutes);
   app.use('/api/kanban', kanbanRoutes);
+  app.use('/api/onboarding', onboardingRoutes);
 
   // Root test route
   app.get('/', (_req: Request, res: Response) => {
