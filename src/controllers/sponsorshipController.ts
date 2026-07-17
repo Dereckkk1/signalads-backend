@@ -63,7 +63,7 @@ export const getMySponsorships = async (req: AuthRequest, res: Response): Promis
 // Criar novo patrocínio (Broadcaster ou Admin)
 export const createSponsorship = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { programName, description, timeRange, daysOfWeek, insertions, announcer, netPrice, broadcasterId } = req.body;
+    const { programName, description, timeRange, daysOfWeek, insertions, announcer, netPrice, broadcasterId, isActive } = req.body;
 
     const user = await User.findById(req.userId);
     if (!user || (user.userType !== 'broadcaster' && user.userType !== 'admin')) {
@@ -134,7 +134,9 @@ export const createSponsorship = async (req: AuthRequest, res: Response): Promis
       insertions,
       announcer,
       netPrice: parsedNetPrice,
-      pricePerMonth: Math.round(parsedNetPrice * (1 + PLATFORM_COMMISSION_RATE) * 100) / 100
+      pricePerMonth: Math.round(parsedNetPrice * (1 + PLATFORM_COMMISSION_RATE) * 100) / 100,
+      // "Exibir no marketplace": ausente = visível (compat)
+      isActive: isActive === undefined ? true : !!isActive
     });
 
     await sponsorship.save();

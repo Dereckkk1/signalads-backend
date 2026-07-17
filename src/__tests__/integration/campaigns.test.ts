@@ -31,6 +31,7 @@ import {
 } from '../helpers/authHelper';
 import { Product } from '../../models/Product';
 import Order from '../../models/Order';
+import { User } from '../../models/User';
 
 function createCampaignTestApp(): Application {
   const app = express();
@@ -73,6 +74,13 @@ afterAll(async () => {
 async function createTestOrder(overrides: Record<string, any> = {}) {
   const { user: advertiser, auth: advertiserAuth } = await createAdvertiser();
   const { user: broadcaster, auth: broadcasterAuth } = await createBroadcaster();
+
+  // Logo da emissora — exibido nos avatares do card em /campaigns (MyCampaigns).
+  // Set via update p/ preservar o broadcasterProfile default do helper.
+  await User.updateOne(
+    { _id: broadcaster._id },
+    { $set: { 'broadcasterProfile.logo': 'Radios 2_Images/test-logo.png' } }
+  );
 
   const product = await Product.create({
     broadcasterId: broadcaster._id,
@@ -154,6 +162,23 @@ describe('GET /api/campaigns/my-campaigns', () => {
     expect(res.body.campaigns).toHaveLength(1);
     expect(res.body.pagination).toBeDefined();
     expect(res.body.pagination.total).toBe(1);
+  });
+
+  it('should include the broadcaster logo in each grouped broadcaster', async () => {
+    const { advertiserAuth } = await createTestOrder();
+
+    const res = await request(app)
+      .get('/api/campaigns/my-campaigns')
+      .set('Cookie', advertiserAuth.cookieHeader)
+      .set('X-CSRF-Token', advertiserAuth.csrfHeader);
+
+    expect(res.status).toBe(200);
+    const broadcasters = res.body.campaigns[0].broadcasters;
+    expect(broadcasters.length).toBeGreaterThanOrEqual(1);
+    // O card de campanha exibe as logos das emissoras (avatares tipo marketplace).
+    expect(broadcasters[0]).toHaveProperty('logo', 'Radios 2_Images/test-logo.png');
+    // Categorias alimentam a recomendação por estilo musical (gênero da compra).
+    expect(broadcasters[0].categories).toEqual(expect.arrayContaining(['Popular']));
   });
 
   it('should return empty when buyer has no campaigns', async () => {

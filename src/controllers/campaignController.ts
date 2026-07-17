@@ -184,17 +184,19 @@ export const getMyCampaigns = async (req: AuthRequest, res: Response) => {
       });
     });
 
-    // Busca dados das emissoras (incluindo isCatalogOnly)
+    // Busca dados das emissoras (isCatalogOnly + logo/categorias p/ card e recomendações)
     const broadcasterData = await User.find({
       _id: { $in: allBroadcasterIds }
-    }).select('_id isCatalogOnly companyName').lean();
+    }).select('_id isCatalogOnly companyName broadcasterProfile.logo broadcasterProfile.categories').lean();
 
     // Mapa de emissoras por ID
     const broadcasterMap: Record<string, any> = {};
     broadcasterData.forEach((b: any) => {
       broadcasterMap[b._id.toString()] = {
         isCatalogOnly: b.isCatalogOnly || false,
-        companyName: b.companyName
+        companyName: b.companyName,
+        logo: b.broadcasterProfile?.logo || '',
+        categories: b.broadcasterProfile?.categories || []
       };
     });
 
@@ -218,6 +220,8 @@ export const getMyCampaigns = async (req: AuthRequest, res: Response) => {
           broadcasterGroups[broadcasterId] = {
             broadcasterId,
             broadcasterName: item.broadcasterName,
+            logo: broadcasterMap[broadcasterId]?.logo || '',
+            categories: broadcasterMap[broadcasterId]?.categories || [],
             isCatalogOnly: isCatalog,
             items: [],
             totalItems: 0,

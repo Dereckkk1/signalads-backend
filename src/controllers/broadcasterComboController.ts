@@ -135,7 +135,7 @@ export const createCombo = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    const { name, description, items } = req.body;
+    const { name, description, items, isActive } = req.body;
     if (!name || typeof name !== 'string' || !name.trim()) {
       res.status(400).json({ error: 'Nome do combo é obrigatório' });
       return;
@@ -152,7 +152,8 @@ export const createCombo = async (req: AuthRequest, res: Response): Promise<void
       name: name.trim(),
       description: description?.trim(),
       items: validated.items,
-      isActive: true
+      // "Ativo": ausente = ativo (compat)
+      isActive: isActive === undefined ? true : !!isActive
     });
 
     const populated = await Combo.findById(combo._id)

@@ -139,8 +139,13 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
       // Campos legados
       spotType, timeSlot, pricePerInsertion,
       // Campos novos e compartilhados
-      name, duration, timeRange, daysOfWeek, netPrice, broadcasterId
+      name, duration, timeRange, daysOfWeek, netPrice, broadcasterId,
+      // Visibilidade no marketplace (default: visível)
+      isActive
     } = req.body;
+
+    // "Exibir no marketplace": ausente = visível (compat). Propaga para companheiros.
+    const resolvedIsActive = isActive === undefined ? true : !!isActive;
 
     const user = await User.findById(req.userId);
 
@@ -230,7 +235,8 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
       duration: resolvedDuration,
       timeSlot: resolvedTimeSlot,
       netPrice: finalNetPrice,
-      pricePerInsertion: finalPrice
+      pricePerInsertion: finalPrice,
+      isActive: resolvedIsActive
     };
 
     if (name) productData.name = name;
@@ -259,7 +265,8 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
           duration: comp.duration,
           timeSlot: comp.timeSlot,
           netPrice: comp.price,
-          pricePerInsertion: Math.round(comp.price * (1 + PLATFORM_COMMISSION_RATE) * 100) / 100
+          pricePerInsertion: Math.round(comp.price * (1 + PLATFORM_COMMISSION_RATE) * 100) / 100,
+          isActive: resolvedIsActive
         });
         await compProduct.save();
         createdCompanions.push(compProduct);
@@ -477,7 +484,6 @@ export const exportProducts = async (req: AuthRequest, res: Response): Promise<v
       { header: 'Faixa Horária', key: 'timeSlot', width: 18 },
       { header: 'Dias da Semana', key: 'daysOfWeek', width: 28 },
       { header: 'Preço Líquido (R$)', key: 'netPrice', width: 20 },
-      { header: 'Preço Marketplace (R$)', key: 'pricePerInsertion', width: 24 },
       { header: 'Cadastrado em', key: 'createdAt', width: 18 },
     ];
 
@@ -505,7 +511,6 @@ export const exportProducts = async (req: AuthRequest, res: Response): Promise<v
           ? p.daysOfWeek.map((d: number) => DAY_NAMES[d]).join(', ')
           : 'Todos os dias',
         netPrice: p.netPrice,
-        pricePerInsertion: p.pricePerInsertion,
         createdAt: p.createdAt
           ? new Date(p.createdAt).toLocaleDateString('pt-BR')
           : '-',
@@ -519,7 +524,7 @@ export const exportProducts = async (req: AuthRequest, res: Response): Promise<v
       }
 
       // Formato monetário
-      ['netPrice', 'pricePerInsertion'].forEach(key => {
+      ['netPrice'].forEach(key => {
         const cell = row.getCell(key);
         cell.numFmt = '"R$"#,##0.00';
         cell.alignment = { horizontal: 'right' };
@@ -1302,9 +1307,11 @@ export const getMapProducts = async (req: AuthRequest, res: Response): Promise<v
           city: '$address.city',
           dial: '$broadcasterProfile.generalInfo.dialFrequency',
           band: '$broadcasterProfile.generalInfo.band',
+          categories: '$broadcasterProfile.categories', // estilos musicais → badges no card do /mapa
           antennaClass: '$broadcasterProfile.generalInfo.antennaClass',
           logo: '$broadcasterProfile.logo',
           population: '$broadcasterProfile.coverage.totalPopulation',
+          pmm: '$broadcasterProfile.pmm', // Ouvintes/minuto — base do CPM por mil IMPACTOS nos cards do /mapa
           coverageCities: '$broadcasterProfile.coverage.cities',
           products: 1
         }
