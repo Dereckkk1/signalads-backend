@@ -34,14 +34,16 @@ afterAll(async () => {
 });
 
 // ─── Helper ────────────────────────────────────────────────────
+// NOTA (FASE 7.1): o codigo e o session token sao plantados em CLARO. O hook de
+// escrita do schema (`models/User.ts`) grava o SHA-256 — o teste passa a exercitar
+// exatamente o caminho de producao (banco so com hash, cliente so com valor cru).
 async function createUserWith2FASession(code: string) {
-  const codeHash = crypto.createHash('sha256').update(code).digest('hex');
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const { user, auth } = await createAuthenticatedUser();
   await User.findByIdAndUpdate(user._id, {
     twoFactorEnabled: true,
     twoFactorConfirmedAt: new Date(),
-    twoFactorCode: codeHash,
+    twoFactorCode: code,
     twoFactorCodeExpires: new Date(Date.now() + 10 * 60 * 1000),
     twoFactorSessionToken: sessionToken,
     twoFactorAttempts: 0,
@@ -92,12 +94,11 @@ describe('POST /api/auth/2fa/verify-code', () => {
 
   it('retorna 400 para sessao expirada', async () => {
     const code = '654321';
-    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
     const sessionToken = crypto.randomBytes(32).toString('hex');
     const { user } = await createAuthenticatedUser();
     await User.findByIdAndUpdate(user._id, {
       twoFactorEnabled: true,
-      twoFactorCode: codeHash,
+      twoFactorCode: code,
       twoFactorCodeExpires: new Date(Date.now() - 1000),
       twoFactorSessionToken: sessionToken,
       twoFactorAttempts: 0,
@@ -113,11 +114,10 @@ describe('POST /api/auth/2fa/verify-code', () => {
   it('bloqueia na 5a tentativa incorreta — sessionToken eh invalidado', async () => {
     const { user } = await createAuthenticatedUser();
     const code = '111111';
-    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
     const sessionToken = crypto.randomBytes(32).toString('hex');
     await User.findByIdAndUpdate(user._id, {
       twoFactorEnabled: true,
-      twoFactorCode: codeHash,
+      twoFactorCode: code,
       twoFactorCodeExpires: new Date(Date.now() + 10 * 60 * 1000),
       twoFactorSessionToken: sessionToken,
       twoFactorAttempts: 4,
@@ -130,7 +130,7 @@ describe('POST /api/auth/2fa/verify-code', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/muitas tentativas|inválido/i);
 
-    const updated = await User.findById(user._id);
+    const updated = await User.findById(user._id).select('+twoFactorSessionToken +twoFactorCode');
     expect(updated!.twoFactorSessionToken).toBeUndefined();
     expect(updated!.twoFactorAttempts).toBe(0);
   });
@@ -143,7 +143,7 @@ describe('POST /api/auth/2fa/verify-code', () => {
       .post('/api/auth/2fa/verify-code')
       .send({ userId: sessionToken, code });
 
-    const updated = await User.findById(user._id);
+    const updated = await User.findById(user._id).select('+twoFactorSessionToken +twoFactorCode');
     expect(updated!.twoFactorSessionToken).toBeUndefined();
     expect(updated!.twoFactorCode).toBeUndefined();
     expect(updated!.twoFactorAttempts).toBe(0);

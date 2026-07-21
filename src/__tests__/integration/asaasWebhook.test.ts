@@ -10,7 +10,16 @@
  *  - Idempotência em PAYMENT_CONFIRMED reentregue
  */
 
+// Mock do asaasService — o webhook agora RECONCILIA contra GET /payments/:id
+// (fonte de verdade) em vez de confiar no corpo do evento. Sem o mock, a
+// chamada real falha e o handler responde 500 (comportamento correto).
+jest.mock('../../services/asaasService', () => ({
+  CONFIRMED_ASAAS_STATUSES: ['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'],
+  getPaymentStatus: jest.fn(),
+}));
+
 import '../helpers/mocks';
+import * as asaasService from '../../services/asaasService';
 
 import request from 'supertest';
 import { Application } from 'express';
@@ -55,8 +64,18 @@ beforeAll(async () => {
   app = createWebhookTestApp();
 });
 
+beforeEach(() => {
+  // Padrao: o Asaas confirma a cobranca pelo valor exato do pedido de teste
+  // (chargedAmount = 525). Testes de divergencia sobrescrevem este mock.
+  (asaasService.getPaymentStatus as jest.Mock).mockResolvedValue({
+    status: 'CONFIRMED',
+    value: 525,
+  });
+});
+
 afterEach(async () => {
   await clearTestDB();
+  jest.clearAllMocks();
 });
 
 afterAll(async () => {

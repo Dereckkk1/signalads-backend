@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { authenticateToken } from '../middleware/auth';
+import { sanitizeMultipart } from '../middleware/security';
 import {
   sendMessage,
   uploadBroadcasterProduction,
@@ -16,8 +17,13 @@ const router = express.Router();
 // Configuração do Multer para upload de áudios
 const upload = multer({
   storage: multer.memoryStorage(),
+  // Item 4.6: memoryStorage guarda o arquivo inteiro em RAM — sem tetos de
+  // tamanho/partes, poucos IPs derrubam o processo por OOM.
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB
+    fileSize: 15 * 1024 * 1024, // 15MB
+    files: 1,
+    parts: 10,
+    fieldSize: 100 * 1024,
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'audio/mpeg' || file.mimetype === 'audio/wav') {
@@ -39,6 +45,7 @@ router.post(
   '/:orderId/item/:itemIndex/production',
   authenticateToken,
   upload.single('audio'),
+  ...sanitizeMultipart,
   uploadBroadcasterProduction
 );
 

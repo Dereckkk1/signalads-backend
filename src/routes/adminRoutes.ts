@@ -51,6 +51,7 @@ import {
   getTopActors,
   getActorDetail,
   getBlockedIps,
+  getProxyDiagnostics,
   blockIp,
   unblockIp,
   blockUser,
@@ -60,6 +61,7 @@ import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth
 import { auditLog } from '../middleware/auditLog';
 import AuditLog from '../models/AuditLog';
 import { Response } from 'express';
+import { sanitizeMultipart } from '../middleware/security';
 
 const router = Router();
 
@@ -116,16 +118,16 @@ router.get('/broadcasters', authenticateToken, requireAdmin, getAllBroadcasters)
 router.get('/broadcasters/management', authenticateToken, requireAdmin, getBroadcastersForManagement);
 router.get('/broadcasters/:id', authenticateToken, requireAdmin, getBroadcasterDetails);
 router.get('/broadcasters/:id/campaigns', authenticateToken, requireAdmin, getBroadcasterCampaigns);
-router.put('/broadcasters/:broadcasterId/approve', authenticateToken, requireAdmin, auditLog('broadcaster.approve', 'broadcaster'), approveBroadcaster);
-router.put('/broadcasters/:broadcasterId/reject', authenticateToken, requireAdmin, auditLog('broadcaster.reject', 'broadcaster'), rejectBroadcaster);
+router.put('/broadcasters/:broadcasterId/approve', authenticateToken, auditLog('broadcaster.approve', 'broadcaster'), requireAdmin, approveBroadcaster);
+router.put('/broadcasters/:broadcasterId/reject', authenticateToken, auditLog('broadcaster.reject', 'broadcaster'), requireAdmin, rejectBroadcaster);
 
 // ========================
 // ROTAS DE PEDIDOS (gestão completa)
 // ========================
 router.get('/orders/attention-count', authenticateToken, requireAdmin, getAttentionCount);
 router.get('/orders/full', authenticateToken, requireAdmin, getFullOrdersForAdmin);
-router.post('/orders/:orderId/approve', authenticateToken, requireAdmin, auditLog('order.approve', 'order'), adminApproveOrder);
-router.put('/orders/:orderId/status', authenticateToken, requireAdmin, auditLog('order.status_change', 'order'), updateOrderStatus);
+router.post('/orders/:orderId/approve', authenticateToken, auditLog('order.approve', 'order'), requireAdmin, adminApproveOrder);
+router.put('/orders/:orderId/status', authenticateToken, auditLog('order.status_change', 'order'), requireAdmin, updateOrderStatus);
 router.post('/orders/:orderId/items/:itemIndex/upload-recording-audio', authenticateToken, requireAdmin, uploadAudio.single('audio'), adminUploadRecordingAudio);
 router.delete('/orders/:orderId/items/:itemIndex/recording-audio', authenticateToken, requireAdmin, adminDeleteRecordingAudio);
 
@@ -133,22 +135,22 @@ router.delete('/orders/:orderId/items/:itemIndex/recording-audio', authenticateT
 // ROTAS DE EMISSORAS CATÁLOGO (novas)
 // ========================
 // CRUD de emissoras catálogo
-router.post('/catalog-broadcasters', authenticateToken, requireAdmin, auditLog('catalog.create', 'broadcaster'), createCatalogBroadcaster);
+router.post('/catalog-broadcasters', authenticateToken, auditLog('catalog.create', 'broadcaster'), requireAdmin, createCatalogBroadcaster);
 router.get('/catalog-broadcasters', authenticateToken, requireAdmin, getCatalogBroadcasters);
 router.get('/catalog-broadcasters/:id', authenticateToken, requireAdmin, getCatalogBroadcasterById);
-router.put('/catalog-broadcasters/:id', authenticateToken, requireAdmin, auditLog('catalog.update', 'broadcaster'), updateCatalogBroadcaster);
-router.delete('/catalog-broadcasters/:id', authenticateToken, requireAdmin, auditLog('catalog.delete', 'broadcaster'), deleteCatalogBroadcaster);
-router.post('/catalog-broadcasters/:id/reactivate', authenticateToken, requireAdmin, reactivateCatalogBroadcaster);
+router.put('/catalog-broadcasters/:id', authenticateToken, auditLog('catalog.update', 'broadcaster'), requireAdmin, updateCatalogBroadcaster);
+router.delete('/catalog-broadcasters/:id', authenticateToken, auditLog('catalog.delete', 'broadcaster'), requireAdmin, deleteCatalogBroadcaster);
+router.post('/catalog-broadcasters/:id/reactivate', authenticateToken, auditLog('catalog.reactivate', 'broadcaster'), requireAdmin, reactivateCatalogBroadcaster);
 
 // Perfil completo e logo
-router.post('/catalog-broadcasters/:id/complete-profile', authenticateToken, requireAdmin, completeCatalogProfile);
-router.post('/catalog-broadcasters/:id/upload-logo', authenticateToken, requireAdmin, upload.single('logo'), uploadCatalogLogo);
+router.post('/catalog-broadcasters/:id/complete-profile', authenticateToken, auditLog('catalog.complete_profile', 'broadcaster'), requireAdmin, completeCatalogProfile);
+router.post('/catalog-broadcasters/:id/upload-logo', authenticateToken, auditLog('catalog.upload_logo', 'broadcaster'), requireAdmin, upload.single('logo'), ...sanitizeMultipart, uploadCatalogLogo);
 
 // Produtos de emissoras catálogo
-router.post('/catalog-broadcasters/:broadcasterId/products', authenticateToken, requireAdmin, createCatalogProduct);
+router.post('/catalog-broadcasters/:broadcasterId/products', authenticateToken, auditLog('catalog_product.create', 'product'), requireAdmin, createCatalogProduct);
 router.get('/catalog-broadcasters/:broadcasterId/products', authenticateToken, requireAdmin, getCatalogProducts);
-router.put('/catalog-products/:productId', authenticateToken, requireAdmin, updateCatalogProduct);
-router.delete('/catalog-products/:productId', authenticateToken, requireAdmin, deleteCatalogProduct);
+router.put('/catalog-products/:productId', authenticateToken, auditLog('catalog_product.update', 'product'), requireAdmin, updateCatalogProduct);
+router.delete('/catalog-products/:productId', authenticateToken, auditLog('catalog_product.delete', 'product'), requireAdmin, deleteCatalogProduct);
 
 // ========================
 // ROTAS DE OPEC (Comprovantes de Veiculação)
@@ -162,12 +164,12 @@ router.delete('/orders/:orderId/opec/:opecId', authenticateToken, requireAdmin, 
 // ROTAS DE GESTÃO DE USUÁRIOS
 // ========================
 router.get('/users', authenticateToken, requireAdmin, getAllUsers);
-router.get('/users/:userId', authenticateToken, requireAdmin, getUserFullDetails);
-router.put('/users/:userId/status', authenticateToken, requireAdmin, auditLog('user.status_change', 'user'), updateUserStatus);
-router.put('/users/:userId/role', authenticateToken, requireAdmin, auditLog('user.role_change', 'user'), updateUserRole);
-router.put('/users/:userId/max-sub-users', authenticateToken, requireAdmin, auditLog('user.max_sub_users_change', 'user'), updateBroadcasterMaxSubUsers);
-router.put('/users/:userId/reset-password', authenticateToken, requireAdmin, auditLog('user.reset_password', 'user'), adminResetUserPassword);
-router.delete('/users/:userId', authenticateToken, requireAdmin, auditLog('user.delete', 'user'), deleteUser);
+router.get('/users/:userId', authenticateToken, auditLog('user.pii_read', 'user'), requireAdmin, getUserFullDetails);
+router.put('/users/:userId/status', authenticateToken, auditLog('user.status_change', 'user'), requireAdmin, updateUserStatus);
+router.put('/users/:userId/role', authenticateToken, auditLog('user.role_change', 'user'), requireAdmin, updateUserRole);
+router.put('/users/:userId/max-sub-users', authenticateToken, auditLog('user.max_sub_users_change', 'user'), requireAdmin, updateBroadcasterMaxSubUsers);
+router.put('/users/:userId/reset-password', authenticateToken, auditLog('user.reset_password', 'user'), requireAdmin, adminResetUserPassword);
+router.delete('/users/:userId', authenticateToken, auditLog('user.delete', 'user'), requireAdmin, deleteUser);
 
 // ========================
 // ROTAS DE RELATÓRIO DA DIRETORIA
@@ -191,10 +193,14 @@ router.get('/monitoring/timeline', authenticateToken, requireAdmin, getTimeline)
 router.get('/monitoring/top-actors', authenticateToken, requireAdmin, getTopActors);
 router.get('/monitoring/actor-detail', authenticateToken, requireAdmin, getActorDetail);
 router.get('/monitoring/blocked-ips', authenticateToken, requireAdmin, getBlockedIps);
-router.post('/monitoring/block-ip', authenticateToken, requireAdmin, blockIp);
-router.delete('/monitoring/block-ip/:ip', authenticateToken, requireAdmin, unblockIp);
-router.post('/monitoring/block-user/:userId', authenticateToken, requireAdmin, blockUser);
-router.post('/monitoring/unblock-user/:userId', authenticateToken, requireAdmin, unblockUser);
+
+// Diagnostico de topologia de proxy (item 10.1 do plano de seguranca).
+// Responde quantos proxies existem na frente do Node, usando o request real.
+router.get('/monitoring/proxy-diagnostics', authenticateToken, requireAdmin, getProxyDiagnostics);
+router.post('/monitoring/block-ip', authenticateToken, auditLog('security.block_ip', 'ip'), requireAdmin, blockIp);
+router.delete('/monitoring/block-ip/:ip', authenticateToken, auditLog('security.unblock_ip', 'ip'), requireAdmin, unblockIp);
+router.post('/monitoring/block-user/:userId', authenticateToken, auditLog('security.block_user', 'user'), requireAdmin, blockUser);
+router.post('/monitoring/unblock-user/:userId', authenticateToken, auditLog('security.unblock_user', 'user'), requireAdmin, unblockUser);
 
 // ========================
 // ROTAS DE AUDIT LOG

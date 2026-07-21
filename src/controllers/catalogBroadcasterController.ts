@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import type { QueryFilter } from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
 import { User } from '../models/User';
 import { Product } from '../models/Product';
@@ -197,7 +198,9 @@ export const getCatalogBroadcasters = async (req: AuthRequest, res: Response) =>
     const { status, search, page = 1, limit = 50, sortBy = 'createdAt', sortOrder = 'desc', onlyWithoutProducts } = req.query;
 
     const pageNum = Math.max(1, Number(page));
-    const limitNum = Math.max(1, Number(limit));
+    // Teto de paginacao (item 4.9): sem Math.min, `?limit=1000000` forcava
+    // varredura e serializacao da colecao inteira.
+    const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(limit) || 25));
     const skip = (pageNum - 1) * limitNum;
 
 
@@ -913,6 +916,9 @@ export const uploadCatalogLogo = async (req: AuthRequest, res: Response) => {
 // Importar Order model (adicionar no topo se necessário)
 import Order from '../models/Order';
 
+/** Teto de itens por pagina em listagens administrativas (item 4.9). */
+const MAX_PAGE_SIZE = 100;
+
 /**
  * POST /api/admin/orders/:orderId/opec
  * Upload de OPEC (comprovante de veiculação) para pedidos de emissoras catálogo
@@ -1095,7 +1101,9 @@ export const getCatalogOrders = async (req: AuthRequest, res: Response) => {
 
     const catalogIds = catalogBroadcasters.map(b => b._id.toString());
 
-    const orderFilter = {
+    // QueryFilter: o Mongoose 9 rejeita literais com `status: string` contra
+    // o union declarado no schema.
+    const orderFilter: QueryFilter<any> = {
       'items.broadcasterId': { $in: catalogIds },
       status: { $in: ['approved', 'scheduled', 'in_progress', 'completed'] }
     };

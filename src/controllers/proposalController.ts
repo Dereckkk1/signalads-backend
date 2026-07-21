@@ -53,12 +53,44 @@ async function hashPin(pin: string): Promise<string> {
   return bcrypt.hash(pin, 10);
 }
 
+/**
+ * Gate de PIN para as rotas PUBLICAS de proposta (`/public/:slug/*`).
+ *
+ * SEGURANCA: `getPublicProposal` sempre respeitou `protection.enabled`, mas as
+ * demais rotas publicas (export XLSX, comentarios, tracking de sessao) nao —
+ * quem tivesse o slug operava sobre uma proposta protegida sem nunca passar
+ * pelo PIN, anulando tambem o lockout de 5 tentativas do `verifyPin`.
+ *
+ * Aceita o PIN por query (`?pin=`) ou header (`X-Proposal-Pin`).
+ * Retorna `null` quando liberado, ou a mensagem de erro para responder 401.
+ */
+async function requireProposalPin(proposal: any, req: Request): Promise<string | null> {
+  if (!proposal?.protection?.enabled) return null;
+
+  const submitted = String(
+    (req.query?.pin as string) || (req.headers?.['x-proposal-pin'] as string) || ''
+  );
+  if (!submitted) return 'Código PIN obrigatório';
+
+  const { ok } = await comparePin(submitted, String(proposal.protection.pin || ''));
+  return ok ? null : 'Código PIN inválido';
+}
+
 const escapeHtml = (str: string): string =>
   str.replace(/[<>&"']/g, (c: string) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#x27;' }[c] || c));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-function generateId(length = 8): string {
+/**
+ * ID aleatorio para o slug publico da proposta.
+ *
+ * SEGURANCA: o slug E o controle de acesso das propostas sem PIN — a pagina
+ * publica renderiza o Pedido de Insercao completo, com CNPJ e endereco do
+ * cliente. Com 8 caracteres o espaco era pequeno o bastante para enumeracao
+ * distribuida valer a pena. 16 caracteres base64url (~96 bits) tornam a
+ * varredura inviavel. Propostas ja existentes mantem o slug antigo.
+ */
+function generateId(length = 16): string {
   return crypto.randomBytes(length).toString('base64url').substring(0, length);
 }
 
@@ -402,12 +434,19 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
 
     // Gerar slug unico
     const slugBase = slugify(title || 'proposta-comercial');
-    const slug = `${slugBase}-${generateId(8)}`;
+    const slug = `${slugBase}-${generateId()}`;
 
     // Se template foi selecionado, copiar customization
     let customization: any = undefined;
     if (templateId) {
-      const template = await ProposalTemplate.findById(templateId);
+      // SEGURANCA (3.9): escopar por agencia. Com findById puro, a agencia A
+      // informava o templateId da agencia B e recebia a customization dela
+      // (identidade visual, estrutura de secoes, textos comerciais) dentro da
+      // propria proposta. O restante do CRUD de template ja filtra por agencyId.
+      const template = await ProposalTemplate.findOne({
+        _id: templateId,
+        $or: [{ agencyId: req.userId }, { isDefault: true }],
+      });
       if (template) {
         customization = template.customization;
       }
@@ -943,7 +982,7 @@ export const duplicateProposal = async (req: AuthRequest, res: Response): Promis
     }
 
     const slugBase = slugify(`copia-${original.title}`);
-    const slug = `${slugBase}-${generateId(8)}`;
+    const slug = `${slugBase}-${generateId()}`;
 
     const duplicate = new Proposal({
       agencyId: original.agencyId,
@@ -1860,6 +1899,16 @@ export const addPublicComment = async (req: AuthRequest, res: Response): Promise
       return;
     }
 
+    // SEGURANCA: respeitar a protecao por PIN, como faz o getPublicProposal.
+    // Sem isto, quem tem apenas o slug de uma proposta PROTEGIDA escrevia
+    // comentarios nela sem nunca passar pelo PIN — o gate existia na leitura
+    // e nao na escrita.
+    const pinError = await requireProposalPin(proposal, req);
+    if (pinError) {
+      res.status(401).json({ error: pinError });
+      return;
+    }
+
     proposal.comments.push({
       sectionId,
       author,
@@ -2092,6 +2141,20 @@ export const trackViewSession = async (req: AuthRequest, res: Response): Promise
 
     if (!duration || duration <= 0) {
       res.json({ ok: true });
+      return;
+    }
+
+    // SEGURANCA: nao acumular telemetria de proposta protegida para quem nao
+    // passou pelo PIN — alem de escrita nao autorizada, poluiria as metricas
+    // de visualizacao que a emissora usa para decidir follow-up comercial.
+    const alvo = await Proposal.findOne({ slug }).select('protection').lean();
+    if (!alvo) {
+      res.json({ ok: true });
+      return;
+    }
+    const pinError = await requireProposalPin(alvo, req);
+    if (pinError) {
+      res.status(401).json({ error: pinError });
       return;
     }
 
@@ -2682,6 +2745,17 @@ export const exportPublicProposalXlsx = async (req: Request, res: Response): Pro
 
     if (!proposal) {
       res.status(404).json({ error: 'Proposta não encontrada' });
+      return;
+    }
+
+    // SEGURANCA (3.4): respeitar a protecao por PIN.
+    // `getPublicProposal` ja checa `protection.enabled`, mas o export nao —
+    // com o slug em maos (link encaminhado, historico, referer) baixava-se a
+    // planilha com CPF/CNPJ do cliente e a composicao financeira completa,
+    // anulando o PIN e o lockout de 5 tentativas.
+    const pinError = await requireProposalPin(proposal, req);
+    if (pinError) {
+      res.status(401).json({ error: pinError });
       return;
     }
 

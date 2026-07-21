@@ -24,6 +24,7 @@ import {
     TEST_JWT_SECRET,
     randomObjectId,
 } from '../../helpers/testHelpers';
+import { JWT_ISSUER, JWT_AUDIENCE } from '../../../utils/tokenService';
 
 // ── Mockar redis para que o import de auth.ts nao tente conectar ──
 jest.mock('../../../config/redis', () => ({
@@ -264,7 +265,7 @@ describe('authenticateToken — token invalido', () => {
     });
 
     it('deve retornar 401 com token assinado com secret diferente', async () => {
-        const token = jwt.sign({ userId: randomObjectId() }, 'wrong-secret', { expiresIn: '15m' });
+        const token = jwt.sign({ userId: randomObjectId() }, 'wrong-secret', { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
         const req = createMockRequest({
             cookies: { access_token: token },
         });
@@ -282,7 +283,7 @@ describe('authenticateToken — token invalido', () => {
     });
 
     it('deve retornar 401 com token expirado', async () => {
-        const token = jwt.sign({ userId: randomObjectId() }, TEST_JWT_SECRET, { expiresIn: '0s' });
+        const token = jwt.sign({ userId: randomObjectId() }, TEST_JWT_SECRET, { expiresIn: '0s', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
 
         // Aguarda 1s para garantir expiracao
         await new Promise(resolve => setTimeout(resolve, 1100));
@@ -327,7 +328,7 @@ describe('authenticateToken — token invalido', () => {
 describe('authenticateToken — token valido + cache hit', () => {
     it('deve chamar next() e setar req.user quando user esta no cache com status approved', async () => {
         const userId = randomObjectId();
-        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
 
         const cachedUser = {
             _id: userId,
@@ -357,7 +358,7 @@ describe('authenticateToken — token valido + cache hit', () => {
 
     it('deve retornar 403 quando user no cache tem status diferente de approved', async () => {
         const userId = randomObjectId();
-        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
 
         mockedCacheGet.mockResolvedValueOnce({
             _id: userId,
@@ -385,7 +386,7 @@ describe('authenticateToken — token valido + cache hit', () => {
 
     it('deve retornar 403 quando user no cache tem status rejected', async () => {
         const userId = randomObjectId();
-        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
 
         mockedCacheGet.mockResolvedValueOnce({
             _id: userId,
@@ -417,7 +418,7 @@ describe('authenticateToken — token valido + cache hit', () => {
 describe('authenticateToken — token valido + cache miss + DB lookup', () => {
     it('deve retornar 401 quando user nao existe no banco', async () => {
         const userId = randomObjectId();
-        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
 
         mockedCacheGet.mockResolvedValueOnce(null);
         (mockedUser.findById as jest.Mock).mockReturnValueOnce({
@@ -443,7 +444,7 @@ describe('authenticateToken — token valido + cache miss + DB lookup', () => {
 
     it('deve retornar 403 quando user do banco tem status pending', async () => {
         const userId = randomObjectId();
-        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
 
         mockedCacheGet.mockResolvedValueOnce(null);
         (mockedUser.findById as jest.Mock).mockReturnValueOnce({
@@ -479,7 +480,7 @@ describe('authenticateToken — token valido + cache miss + DB lookup', () => {
 
     it('deve chamar next() e popular req quando user do banco e approved', async () => {
         const userId = randomObjectId();
-        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
 
         const dbUser = {
             _id: userId,
@@ -586,7 +587,7 @@ describe('optionalAuthenticateToken', () => {
 
     it('deve popular req.user quando cache hit', async () => {
         const userId = randomObjectId();
-        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
 
         const cachedUser = { _id: userId, email: 'c@t.com', userType: 'advertiser', status: 'approved' };
         mockedCacheGet.mockResolvedValueOnce(cachedUser);
@@ -608,7 +609,7 @@ describe('optionalAuthenticateToken', () => {
 
     it('deve popular req.user quando cache miss e user existe no DB', async () => {
         const userId = randomObjectId();
-        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
 
         const dbUser = {
             _id: userId,
@@ -639,7 +640,7 @@ describe('optionalAuthenticateToken', () => {
 
     it('deve chamar next() sem autenticar quando cache miss e user nao existe no DB', async () => {
         const userId = randomObjectId();
-        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m' });
+        const token = jwt.sign({ userId }, TEST_JWT_SECRET, { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
 
         mockedCacheGet.mockResolvedValueOnce(null);
         (mockedUser.findById as jest.Mock).mockReturnValueOnce({

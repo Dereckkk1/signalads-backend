@@ -5,7 +5,7 @@
  */
 
 import { Response, NextFunction } from 'express';
-import { auditLog } from '../../../middleware/auditLog';
+import { auditLog, filterSensitiveFields } from '../../../middleware/auditLog';
 import { AuthRequest } from '../../../middleware/auth';
 import {
     createMockRequest,
@@ -249,10 +249,28 @@ describe('auditLog — nao loga em cenarios invalidos', () => {
         expect(mockCreate).not.toHaveBeenCalled();
     });
 
-    it('nao deve criar log quando statusCode e 403', () => {
+    it('nao deve criar log quando statusCode e 404 sem resourceId (listagem)', () => {
         const middleware = auditLog('test.action', 'test');
         const userId = randomObjectId();
-        const req = createMockRequest({ userId }) as unknown as AuthRequest;
+        const req = createMockRequest({ userId, params: {} }) as unknown as AuthRequest;
+
+        const originalJsonFn = jest.fn();
+        const res: any = {
+            statusCode: 404,
+            json: originalJsonFn,
+        };
+        res.json.bind = jest.fn().mockReturnValue(originalJsonFn);
+        const next = createMockNext();
+
+        middleware(req, res as unknown as Response, next as NextFunction);
+        res.json({ error: 'not found' });
+
+        expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it('nao deve criar log em 403 quando nao ha ator identificado', () => {
+        const middleware = auditLog('test.action', 'test');
+        const req = createMockRequest({ userId: undefined, params: {} }) as unknown as AuthRequest;
 
         const originalJsonFn = jest.fn();
         const res: any = {
@@ -265,6 +283,59 @@ describe('auditLog — nao loga em cenarios invalidos', () => {
         middleware(req, res as unknown as Response, next as NextFunction);
         res.json({ error: 'forbidden' });
 
+        expect(mockCreate).not.toHaveBeenCalled();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// auditLog — 4xx sensiveis (FASE 9.1)
+// ═══════════════════════════════════════════════════════════════
+describe('auditLog — tentativas negadas (4xx sensiveis)', () => {
+    function runWithStatus(statusCode: number, reqOverrides: any = {}, action = 'test.action') {
+        const middleware = auditLog(action, 'test');
+        const req = createMockRequest({ params: {}, ...reqOverrides }) as unknown as AuthRequest;
+        const originalJsonFn = jest.fn();
+        const res: any = { statusCode, json: originalJsonFn };
+        res.json.bind = jest.fn().mockReturnValue(originalJsonFn);
+        middleware(req, res as unknown as Response, createMockNext() as NextFunction);
+        res.json({ error: 'denied' });
+        return { originalJsonFn };
+    }
+
+    it('deve registrar 403 de usuario identificado com sufixo .denied', () => {
+        runWithStatus(403, { userId: randomObjectId() }, 'user.role_change');
+
+        expect(mockCreate).toHaveBeenCalledTimes(1);
+        const call = mockCreate.mock.calls[0][0];
+        expect(call.action).toBe('user.role_change.denied');
+        expect(call.details.outcome).toBe('denied');
+        expect(call.details.responseStatus).toBe(403);
+    });
+
+    it('deve registrar 401 em rota anonima (allowAnonymous)', () => {
+        const middleware = auditLog('auth.login', 'user', { allowAnonymous: true });
+        const req = createMockRequest({ userId: undefined, params: {} }) as unknown as AuthRequest;
+        const originalJsonFn = jest.fn();
+        const res: any = { statusCode: 401, json: originalJsonFn };
+        res.json.bind = jest.fn().mockReturnValue(originalJsonFn);
+        middleware(req, res as unknown as Response, createMockNext() as NextFunction);
+        res.json({ error: 'Credenciais inválidas' });
+
+        expect(mockCreate).toHaveBeenCalledTimes(1);
+        expect(mockCreate.mock.calls[0][0].action).toBe('auth.login.denied');
+    });
+
+    it('deve registrar 404 quando ha resourceId (enumeracao de IDs)', () => {
+        runWithStatus(404, { userId: randomObjectId(), params: { userId: 'alvo-123' } }, 'user.pii_read');
+
+        expect(mockCreate).toHaveBeenCalledTimes(1);
+        expect(mockCreate.mock.calls[0][0].action).toBe('user.pii_read.denied');
+        expect(mockCreate.mock.calls[0][0].resourceId).toBe('alvo-123');
+    });
+
+    it('nao deve registrar 429 nem 409 (ruido)', () => {
+        runWithStatus(429, { userId: randomObjectId() });
+        runWithStatus(409, { userId: randomObjectId() });
         expect(mockCreate).not.toHaveBeenCalled();
     });
 });
@@ -437,5 +508,88 @@ describe('auditLog — resiliencia a erros', () => {
         // Should not throw
         expect(() => res.json({ success: true })).not.toThrow();
         expect(originalJsonFn).toHaveBeenCalledWith({ success: true });
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// filterSensitiveFields — recursao (FASE 9.3)
+// ═══════════════════════════════════════════════════════════════
+describe('filterSensitiveFields — recursivo', () => {
+    it('deve redactar senha em nivel 3 de aninhamento', () => {
+        const input = {
+            level1: {
+                level2: {
+                    level3: { password: 'secret123', name: 'ok' },
+                },
+            },
+        };
+        const out = filterSensitiveFields(input);
+        expect(out.level1.level2.level3.password).toBe('[REDACTED]');
+        expect(out.level1.level2.level3.name).toBe('ok');
+    });
+
+    it('deve redactar dentro de arrays de objetos', () => {
+        const out = filterSensitiveFields({
+            users: [{ email: 'a@b.com', apiKey: 'k1' }, { email: 'c@d.com', apiKey: 'k2' }],
+        });
+        expect(out.users[0].apiKey).toBe('[REDACTED]');
+        expect(out.users[1].apiKey).toBe('[REDACTED]');
+        expect(out.users[0].email).toBe('a@b.com');
+    });
+
+    it('deve cobrir a lista ampliada de campos sensiveis', () => {
+        const out = filterSensitiveFields({
+            pin: '1234',
+            twoFactorCode: '999999',
+            apiKey: 'ak',
+            accessToken: 'at',
+            refresh_token: 'rt',
+            Authorization: 'Bearer x',
+            cpfOrCnpj: '123.456.789-00',
+            cpfCnpj: '12345678900',
+            ccv: '123',
+            cardNumber: '4111111111111111',
+            companyName: 'Radio FM',
+        });
+        for (const key of ['pin', 'twoFactorCode', 'apiKey', 'accessToken', 'refresh_token', 'Authorization', 'cpfOrCnpj', 'cpfCnpj', 'ccv', 'cardNumber']) {
+            expect(out[key]).toBe('[REDACTED]');
+        }
+        expect(out.companyName).toBe('Radio FM');
+    });
+
+    it('deve comparar por includes em lowercase (userPassword, X-Api-Key)', () => {
+        const out = filterSensitiveFields({ userPassword: 'x', 'X-Api-Key': 'y', publicField: 'z' });
+        expect(out.userPassword).toBe('[REDACTED]');
+        expect(out['X-Api-Key']).toBe('[REDACTED]');
+        expect(out.publicField).toBe('z');
+    });
+
+    it('nao deve redactar falso-positivo curto (shipping vs pin)', () => {
+        const out = filterSensitiveFields({ shipping: 'expresso', spinner: 'on' });
+        expect(out.shipping).toBe('expresso');
+        expect(out.spinner).toBe('on');
+    });
+
+    it('deve suportar objeto ciclico sem estourar', () => {
+        const obj: any = { name: 'raiz', password: 'p' };
+        obj.self = obj;
+        const out = filterSensitiveFields(obj);
+        expect(out.password).toBe('[REDACTED]');
+        expect(out.self).toBe('[CIRCULAR]');
+    });
+
+    it('deve cortar por profundidade maxima', () => {
+        let deep: any = { password: 'p' };
+        for (let i = 0; i < 12; i++) deep = { nested: deep };
+        const out = filterSensitiveFields(deep);
+        const serialized = JSON.stringify(out);
+        expect(serialized).toContain('[MAX_DEPTH]');
+        expect(serialized).not.toContain('"p"');
+    });
+
+    it('deve retornar valores primitivos inalterados', () => {
+        expect(filterSensitiveFields(null)).toBeNull();
+        expect(filterSensitiveFields('texto')).toBe('texto');
+        expect(filterSensitiveFields(42)).toBe(42);
     });
 });

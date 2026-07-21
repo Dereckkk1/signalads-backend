@@ -5,6 +5,7 @@ import { checkout } from '../controllers/checkoutController';
 import { asaasWebhook } from '../controllers/webhookController';
 import { getPixForOrder, getPaymentStatusForOrder } from '../controllers/paymentController';
 import { createRedisStore } from '../config/rateLimitStore';
+import { getClientIp } from '../utils/clientIp';
 
 const router = Router();
 
@@ -22,7 +23,7 @@ const checkoutLimiter = rateLimit({
   store: createRedisStore('checkout'),
   keyGenerator: (req) => {
     const userId = (req as AuthRequest).userId;
-    return userId ? `user:${userId}` : `ip:${ipKeyGenerator(req.ip || 'unknown')}`;
+    return userId ? `user:${userId}` : `ip:${ipKeyGenerator(getClientIp(req))}`;
   },
   skip: () => isTest,
   message: { error: 'Muitas tentativas de pagamento. Aguarde um minuto.' },
@@ -37,13 +38,17 @@ const webhookLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: createRedisStore('asaasWebhook'),
-  keyGenerator: (req) => ipKeyGenerator(req.ip || 'unknown'),
+  keyGenerator: (req) => ipKeyGenerator(getClientIp(req)),
   skip: () => isTest,
   message: { error: 'Rate limit excedido' },
 });
 
-// POST /api/payment/checkout — Cria pedido a partir do carrinho
-router.post('/checkout', checkoutLimiter, authenticateToken, checkout);
+// POST /api/payment/checkout — Cria pedido a partir do carrinho.
+// ORDEM IMPORTA: authenticateToken precisa rodar ANTES do checkoutLimiter,
+// senao req.userId ainda e undefined quando o keyGenerator roda e o limite
+// cai sempre no ramo por IP — usuarios atras do mesmo NAT dividiriam a cota
+// e um comprador com IP rotativo escaparia do limite por conta.
+router.post('/checkout', authenticateToken, checkoutLimiter, checkout);
 
 // POST /api/payment/asaas-webhook — Recebe notificações do gateway Asaas.
 // SEM authenticateToken — autenticação é via header `asaas-access-token`

@@ -28,7 +28,14 @@ export const generatePlan = async (req: Request, res: Response) => {
         const isRegionalSearch = criteria.location.toLowerCase().includes('regi') || cities.length > 1 || states.length > 0;
 
         const regexCities = cities.map((c: string) => new RegExp(escapeRegex(c), 'i'));
-        const regexStates = states.map(s => new RegExp(`^${s}$`, 'i'));
+        // SEGURANCA: `states` vem de aiService.resolveLocation(), ou seja, de saida
+        // do LLM sobre `criteria` (= req.body). Conteudo influenciavel por prompt
+        // injection acabava dentro de um `$in` de filtro Mongo SEM escape: um "("
+        // lancava SyntaxError e um "(a|a)*b" queimava CPU. `cities` logo acima ja
+        // escapava — era so este ramo que faltava.
+        const regexStates = states
+            .filter((s): s is string => typeof s === 'string')
+            .map(s => new RegExp(`^${escapeRegex(s)}$`, 'i'));
 
         // Logic to limit coverage matching to the FIRST 5 CITIES only
         // This prevents distant broadcasters from appearing just because they list a city

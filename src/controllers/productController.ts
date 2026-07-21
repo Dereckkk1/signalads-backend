@@ -3,7 +3,7 @@ import { Product, PLATFORM_COMMISSION_RATE } from '../models/Product';
 import { User } from '../models/User';
 import ExcelJS from 'exceljs';
 import { AuthRequest } from '../middleware/auth';
-import { toAccentInsensitiveRegex } from '../utils/stringUtils';
+import { toAccentInsensitiveRegex, escapeRegex } from '../utils/stringUtils';
 import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import crypto from 'crypto';
 import { getEffectiveBroadcasterId } from './broadcasterSubUserController';
@@ -30,6 +30,14 @@ function buildCacheKey(prefix: string, params: Record<string, any>): string {
   const hash = crypto.createHash('md5').update(JSON.stringify(normalized)).digest('hex').slice(0, 12);
   return `${prefix}:${hash}`;
 }
+/**
+ * Tetos da busca publica do marketplace (item 4.7 do plano 2026-07-20).
+ * A busca monta regexes nao ancoradas e acento-insensiveis em COLLSCAN;
+ * sem limite de entrada, a rota vira amplificador de CPU para anonimos.
+ */
+const MAX_SEARCH_LENGTH = 60;
+const MAX_SEARCH_TOKENS = 5;
+
 const options: NodeGeocoder.Options = {
   provider: 'openstreetmap'
 };
@@ -163,7 +171,17 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
         res.status(401).json({ error: 'Usuário não autenticado' });
         return;
       }
-      targetBroadcasterId = req.userId;
+      // SEGURANCA (3.8): usar o id EFETIVO da emissora, nao o do sub-usuario.
+      // updateProduct/deleteProduct/createSponsorship ja usam getEffectiveBroadcasterId;
+      // so o create usava req.userId. A assimetria fazia o sub-usuario 'sales'
+      // criar produtos vinculados ao proprio _id: orfaos do catalogo (o manager
+      // nao via nem conseguia editar) e ainda assim publicados no marketplace.
+      const effectiveId = getEffectiveBroadcasterId(req);
+      if (!effectiveId) {
+        res.status(403).json({ error: 'Acesso negado' });
+        return;
+      }
+      targetBroadcasterId = effectiveId;
     } else {
       if (!broadcasterId) {
         res.status(400).json({ error: 'ID da emissora é obrigatório para administradores' });
@@ -632,27 +650,43 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
             '60+': ['60+', '65+']
           };
 
+          // SEGURANCA (item 4.8): allowlist em vez de fallback livre.
+          // O fallback aceitava qualquer string do cliente e o unico "escape"
+          // era `.replace('+', '\\+')` — que troca apenas a PRIMEIRA ocorrencia
+          // e ignora . * ? ^ $ ( ) [ ] { } | \. Numa rota PUBLICA isso permitia
+          // `?ageRanges=["("]` (regex invalida -> 500) e `["...*"]` (subverter
+          // o filtro para casar qualquer faixa).
+          const ALLOWED_AGE_VALUES = new Set<string>([
+            ...Object.keys(ageMap),
+            ...Object.values(ageMap).flat(),
+            'Livre',
+          ]);
+
           const valuesToMatch = new Set<string>();
-          ageRanges.forEach((range: string) => {
+          ageRanges.forEach((range: unknown) => {
+            if (typeof range !== 'string') return;
             const matches = ageMap[range];
             if (matches) {
               matches.forEach(m => valuesToMatch.add(m));
-            } else {
-              // Fallback para valor exato (ex: "Livre" ou formato desconhecido)
+            } else if (ALLOWED_AGE_VALUES.has(range)) {
               valuesToMatch.add(range);
             }
+            // Valor desconhecido e simplesmente ignorado.
           });
 
-          // Cria regex: "18+|20+|25+..."
-          // Escapa o + para o regex
+          // Cria regex: "18\+|20\+|25\+..." — escape completo, nao so do '+'.
           const regexPattern = Array.from(valuesToMatch)
-            .map(v => v.replace('+', '\\+'))
+            .map(v => escapeRegex(v))
             .join('|');
 
-          broadcasterQuery['broadcasterProfile.audienceProfile.ageRange'] = {
-            $regex: regexPattern,
-            $options: 'i'
-          };
+          // Se nenhum valor valido sobrou, nao aplica filtro algum (em vez de
+          // montar um $regex vazio, que casaria tudo).
+          if (regexPattern) {
+            broadcasterQuery['broadcasterProfile.audienceProfile.ageRange'] = {
+              $regex: regexPattern,
+              $options: 'i'
+            };
+          }
         }
       }
 
@@ -684,8 +718,17 @@ export const getAllActiveProducts = async (req: AuthRequest, res: Response): Pro
         'broadcasterProfile.categories' // permite buscar por gênero (ex.: "Sertanejo")
       ];
 
-      // Quebra em tokens e filtra tokens muito curtos (1 char) exceto números
-      const tokens = search.trim().split(/\s+/).filter(t => t.length >= 2 || /\d/.test(t));
+      // SEGURANCA (item 4.7): teto de tamanho e de tokens.
+      // Sem limite, um `?search=` de 5 KB gerava ~800 clausulas $and, cada uma
+      // com 5 regexes NAO ancoradas e acento-insensiveis (cada letra vira uma
+      // classe [aáàâãä]) — ~4.000 avaliacoes de regex POR DOCUMENTO, em
+      // COLLSCAN sobre a colecao inteira, numa rota publica. E como a cacheKey
+      // inclui o `search`, cada string diferente era cache miss garantido.
+      const boundedSearch = search.trim().slice(0, MAX_SEARCH_LENGTH);
+      const tokens = boundedSearch
+        .split(/\s+/)
+        .filter(t => t.length >= 2 || /\d/.test(t))
+        .slice(0, MAX_SEARCH_TOKENS);
 
       if (tokens.length > 0) {
         broadcasterQuery.$and = broadcasterQuery.$and || [];

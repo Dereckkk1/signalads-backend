@@ -5,15 +5,24 @@ import { getMetricsSummary, getGlobalStats } from '../middleware/metrics';
 import { authenticateToken, requireAdmin } from '../middleware/auth';
 import { getRedisHealth } from '../config/redis';
 import WebVital from '../models/WebVital';
+import { createRedisStore } from '../config/rateLimitStore';
 
 // Rate limit especifico para vitals — 60 req/min por IP (sendBeacon fire-and-forget)
+// Item 4.10: era o UNICO limiter do projeto sem store Redis — com MemoryStore
+// o contador e por worker PM2 (limite real = 60 x nº de workers) e zera a
+// cada restart.
 const vitalsLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 60,
     message: '',
     standardHeaders: true,
     legacyHeaders: false,
+    store: createRedisStore('vitals'),
 });
+
+/** Metricas Web Vitals aceitas — evita escrita arbitraria na colecao. */
+const ALLOWED_VITALS = new Set(['CLS', 'LCP', 'FID', 'INP', 'TTFB', 'FCP']);
+const ALLOWED_RATINGS = new Set(['good', 'needs-improvement', 'poor']);
 
 const router = Router();
 
@@ -91,11 +100,17 @@ router.post('/vitals', vitalsLimiter, (req: Request, res: Response) => {
         const body = req.body ?? {};
         const name = body.name as string | undefined;
         const value = body.value as number | undefined;
-        const rating = (body.rating as string) || 'unknown';
-        const page = (body.page as string) || 'unknown';
+        // Item 4.10: allowlist + limite de tamanho. A rota e publica e sem
+        // auth; sem isso, `name`/`rating`/`page` eram gravados crus no Mongo
+        // e ~60 req/min por IP escreviam centenas de MB/hora numa colecao
+        // que ninguem expirava.
+        const rawRating = (body.rating as string) || 'unknown';
+        const rating = ALLOWED_RATINGS.has(rawRating) ? rawRating : 'unknown';
+        const page = String((body.page as string) || 'unknown').slice(0, 200);
 
         // Sem name/value válidos → ignora silenciosamente
         if (!name || value === undefined || typeof value !== 'number') return;
+        if (!ALLOWED_VITALS.has(name)) return;
 
         // CLS é score decimal (0.001–1+), não pode arredondar para inteiro
         const stored = name === 'CLS'

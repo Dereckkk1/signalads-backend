@@ -14,7 +14,7 @@ router.use(authenticateToken);
 
 // Combos sao bundles de produtos/patrocinios — usam permissao 'products'
 router.route('/')
-  .get(listCombos)
+  .get(requirePermission('products'), listCombos)
   .post(requirePermission('products'), createCombo);
 
 router.route('/:id')

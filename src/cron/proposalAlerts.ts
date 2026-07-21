@@ -2,6 +2,18 @@ import cron from 'node-cron';
 import Proposal from '../models/Proposal';
 
 /**
+ * Teto por execucao (item 4.11 do plano 2026-07-20).
+ *
+ * Estas queries nao tinham `.limit()` e usam `populate`: conforme a base
+ * cresce, o job carregaria a colecao inteira em memoria num unico tick e
+ * dispararia um e-mail por item em loop sequencial — pico de RAM e risco de
+ * bloqueio pelo provedor de e-mail. Processar em lote e preferivel a
+ * processar tudo e cair.
+ */
+const CRON_BATCH_SIZE = 500;
+
+
+/**
  * Cron Job — Alertas inteligentes de propostas
  * Roda diariamente às 09:00 (horário comercial).
  *
@@ -25,13 +37,13 @@ export function startProposalAlertsCron(): void {
         status: 'viewed',
         viewCount: { $gte: 3 },
         viewedAt: { $lt: fiveDaysAgo }
-      }).populate('agencyId', 'email companyName').populate('broadcasterId', 'email companyName').lean();
+      }).limit(CRON_BATCH_SIZE).populate('agencyId', 'email companyName').populate('broadcasterId', 'email companyName').lean();
 
       // 2. Propostas enviadas há 7+ dias sem visualização
       const sentNoView = await Proposal.find({
         status: 'sent',
         sentAt: { $lt: sevenDaysAgo }
-      }).populate('agencyId', 'email companyName').populate('broadcasterId', 'email companyName').lean();
+      }).limit(CRON_BATCH_SIZE).populate('agencyId', 'email companyName').populate('broadcasterId', 'email companyName').lean();
 
       if (viewedNoResponse.length === 0 && sentNoView.length === 0) return;
 

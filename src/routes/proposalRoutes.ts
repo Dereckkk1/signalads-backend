@@ -3,6 +3,7 @@ import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
 import { createRedisStore } from '../config/rateLimitStore';
+import { sanitizeMultipart } from '../middleware/security';
 import {
   createProposal,
   getProposals,
@@ -97,7 +98,7 @@ router.route('/:id')
 router.post('/:id/duplicate', duplicateProposal);
 router.post('/:id/send', sendProposal);
 router.put('/:id/customization', updateCustomization);
-router.post('/:id/upload', upload.single('file'), uploadProposalImage);
+router.post('/:id/upload', upload.single('file'), ...sanitizeMultipart, uploadProposalImage);
 router.post('/:id/convert', convertToOrder);
 router.get('/:id/export', exportProposalXlsx);
 router.post('/:id/comments', addComment);

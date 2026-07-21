@@ -23,6 +23,7 @@ import {
 import { authenticateToken, optionalAuthenticateToken } from '../middleware/auth';
 import { auditLog } from '../middleware/auditLog';
 import { createRedisStore } from '../config/rateLimitStore';
+import { getClientIp } from '../utils/clientIp';
 
 const router = Router();
 
@@ -43,7 +44,7 @@ const getEmailKey = (req: Request): string => {
 };
 
 // Helper: chave segura por IP (IPv6-aware via ipKeyGenerator do express-rate-limit v8)
-const ipKey = (req: Request): string => ipKeyGenerator(req.ip || 'unknown');
+const ipKey = (req: Request): string => ipKeyGenerator(getClientIp(req));
 
 // Login: 10/15min por (IP + emailOrCnpj). Usuario CGNAT pode logar
 // na sua propria conta sem ser afetado por outro atacante mirando outra conta.

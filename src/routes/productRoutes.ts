@@ -20,8 +20,12 @@ import { requirePermission } from '../middleware/requirePermission';
 const router = Router();
 
 // Rotas protegidas - broadcaster
-router.get('/my-products', authenticateToken, getMyProducts);
-router.get('/my-products/export', authenticateToken, exportProducts);
+// SEGURANCA (3.6): a LEITURA do catalogo tambem e dado sensivel — o export
+// carrega o netPrice (preco liquido da emissora). So as mutacoes tinham
+// requirePermission; um sub-usuario 'sales' sem permissao de produtos
+// exportava a tabela de precos inteira.
+router.get('/my-products', authenticateToken, requirePermission('products'), getMyProducts);
+router.get('/my-products/export', authenticateToken, requirePermission('products'), exportProducts);
 // Mutacoes de catalogo exigem permissao 'products' (manager passa, sales precisa do grupo)
 router.post('/', authenticateToken, requirePermission('products'), createProduct);
 router.put('/:productId', authenticateToken, requirePermission('products'), updateProduct);

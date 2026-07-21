@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { Types } from 'mongoose';
-import { User } from '../models/User';
+import type { QueryFilter } from 'mongoose';
+import { User, IUser } from '../models/User';
 import { Product } from '../models/Product';
 import { AuthRequest } from '../middleware/auth';
 import { campaignCountsByBroadcaster } from '../services/socialProofService';
@@ -8,7 +9,9 @@ import { earliestOnAirDate } from '../utils/businessDays';
 import { getDistanceKm } from '../utils/geo';
 
 // Emissora ativa no marketplace: aprovada OU catálogo (cadastrada pelo admin).
-const ACTIVE_BROADCASTER = {
+// Tipado como QueryFilter (nome do tipo no Mongoose 9; era FilterQuery no 8): desde o Mongoose 9 um literal solto tem `userType:
+// string`, que nao casa com o union do schema ('advertiser'|'agency'|...).
+const ACTIVE_BROADCASTER: QueryFilter<IUser> = {
   userType: 'broadcaster',
   $or: [{ status: 'approved' }, { isCatalogOnly: true }],
 };

@@ -218,21 +218,46 @@ export async function getPixQrCode(
 
 // ─── Status ──────────────────────────────────────────────────────────
 
+/**
+ * Status do Asaas que representam dinheiro efetivamente capturado.
+ *
+ * Fonte unica de verdade — importe daqui em vez de redeclarar. Qualquer
+ * outro status (PENDING, AWAITING_RISK_ANALYSIS, OVERDUE, REFUSED...)
+ * significa que o pagamento NAO se concretizou.
+ */
+export const CONFIRMED_ASAAS_STATUSES = ['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'];
+
 export interface PaymentStatusResult {
   status: string;
   paymentDate?: string;
+  /**
+   * Valor BRUTO da cobranca (o que o comprador paga).
+   * Use este campo para reconciliar contra o total do pedido — `netValue`
+   * ja vem descontado da taxa do Asaas e nunca bate com o nosso total.
+   */
+  value?: number;
   netValue?: number;
   invoiceUrl?: string;
+  externalReference?: string;
 }
 
+/**
+ * Consulta o estado real de uma cobranca direto na API do Asaas.
+ *
+ * Esta e a FONTE DE VERDADE para confirmacao de pagamento. O corpo do
+ * webhook e apenas uma notificacao: ele chega por HTTP de um remetente
+ * autenticado por um token estatico e nao deve, sozinho, mover dinheiro.
+ */
 export async function getPaymentStatus(asaasPaymentId: string): Promise<PaymentStatusResult> {
   try {
     const { data } = await client().get(`/payments/${asaasPaymentId}`);
     return {
       status: data.status,
       paymentDate: data.paymentDate,
+      value: data.value,
       netValue: data.netValue,
       invoiceUrl: data.invoiceUrl,
+      externalReference: data.externalReference,
     };
   } catch (err: any) {
     const reason = err.response?.data?.errors?.[0]?.description || 'Erro ao consultar pagamento';

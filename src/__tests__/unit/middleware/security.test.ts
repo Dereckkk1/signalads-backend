@@ -4,7 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { mongoSanitize, xssSanitize, sanitizeRichText, dedupeQuery } from '../../../middleware/security';
+import { mongoSanitize, xssSanitize, sanitizeRichText, dedupeQuery, sanitizeQuery } from '../../../middleware/security';
 import { createMockRequest, createMockResponse, createMockNext } from '../../helpers/testHelpers';
 
 // ═══════════════════════════════════════════════════════════════
@@ -27,14 +27,17 @@ describe('mongoSanitize', () => {
         expect(next).toHaveBeenCalled();
     });
 
-    it('deve remover keys com prefixo $ do query', () => {
+    it('deve remover keys com prefixo $ do query (via sanitizeQuery)', () => {
+        // req.query deixou de ser tratada por mongoSanitize: no Express 5 ela e
+        // um getter sem memoizacao, entao mutar o objeto devolvido nao tem
+        // efeito. Quem trata query agora e sanitizeQuery, que SUBSTITUI o getter.
         const req = createMockRequest({
             query: { search: 'radio', $where: 'this.password' },
         });
         const res = createMockResponse();
         const next = createMockNext();
 
-        mongoSanitize(req as unknown as Request, res as unknown as Response, next as NextFunction);
+        sanitizeQuery(req as unknown as Request, res as unknown as Response, next as NextFunction);
 
         expect(req.query['$where']).toBeUndefined();
         expect(req.query.search).toBe('radio');
@@ -135,7 +138,10 @@ describe('mongoSanitize', () => {
     });
 
     // ── Valores string com operadores $ ────────────────────────
-    it('deve bloquear string values que comecam com $ seguido de letra', () => {
+    it('NAO altera valores string iniciados por $ (operador so e perigoso como chave)', () => {
+        // Mudanca deliberada (item 4.4): zerar o valor nao trazia seguranca —
+        // a chave `$gt` ja e removida no ramo de chaves — e quebrava senhas
+        // legitimas como "$enhaForte1", deixando a conta inacessivel.
         const req = createMockRequest({
             body: { field: '$gt' },
         });
@@ -144,20 +150,32 @@ describe('mongoSanitize', () => {
 
         mongoSanitize(req as unknown as Request, res as unknown as Response, next as NextFunction);
 
-        expect(req.body.field).toBe('');
+        expect(req.body.field).toBe('$gt');
         expect(next).toHaveBeenCalled();
     });
 
-    it('deve bloquear "$ne" como valor string', () => {
+    it('preserva senha que comeca com $ (regressao do bug de conta inacessivel)', () => {
         const req = createMockRequest({
-            body: { role: '$ne' },
+            body: { password: '$enhaForte1' },
         });
         const res = createMockResponse();
         const next = createMockNext();
 
         mongoSanitize(req as unknown as Request, res as unknown as Response, next as NextFunction);
 
-        expect(req.body.role).toBe('');
+        expect(req.body.password).toBe('$enhaForte1');
+    });
+
+    it('remove a CHAVE $ne (que e o vetor real de injecao)', () => {
+        const req = createMockRequest({
+            body: { role: { $ne: null } },
+        });
+        const res = createMockResponse();
+        const next = createMockNext();
+
+        mongoSanitize(req as unknown as Request, res as unknown as Response, next as NextFunction);
+
+        expect(req.body.role.$ne).toBeUndefined();
     });
 
     it('nao deve bloquear strings que comecam com $ mas sem letra (ex: "$100")', () => {
@@ -403,14 +421,14 @@ describe('xssSanitize', () => {
     });
 
     // ── Query e params ─────────────────────────────────────────
-    it('deve sanitizar strings em query params', () => {
+    it('deve sanitizar strings em query params (via sanitizeQuery)', () => {
         const req = createMockRequest({
             query: { search: '<script>alert(1)</script>radio' },
         });
         const res = createMockResponse();
         const next = createMockNext();
 
-        xssSanitize(req as unknown as Request, res as unknown as Response, next as NextFunction);
+        sanitizeQuery(req as unknown as Request, res as unknown as Response, next as NextFunction);
 
         expect(req.query.search).not.toContain('<script>');
         expect(req.query.search).toContain('radio');

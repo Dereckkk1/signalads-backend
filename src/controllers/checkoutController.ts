@@ -15,7 +15,9 @@ import {
   createPixCharge,
   getPixQrCode,
   sanitizeForLog,
+  CONFIRMED_ASAAS_STATUSES,
 } from '../services/asaasService';
+import { validateScheduleAgainstQuantity } from './cartController';
 
 type CheckoutPaymentMethod = 'credit_card' | 'pix' | 'pending_contact';
 
@@ -214,6 +216,18 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
         } else {
           Object.assign(scheduleObj, cartItem.schedule);
         }
+      }
+
+      // REVALIDA no checkout. O carrinho ja valida, mas este e o ponto onde
+      // o agendamento vira instrucao de veiculacao para a emissora e o preco
+      // e congelado — a ultima barreira antes de cobrar por N e entregar M.
+      const scheduleError = validateScheduleAgainstQuantity(scheduleObj, cartItem.quantity);
+      if (scheduleError) {
+        try { await Cart.updateOne({ userId: req.userId }, { $set: { checkedOut: false } }); } catch {}
+        res.status(400).json({
+          error: `Agendamento inválido para ${cartItem.productName}: ${scheduleError}`,
+        });
+        return;
       }
 
       // Montar material do pedido
@@ -504,10 +518,27 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
         if (charge.cardBrand) order.payment.cardBrand = charge.cardBrand;
         if (charge.cardLastDigits) order.payment.cardLastDigits = charge.cardLastDigits;
         order.payment.installments = installmentCount;
-        order.payment.status = 'received';
-        order.payment.paidAt = new Date();
-        order.paidAt = new Date();
-        order.status = 'paid';
+        (order.payment as any).asaasStatus = charge.status;
+
+        // NAO assumir pagamento aprovado so porque a chamada nao lancou.
+        // O Asaas responde 200 com status PENDING / AWAITING_RISK_ANALYSIS
+        // quando a cobranca entra em analise antifraude — nesses casos o
+        // dinheiro ainda nao foi capturado e a confirmacao real chega
+        // depois, por webhook. Marcar 'paid' aqui liberava o pedido para a
+        // emissora sem pagamento algum.
+        if (CONFIRMED_ASAAS_STATUSES.includes(charge.status)) {
+          order.payment.status = 'received';
+          order.payment.paidAt = new Date();
+          order.paidAt = new Date();
+          order.status = 'paid';
+        } else {
+          order.payment.status = 'pending';
+          order.status = 'pending_payment';
+          console.warn(
+            `[checkout.credit_card] cobranca nao confirmada de imediato ` +
+              `(status=${charge.status}) — aguardando webhook`
+          );
+        }
       } catch (err: any) {
         // Cleanup: liberar reservas de patrocinio e resetar carrinho
         if (sponsorshipBookingsCreated.length > 0) {
@@ -603,7 +634,9 @@ export const checkout = async (req: AuthRequest, res: Response): Promise<void> =
 
     const message =
       paymentMethod === 'credit_card'
-        ? 'Pagamento aprovado'
+        ? order.status === 'paid'
+          ? 'Pagamento aprovado'
+          : 'Pagamento em análise. Você receberá a confirmação por e-mail.'
         : paymentMethod === 'pix'
         ? 'Cobrança PIX gerada. Pague para concluir o pedido.'
         : 'Pedido recebido. Aguardando contato do admin.';

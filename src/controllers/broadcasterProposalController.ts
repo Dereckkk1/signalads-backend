@@ -15,12 +15,14 @@ import { cacheGet, cacheSet, cacheInvalidate } from '../config/redis';
 import ExcelJS from 'exceljs';
 import { uploadFile } from '../config/storage';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { escapeRegex } from '../utils/stringUtils';
 import { generateContractNumber, generateInstallments, normalizeContractPayload } from '../utils/proposalContract';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-function generateId(length = 8): string {
+/** Ver nota de seguranca em proposalController.generateId (entropia do slug). */
+function generateId(length = 16): string {
   return crypto.randomBytes(length).toString('base64url').substring(0, length);
 }
 
@@ -376,7 +378,7 @@ export const createProposal = async (req: AuthRequest, res: Response): Promise<v
 
     // Gerar slug unico
     const slugBase = slugify(title || 'proposta-comercial');
-    const slug = `${slugBase}-${generateId(8)}`;
+    const slug = `${slugBase}-${generateId()}`;
 
     // Se template foi selecionado, copiar customization
     let customization: any = undefined;
@@ -908,7 +910,7 @@ export const duplicateProposal = async (req: AuthRequest, res: Response): Promis
     }
 
     const slugBase = slugify(`copia-${original.title}`);
-    const slug = `${slugBase}-${generateId(8)}`;
+    const slug = `${slugBase}-${generateId()}`;
 
     const duplicate = new Proposal({
       ownerType: 'broadcaster',
@@ -1472,10 +1474,16 @@ export const setProtection = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     if (enabled) {
-      const pin = String(Math.floor(100000 + Math.random() * 900000)); // 6 dígitos
+      // SEGURANCA (3.5): CSPRNG + hash, alinhado com proposalController.
+      // Antes: Math.random() (PRNG nao-criptografico — a partir de poucas
+      // saidas o estado do xorshift128+ e recuperavel e os PINs seguintes
+      // ficam previsiveis) e o PIN gravado em PLAINTEXT no documento.
+      // O caminho equivalente na agencia ja fazia o certo; era a mesma
+      // feature com dois comportamentos.
+      const pin = String(crypto.randomInt(100000, 1000000)); // 6 dígitos
       proposal.protection = {
         enabled: true,
-        pin,
+        pin: await bcrypt.hash(pin, 10),
         email: email || undefined,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24h
       };

@@ -20,6 +20,15 @@ export interface IOrderItem {
   discountReason?: string;      // motivo do desconto (ex: 'Bonificação')
   totalPrice: number;
   schedule: Map<string, number>; // { 'YYYY-MM-DD': quantity }
+
+  // Decisao da emissora POR ITEM.
+  // SEGURANCA: aprovar/recusar precisa ser granular. Enquanto a decisao era
+  // do pedido inteiro, uma emissora com 1 item cancelava a venda ja paga de
+  // todas as outras do mesmo pedido (sabotagem competitiva). O status do
+  // Order passa a ser DERIVADO destes campos — ver deriveOrderStatusFromItems.
+  broadcasterStatus?: 'pending' | 'approved' | 'rejected';
+  broadcasterDecidedAt?: Date;
+  rejectionReason?: string;
   // Campos de Patrocínio
   itemType?: 'product' | 'sponsorship';
   sponsorshipId?: string;
@@ -195,6 +204,15 @@ export interface IPayment {
   totalAmount: number; // Valor total do pedido
   paidAt?: Date;
   failureReason?: string;
+
+  // Status bruto devolvido pelo Asaas (CONFIRMED, RECEIVED, PENDING,
+  // AWAITING_RISK_ANALYSIS...). Guardado separado de `status` porque o
+  // nosso enum interno nao cobre os estados intermediarios do gateway.
+  asaasStatus?: string;
+
+  // Idempotencia do webhook: um evento so pode ser aplicado uma vez.
+  // Sem isso, reentrega de PAYMENT_REFUNDED reexecuta os efeitos colaterais.
+  processedEvents?: { eventId: string; event: string; at: Date }[];
 }
 
 export interface IOrder extends Document {
@@ -296,6 +314,10 @@ const OrderSchema = new Schema<IOrder>({
     discountReason: { type: String },
     totalPrice: { type: Number, required: true },
     schedule: { type: Map, of: Number, required: true },
+    // Decisao da emissora POR ITEM (ver IOrderItem)
+    broadcasterStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    broadcasterDecidedAt: Date,
+    rejectionReason: String,
     // Campos de Patrocínio
     itemType: { type: String, enum: ['product', 'sponsorship'], default: 'product' },
     sponsorshipId: String,
@@ -455,7 +477,13 @@ const OrderSchema = new Schema<IOrder>({
     chargedAmount: { type: Number, required: true },
     totalAmount: { type: Number, required: true },
     paidAt: Date,
-    failureReason: String
+    failureReason: String,
+    asaasStatus: String,
+    processedEvents: [{
+      eventId: { type: String, required: true },
+      event: { type: String, required: true },
+      at: { type: Date, default: Date.now }
+    }]
   },
 
   splits: [{
@@ -603,5 +631,31 @@ OrderSchema.index({ 'payment.status': 1, paidAt: -1 });
 
 // Faturamento — pedidos com billingStatus pendente
 OrderSchema.index({ billingStatus: 1, createdAt: -1 });
+
+/**
+ * Deriva o status do PEDIDO a partir das decisoes POR ITEM das emissoras.
+ *
+ * SEGURANCA (item 3.3 do plano de remediacao 2026-07-20): antes, aprovar ou
+ * recusar mutava `order.status` direto — bastava ter 1 item no pedido para
+ * cancelar a venda ja paga de todas as outras emissoras. Agora cada emissora
+ * decide apenas sobre os proprios itens e o status do pedido e consequencia:
+ *
+ *  - todos recusados            -> 'cancelled'
+ *  - todos decididos, algum ok  -> 'approved'
+ *  - ainda ha item pendente     -> mantem o status atual (nao avanca)
+ *
+ * Retorna `null` quando nao ha decisao suficiente para mudar o status.
+ */
+export function deriveOrderStatusFromItems(
+  items: { broadcasterStatus?: string }[]
+): 'approved' | 'cancelled' | null {
+  if (!items || items.length === 0) return null;
+
+  const decided = items.filter((i) => i.broadcasterStatus === 'approved' || i.broadcasterStatus === 'rejected');
+  if (decided.length < items.length) return null; // ainda ha pendencia
+
+  const anyApproved = items.some((i) => i.broadcasterStatus === 'approved');
+  return anyApproved ? 'approved' : 'cancelled';
+}
 
 export default mongoose.model<IOrder>('Order', OrderSchema);

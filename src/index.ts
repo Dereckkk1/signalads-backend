@@ -39,8 +39,10 @@ import { startCartReminderCron } from './cron/cartReminder';
 // Middlewares de Segurança
 import helmet from 'helmet';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-// import mongoSanitize from 'express-mongo-sanitize'; // Incompatible with Express 5
-// import hpp from 'hpp'; // Incompatible com Express 5 (req.query e read-only). Substituido por dedupeQuery local.
+// NOTA: express-mongo-sanitize e hpp NAO sao usados — ambos incompativeis com
+// Express 5 (req.query virou getter). Substituidos por mongoSanitize/dedupeQuery
+// locais em middleware/security.ts. Pacotes desinstalados em 2026-07-20.
+
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { redis } from './config/redis';
@@ -56,7 +58,23 @@ dotenv.config();
 const app: Application = express();
 const PORT = process.env.PORT || 5000; // v2
 
-// Confiança no proxy: apenas em prod (atrás de Nginx/Cloudflare). Em dev, usa IP direto.
+// Confiança no proxy.
+//
+// TOPOLOGIA CONFIRMADA (2026-07-20): `api.eradios.com.br` tem registro A
+// PROXIADO pela Cloudflare (nuvem laranja no painel DNS).
+//
+// O numero aqui deixou de ser critico para seguranca: rate limiting,
+// blocklist e auditoria passaram a usar `getClientIp()` (utils/clientIp.ts),
+// que le `CF-Connecting-IP` — header que a Cloudflare SOBRESCREVE e o cliente
+// nao consegue forjar. Antes disso, errar este numero tornava `req.ip`
+// spoofavel e derrubava as tres protecoes de uma vez.
+//
+// Continua em 1 porque `req.ip` ainda e usado por bibliotecas de terceiros
+// e como fallback quando nao ha header da Cloudflare.
+//
+// ⚠️ PRE-REQUISITO: o firewall da VM precisa aceitar trafego APENAS das
+// faixas da Cloudflare (https://www.cloudflare.com/ips/). Sem isso, quem
+// descobrir o IP de origem pula a Cloudflare e forja o header.
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 
 // Configuração de Segurança
@@ -131,29 +149,20 @@ app.use((req: Request, res: Response, next) => {
 //   Protege contra anonimos e é CGNAT-friendly (limite mais alto)
 //
 // Limiter 2 — por userId (150 req/min)
-//   Só dispara quando há JWT válido. Usa jwt.decode() sem verificar
-//   (verificação real continua na auth middleware) — apenas para
-//   extrair a chave de rate limit. Forjar userId só queima a cota
-//   de outra chave, não ajuda o atacante.
+//   Só dispara quando há JWT com assinatura válida. A verificação aqui é
+//   OBRIGATÓRIA: com jwt.decode() (sem verify) um atacante anônimo forja
+//   { userId: <vítima> }, esgota o balde `user:<vítima>` e a conta real
+//   passa a receber 429 em todas as rotas — DoS direcionado por conta.
+//   Token inválido => chave nula => o request cai apenas no limiter por IP.
 //
 // Headers retornados (RFC 6585 + draft-ietf-httpapi-ratelimit):
 //   RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After
 // ─────────────────────────────────────────────────────────────
-import jwt from 'jsonwebtoken';
+import { getUserIdFromToken } from './utils/rateLimitKey';
+import { getClientIp } from './utils/clientIp';
 
 const isHealthCheck = (req: Request) =>
   req.path === '/api/health' || req.path === '/health';
-
-const getUserIdFromToken = (req: Request): string | null => {
-  try {
-    const token = (req as any).cookies?.access_token;
-    if (!token) return null;
-    const decoded = jwt.decode(token) as { userId?: string } | null;
-    return decoded?.userId || null;
-  } catch {
-    return null;
-  }
-};
 
 // Limiter 1: por IP — 300 req/min
 const ipLimiter = rateLimit({
@@ -163,7 +172,7 @@ const ipLimiter = rateLimit({
   legacyHeaders: false,
   skip: isHealthCheck,
   store: createRedisStore('ip'),
-  keyGenerator: (req) => ipKeyGenerator(req.ip || 'unknown'),
+  keyGenerator: (req) => ipKeyGenerator(getClientIp(req)),
   message: { error: 'Muitas requisições deste IP. Tente novamente em um minuto.' },
 });
 
@@ -241,7 +250,11 @@ app.use('/api/broadcaster', broadcasterGroupRoutes);   // Grupos de permissoes d
 app.use('/api/broadcaster', broadcasterGoalsRoutes);  // Metas comerciais de emissoras
 app.use('/api/broadcaster', broadcasterReportsRoutes); // Central de relatórios de emissoras
 app.use('/api/broadcaster', broadcasterCalendarRoutes); // Calendário da emissora
-app.use('/api/test-reports', testReportRoutes); // Dashboard de testes (admin only)
+// Dashboard de testes (admin only) — ferramenta de desenvolvimento.
+// Serve HTML de coverage direto do disco; nao vai ao ar em producao (FASE 9.7).
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/test-reports', testReportRoutes);
+}
 app.use('/api/sponsorships', sponsorshipRoutes); // Patrocínios de programas (emissoras)
 app.use('/api/insertion-time-slots', insertionTimeSlotRoutes); // Faixas horárias reutilizáveis (emissoras)
 app.use('/api/kanban', kanbanRoutes); // Colunas customizadas + drag-n-drop de propostas/pedidos

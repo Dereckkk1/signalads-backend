@@ -181,6 +181,46 @@ describe('PUT /api/onboarding/broadcaster/:id', () => {
     expect((saved as any).broadcasterProfile.categories).toContain('Jornalismo');
   });
 
+  it('SEGURANCA (5.4): emissora NAO consegue definir o proprio pmm nem sequestrar slug', async () => {
+    const { user, auth } = await createBroadcaster({ onboardingCompleted: false });
+
+    const res = await request(app)
+      .put(`/api/onboarding/broadcaster/${user._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({
+        profile: {
+          categories: ['Musical'],
+          // Campos administrativos: pmm ordena o marketplace (CPM) e slug e a
+          // URL publica /emissora/:slug. Antes, o merge cego aceitava os dois.
+          pmm: 999999,
+          slug: 'radio-globo-sp',
+        },
+      });
+
+    expect(res.status).toBe(200);
+
+    const saved: any = await User.findById(user._id).lean();
+    expect(saved.broadcasterProfile.pmm).not.toBe(999999);
+    expect(saved.broadcasterProfile.slug).not.toBe('radio-globo-sp');
+    // O campo legitimo do mesmo payload continua sendo aplicado
+    expect(saved.broadcasterProfile.categories).toContain('Musical');
+  });
+
+  it('SEGURANCA (5.4): subcampo desconhecido nao e persistido', async () => {
+    const { user, auth } = await createBroadcaster({ onboardingCompleted: false });
+
+    await request(app)
+      .put(`/api/onboarding/broadcaster/${user._id}`)
+      .set('Cookie', auth.cookieHeader)
+      .set('X-CSRF-Token', auth.csrfHeader)
+      .send({ profile: { campoInventado: 'x', categories: ['Esportes'] } });
+
+    const saved: any = await User.findById(user._id).lean();
+    expect(saved.broadcasterProfile.campoInventado).toBeUndefined();
+    expect(saved.broadcasterProfile.categories).toContain('Esportes');
+  });
+
   it('retorna 403 ao tentar atualizar o perfil de OUTRO usuario (IDOR)', async () => {
     const { auth } = await createBroadcaster({ onboardingCompleted: false });
     const { user: victim } = await createBroadcaster({ onboardingCompleted: false });

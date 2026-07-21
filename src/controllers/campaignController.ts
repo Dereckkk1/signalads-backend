@@ -1,10 +1,48 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import Order from '../models/Order';
+import Order, { deriveOrderStatusFromItems } from '../models/Order';
 import { Product } from '../models/Product';
 import { User } from '../models/User';
 import { sendOrderApprovedToClient, sendOrderRejectedToClient, sendNewOrderToBroadcaster } from '../services/emailService';
 import { shouldSendNotification } from '../services/notificationService';
+
+/**
+ * Projeta um pedido para a visao da EMISSORA nas listagens.
+ *
+ * SEGURANCA (complemento do item 3.2): `getBroadcasterOrders` e
+ * `getPendingApprovalOrders` ja filtravam os ITENS por emissora, mas
+ * espalhavam `...order` — o resto do documento ia inteiro, incluindo
+ * CPF/CNPJ e telefone do comprador, dados de pagamento (`asaasPaymentId`,
+ * bandeira e final do cartao) e as margens da plataforma (`platformSplit`,
+ * `techFee`, `broadcasterAmount`, `splits[]`).
+ *
+ * Aqui a regra e a inversa da anterior: allowlist do que a emissora PODE ver,
+ * em vez de blocklist do que remover. Campo novo no Order nao vaza por
+ * esquecimento.
+ */
+function toBroadcasterOrderView(order: any, extras: Record<string, any> = {}) {
+  return {
+    _id: order._id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    createdAt: order.createdAt,
+    paidAt: order.paidAt,
+    approvedAt: order.approvedAt,
+    cancelledAt: order.cancelledAt,
+    completedAt: order.completedAt,
+    cancellationReason: order.cancellationReason,
+    isFromBroadcasterProposal: order.isFromBroadcasterProposal,
+    contract: order.contract,
+    // Identificacao comercial do comprador — nome e o suficiente para a
+    // emissora operar a campanha. Documento, e-mail e telefone nao sao.
+    buyerName: order.buyerName,
+    // Metodo de pagamento (a emissora precisa saber se e faturado), mas
+    // nenhum identificador do gateway nem dado de cartao.
+    paymentMethod: order.payment?.method,
+    paymentStatus: order.payment?.status,
+    ...extras,
+  };
+}
 
 /**
  * Controller de Campanhas
@@ -308,15 +346,14 @@ export const getPendingApprovalOrders = async (req: AuthRequest, res: Response) 
             }, 0) * 100
           ) / 100;
 
-      return {
-        ...order,
+      return toBroadcasterOrderView(order, {
         items: myItems.map((item: any) => ({
           ...item,
           pricePerInsertion: item.unitPrice,
         })),
         myTotalValue,
         myTotalItems: myItems.reduce((sum: number, item: any) => sum + item.quantity, 0)
-      };
+      });
     });
 
     res.json({
@@ -403,15 +440,14 @@ export const getBroadcasterOrders = async (req: AuthRequest, res: Response) => {
             }, 0) * 100
           ) / 100;
 
-      return {
-        ...order,
+      return toBroadcasterOrderView(order, {
         items: myItems.map((item: any) => ({
           ...item,
           pricePerInsertion: item.unitPrice,
         })),
         myTotalValue,
         myTotalItems: myItems.reduce((sum: number, item: any) => sum + item.quantity, 0)
-      };
+      });
     });
 
     res.json({
@@ -472,11 +508,23 @@ export const approveBroadcasterItems = async (req: AuthRequest, res: Response) =
 
     // ⚠️ IMPORTANTE: Se o pagamento é "A Faturar", NÃO credita wallets agora
     // Os valores só serão creditados após o admin aprovar E o cliente pagar a NF
+    // Aprova apenas os itens desta emissora (ver deriveOrderStatusFromItems).
+    broadcasterItems.forEach((item: any) => {
+      item.broadcasterStatus = 'approved';
+      item.broadcasterDecidedAt = new Date();
+    });
+    const derivedStatus = deriveOrderStatusFromItems(order.items as any);
+
     if (order.payment.method === 'billing') {
 
-      // Apenas marca como aprovado pela emissora
-      order.status = 'approved';
-      order.approvedAt = new Date();
+      // So avanca o pedido quando TODAS as emissoras decidiram.
+      if (derivedStatus === 'approved') {
+        order.status = 'approved';
+        order.approvedAt = new Date();
+      } else if (derivedStatus === 'cancelled') {
+        order.status = 'cancelled';
+        order.cancelledAt = new Date();
+      }
       await order.save();
 
       // Pega os dados da primeira emissora (pode haver múltiplas)
@@ -507,15 +555,21 @@ export const approveBroadcasterItems = async (req: AuthRequest, res: Response) =
       });
     }
 
-    // Atualiza o status do pedido
-    order.status = 'approved';
-    order.approvedAt = new Date();
+    // Status do pedido derivado das decisoes por item (nao sobrescreve
+    // decisao de outras emissoras).
+    if (derivedStatus === 'approved') {
+      order.status = 'approved';
+      order.approvedAt = new Date();
+    } else if (derivedStatus === 'cancelled') {
+      order.status = 'cancelled';
+      order.cancelledAt = new Date();
+    }
 
     order.notifications.push({
       type: 'email',
       sentAt: new Date(),
       status: 'sent',
-      message: 'Pedido aprovado pela emissora'
+      message: 'Itens aprovados pela emissora'
     } as any);
 
     await order.save();
@@ -608,17 +662,32 @@ export const rejectBroadcasterItems = async (req: AuthRequest, res: Response) =>
     const totalRefund = itemsValue + proportionalFee;
 
 
-    // Atualiza o status do pedido
-    order.status = 'cancelled';
-    order.cancelledAt = new Date();
-    order.cancellationReason = `Recusado pela emissora: ${reason}`;
+    // Recusa APENAS os itens desta emissora. O status do pedido e derivado:
+    // sem isso, uma emissora com 1 item cancelava a venda ja paga das demais.
+    broadcasterItems.forEach((item: any) => {
+      item.broadcasterStatus = 'rejected';
+      item.broadcasterDecidedAt = new Date();
+      item.rejectionReason = reason;
+    });
+
+    const derived = deriveOrderStatusFromItems(order.items as any);
+    if (derived === 'cancelled') {
+      order.status = 'cancelled';
+      order.cancelledAt = new Date();
+      order.cancellationReason = `Recusado pela emissora: ${reason}`;
+    } else if (derived === 'approved') {
+      // As demais emissoras aprovaram — o pedido segue, sem os itens recusados.
+      order.status = 'approved';
+      order.approvedAt = new Date();
+    }
+    // derived === null: ainda ha emissoras por decidir, status nao muda.
 
     // Adiciona log de notificação
     order.notifications.push({
       type: 'email',
       sentAt: new Date(),
       status: 'sent',
-      message: `Pedido recusado pela emissora. Motivo: ${reason}. Valor estornado: R$ ${totalRefund.toFixed(2)}`
+      message: `Itens recusados pela emissora. Motivo: ${reason}. Valor estornado: R$ ${totalRefund.toFixed(2)}`
     } as any);
 
     await order.save();
@@ -688,9 +757,20 @@ export const getCampaignDetails = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'Você não tem permissão para ver esta campanha' });
     }
 
-    // Agrupa por emissora
+    // SEGURANCA (3.2): a emissora ve APENAS os proprios itens.
+    // Espalhar `...order` entregava a ela o CPF/CNPJ e telefone do comprador,
+    // os precos praticados pelas concorrentes no mesmo pedido, os dados de
+    // pagamento e as margens da plataforma (platformSplit/techFee/
+    // broadcasterAmount). E as URLs de material de todas as emissoras, que
+    // alimentavam o download cruzado via /api/upload/signed-url.
+    const isBuyerOrAdmin = isBuyer || isAdmin;
+    const visibleItems = isBuyerOrAdmin
+      ? order.items
+      : order.items.filter((item: any) => item.broadcasterId === userId);
+
+    // Agrupa por emissora (apenas sobre o que este ator pode ver)
     const broadcasterGroups: any = {};
-    order.items.forEach((item: any) => {
+    visibleItems.forEach((item: any) => {
       const broadcasterId = item.broadcasterId;
       if (!broadcasterGroups[broadcasterId]) {
         broadcasterGroups[broadcasterId] = {
@@ -708,12 +788,49 @@ export const getCampaignDetails = async (req: AuthRequest, res: Response) => {
       broadcasterGroups[broadcasterId].totalValue += item.totalPrice;
     });
 
-    res.json({
-      campaign: {
-        ...order,
-        broadcasters: Object.values(broadcasterGroups)
-      }
-    });
+    const campaign: any = {
+      _id: order._id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      createdAt: order.createdAt,
+      paidAt: order.paidAt,
+      approvedAt: order.approvedAt,
+      cancelledAt: order.cancelledAt,
+      completedAt: order.completedAt,
+      cancellationReason: order.cancellationReason,
+      buyerName: order.buyerName,
+      items: visibleItems,
+      broadcasters: Object.values(broadcasterGroups),
+    };
+
+    if (isBuyerOrAdmin) {
+      // Comprador e admin veem o pedido financeiro completo.
+      Object.assign(campaign, {
+        buyerId: order.buyerId,
+        buyerEmail: order.buyerEmail,
+        buyerPhone: order.buyerPhone,
+        buyerDocument: order.buyerDocument,
+        clientId: order.clientId,
+        payment: order.payment,
+        splits: order.splits,
+        totalAmount: order.totalAmount,
+        subtotal: order.subtotal,
+        grossAmount: order.grossAmount,
+        agencyCommission: order.agencyCommission,
+        monitoringCost: order.monitoringCost,
+        isMonitoringEnabled: order.isMonitoringEnabled,
+        contract: order.contract,
+        billingStatus: order.billingStatus,
+      });
+    } else {
+      // Emissora ve apenas o proprio faturamento nesta campanha.
+      campaign.myTotalValue = visibleItems.reduce(
+        (sum: number, item: any) => sum + (item.totalPrice || 0),
+        0
+      );
+    }
+
+    res.json({ campaign });
   } catch (error: any) {
     res.status(500).json({
       message: 'Erro ao buscar campanha',

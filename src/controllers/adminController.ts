@@ -23,6 +23,9 @@ import {
   sendOrderReceivedToClient
 } from '../services/emailService';
 
+/** Teto de itens por pagina em listagens administrativas (item 4.9). */
+const MAX_PAGE_SIZE = 100;
+
 // Listar emissoras pendentes de aprovação
 export const getPendingBroadcasters = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -170,7 +173,9 @@ export const getBroadcastersForManagement = async (req: AuthRequest, res: Respon
   try {
     const { page = 1, limit = 25, search, status } = req.query;
     const pageNum = Math.max(1, Number(page));
-    const limitNum = Math.max(1, Number(limit));
+    // Teto de paginacao (item 4.9): sem Math.min, `?limit=1000000` forcava
+    // varredura e serializacao da colecao inteira.
+    const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(limit) || 25));
     const skip = (pageNum - 1) * limitNum;
 
 
@@ -606,7 +611,9 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
     const { page = 1, limit = 20, search, type, status } = req.query;
 
     const pageNum = Math.max(1, Number(page));
-    const limitNum = Math.max(1, Number(limit));
+    // Teto de paginacao (item 4.9): sem Math.min, `?limit=1000000` forcava
+    // varredura e serializacao da colecao inteira.
+    const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(limit) || 25));
     const skip = (pageNum - 1) * limitNum;
 
     // Filtros

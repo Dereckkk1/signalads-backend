@@ -59,6 +59,10 @@ import { startProposalAlertsCron } from '../../../cron/proposalAlerts';
 // ── Helper: chain pattern for Mongoose queries ──
 function createChainedQuery(results: any[]) {
     return {
+        // `limit` faz parte da cadeia desde o item 4.11 (teto por execucao do
+        // cron). Sem ele no mock, a query real quebra silenciosamente e o job
+        // nao envia e-mail nenhum.
+        limit: jest.fn().mockReturnThis(),
         populate: jest.fn().mockReturnThis(),
         lean: jest.fn().mockResolvedValue(results),
     };

@@ -99,6 +99,7 @@ describe('expireProposals — logica de expiracao', () => {
     it('deve chamar updateMany para expirar propostas vencidas', async () => {
         mockUpdateMany.mockResolvedValueOnce({ modifiedCount: 0 });
         mockFind.mockReturnValueOnce({
+            limit: jest.fn().mockReturnThis(),
             populate: jest.fn().mockReturnThis(),
             lean: jest.fn().mockResolvedValue([]),
         });
@@ -121,6 +122,7 @@ describe('expireProposals — logica de expiracao', () => {
         const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
         mockUpdateMany.mockResolvedValueOnce({ modifiedCount: 5 });
         mockFind.mockReturnValueOnce({
+            limit: jest.fn().mockReturnThis(),
             populate: jest.fn().mockReturnThis(),
             lean: jest.fn().mockResolvedValue([]),
         });
@@ -137,6 +139,7 @@ describe('expireProposals — logica de expiracao', () => {
         const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
         mockUpdateMany.mockResolvedValueOnce({ modifiedCount: 0 });
         mockFind.mockReturnValueOnce({
+            limit: jest.fn().mockReturnThis(),
             populate: jest.fn().mockReturnThis(),
             lean: jest.fn().mockResolvedValue([]),
         });
@@ -164,6 +167,7 @@ describe('expireProposals — alertas de expiracao', () => {
         const mockPopulate = jest.fn().mockReturnThis();
         const mockLean = jest.fn().mockResolvedValue([]);
         mockFind.mockReturnValueOnce({
+            limit: jest.fn().mockReturnThis(),
             populate: mockPopulate,
             lean: mockLean,
         });
@@ -203,6 +207,7 @@ describe('expireProposals — alertas de expiracao', () => {
         const mockPopulate = jest.fn().mockReturnThis();
         const mockLean = jest.fn().mockResolvedValue([proposal]);
         mockFind.mockReturnValueOnce({
+            limit: jest.fn().mockReturnThis(),
             populate: mockPopulate,
             lean: mockLean,
         });
@@ -248,6 +253,7 @@ describe('expireProposals — alertas de expiracao', () => {
         const mockPopulate = jest.fn().mockReturnThis();
         const mockLean = jest.fn().mockResolvedValue([proposal]);
         mockFind.mockReturnValueOnce({
+            limit: jest.fn().mockReturnThis(),
             populate: mockPopulate,
             lean: mockLean,
         });
@@ -279,6 +285,7 @@ describe('expireProposals — alertas de expiracao', () => {
         const mockPopulate = jest.fn().mockReturnThis();
         const mockLean = jest.fn().mockResolvedValue([proposal]);
         mockFind.mockReturnValueOnce({
+            limit: jest.fn().mockReturnThis(),
             populate: mockPopulate,
             lean: mockLean,
         });
@@ -294,6 +301,7 @@ describe('expireProposals — alertas de expiracao', () => {
         const mockPopulate = jest.fn().mockReturnThis();
         const mockLean = jest.fn().mockResolvedValue([]);
         mockFind.mockReturnValueOnce({
+            limit: jest.fn().mockReturnThis(),
             populate: mockPopulate,
             lean: mockLean,
         });
@@ -344,6 +352,7 @@ describe('expireProposals — tratamento de erros', () => {
         const mockPopulate = jest.fn().mockReturnThis();
         const mockLean = jest.fn().mockResolvedValue([proposal]);
         mockFind.mockReturnValueOnce({
+            limit: jest.fn().mockReturnThis(),
             populate: mockPopulate,
             lean: mockLean,
         });

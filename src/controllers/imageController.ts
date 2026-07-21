@@ -78,7 +78,12 @@ export const getAppSheetImage = async (req: Request, res: Response) => {
                 if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|localhost|169\.254\.|::1|\[::)/.test(urlObj.hostname)) {
                     return res.status(403).send('Internal addresses not allowed');
                 }
-                return res.redirect(fileName);
+                // Nao redireciona para a string crua do cliente: reconstroi a URL a partir
+                // apenas de hostname/pathname/search ja validados. Isso descarta credenciais
+                // embutidas (user:pass@), fragmento (#) e qualquer truque de parsing que possa
+                // fazer o navegador resolver um destino diferente do que foi validado aqui.
+                const safeUrl = `https://${urlObj.hostname}${urlObj.port ? `:${urlObj.port}` : ''}${urlObj.pathname}${urlObj.search}`;
+                return res.redirect(safeUrl);
             } catch {
                 return res.status(400).send('Invalid URL');
             }

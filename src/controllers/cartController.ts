@@ -34,6 +34,52 @@ const sanitizeQuantity = (qty: any): number | null => {
 };
 
 // Função para validar e limpar datas expiradas
+/** Maximo de insercoes que um item pode ter agendadas num unico dia. */
+const MAX_INSERTIONS_PER_DAY = 100;
+
+/**
+ * Valida um agendamento e confere que ele bate com a quantidade CONTRATADA.
+ *
+ * SEGURANCA (item 2.4 do plano de remediacao): o preco do item deriva de
+ * `quantity`, mas o que a emissora efetivamente veicula vem do `schedule`.
+ * Enquanto os dois nao eram conferidos entre si, bastava comprar 1 insercao
+ * e depois agendar 1000 — pedido cobrado por 1, veiculado por 1000. Nao
+ * exigia exploit: era um PUT legitimo com um numero maior.
+ *
+ * Retorna `null` quando valido, ou a mensagem de erro a devolver em 400.
+ */
+export const validateScheduleAgainstQuantity = (
+  schedule: unknown,
+  quantity: number
+): string | null => {
+  if (schedule === null || schedule === undefined) return null;
+  if (typeof schedule !== 'object' || Array.isArray(schedule)) {
+    return 'Formato de agendamento inválido';
+  }
+
+  const entries = Object.entries(schedule as Record<string, unknown>);
+  if (entries.length === 0) return null;
+
+  for (const [date, count] of entries) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return `Data de agendamento inválida: ${date}`;
+    }
+    if (typeof count !== 'number' || !Number.isInteger(count) || count < 1) {
+      return `Quantidade de inserções inválida para ${date}`;
+    }
+    if (count > MAX_INSERTIONS_PER_DAY) {
+      return `Máximo de ${MAX_INSERTIONS_PER_DAY} inserções por dia (${date})`;
+    }
+  }
+
+  const totalScheduled = entries.reduce((sum, [, count]) => sum + (count as number), 0);
+  if (totalScheduled !== quantity) {
+    return `A soma do agendamento (${totalScheduled}) deve ser igual à quantidade contratada (${quantity})`;
+  }
+
+  return null;
+};
+
 const cleanExpiredSchedules = (items: ICartItem[], minAdvanceDays: number = 3): ICartItem[] => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -503,7 +549,22 @@ export const updateItemSchedule = async (req: AuthRequest, res: Response): Promi
       return;
     }
 
+    // O agendamento e o que a emissora veicula — precisa bater com a
+    // quantidade que foi efetivamente cobrada.
+    const scheduleError = validateScheduleAgainstQuantity(
+      schedule,
+      cart.items[itemIndex].quantity
+    );
+    if (scheduleError) {
+      res.status(400).json({ error: scheduleError });
+      return;
+    }
+
     cart.items[itemIndex].schedule = schedule;
+
+    // Remove datas que ja violam a antecedencia minima. Antes so o syncCart
+    // fazia isso, entao dava para agendar no passado por esta rota.
+    cart.items = cleanExpiredSchedules(cart.items);
     await cart.save();
 
 

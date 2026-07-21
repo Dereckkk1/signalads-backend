@@ -26,6 +26,11 @@ jest.mock('../../services/asaasService', () => ({
     expiresAt: '2026-05-22',
   }),
   sanitizeForLog: jest.fn((x: any) => x),
+  // Espelha a constante real do modulo. Como o jest.mock substitui o modulo
+  // inteiro, omitir isto faz `CONFIRMED_ASAAS_STATUSES.includes(...)` lancar
+  // dentro do checkout e o pedido virar 402 sem motivo.
+  CONFIRMED_ASAAS_STATUSES: ['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'],
+  getPaymentStatus: jest.fn().mockResolvedValue({ status: 'CONFIRMED', value: 0 }),
 }));
 
 import '../helpers/mocks';

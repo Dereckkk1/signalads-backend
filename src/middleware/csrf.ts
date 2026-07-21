@@ -69,9 +69,15 @@ const isOriginAllowed = (req: Request): boolean => {
   return true;
 };
 
-// Rotas CSRF-isentas que ainda assim devem validar Origin/Referer
+// Rotas CSRF-isentas que ainda assim devem validar Origin/Referer.
+// Sem isso, /login e /register ficam abertos a login-CSRF (a vitima e autenticada
+// silenciosamente na conta do atacante) e /contact-messages a spam cross-site.
 const ORIGIN_PROTECTED_EXEMPT_ROUTES = [
   '/api/auth/refresh',
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/2fa/confirm',
+  '/api/contact-messages',
 ];
 
 const requiresOriginCheck = (path: string): boolean => {

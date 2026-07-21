@@ -3,6 +3,22 @@ import { AuthRequest } from '../middleware/auth';
 import BroadcasterGroup, { ALL_PAGE_PERMISSIONS, PagePermission } from '../models/BroadcasterGroup';
 import { User } from '../models/User';
 import { invalidateUserCache } from '../middleware/auth';
+import { escapeRegex } from '../utils/stringUtils';
+
+/** Limite de tamanho do nome do grupo (espelha o maxlength do schema). */
+const MAX_GROUP_NAME_LENGTH = 100;
+
+/**
+ * Monta o filtro de nome exato (case-insensitive) para checagem de duplicidade.
+ *
+ * O nome vem de req.body e NAO pode ser interpolado cru em new RegExp():
+ * metacaracteres quebram a semantica do filtro (".*" casaria qualquer grupo
+ * existente, travando a criacao) e padroes catastroficos ("(a+)+$") viram
+ * ReDoS dentro do MongoDB.
+ */
+function exactNameFilter(name: string) {
+  return { $regex: `^${escapeRegex(name)}$`, $options: 'i' };
+}
 
 /**
  * Verifica se o usuario logado e o manager da emissora.
@@ -65,8 +81,13 @@ export const createGroup = async (req: AuthRequest, res: Response): Promise<void
 
     const { name, permissions } = req.body;
 
-    if (!name?.trim()) {
+    if (typeof name !== 'string' || !name.trim()) {
       res.status(400).json({ error: 'Nome do grupo é obrigatório' });
+      return;
+    }
+    const trimmedName = name.trim();
+    if (trimmedName.length > MAX_GROUP_NAME_LENGTH) {
+      res.status(400).json({ error: `Nome do grupo deve ter no máximo ${MAX_GROUP_NAME_LENGTH} caracteres` });
       return;
     }
 
@@ -78,7 +99,7 @@ export const createGroup = async (req: AuthRequest, res: Response): Promise<void
     // Verificar nome duplicado na emissora
     const existing = await BroadcasterGroup.findOne({
       broadcasterId: req.userId,
-      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+      name: exactNameFilter(trimmedName)
     });
     if (existing) {
       res.status(400).json({ error: 'Já existe um grupo com este nome' });
@@ -86,7 +107,7 @@ export const createGroup = async (req: AuthRequest, res: Response): Promise<void
     }
 
     const group = new BroadcasterGroup({
-      name: name.trim(),
+      name: trimmedName,
       broadcasterId: req.userId,
       permissions: validPermissions
     });
@@ -121,21 +142,26 @@ export const updateGroup = async (req: AuthRequest, res: Response): Promise<void
     const { name, permissions } = req.body;
 
     if (name !== undefined) {
-      if (!name.trim()) {
+      if (typeof name !== 'string' || !name.trim()) {
         res.status(400).json({ error: 'Nome do grupo não pode ser vazio' });
+        return;
+      }
+      const trimmedName = name.trim();
+      if (trimmedName.length > MAX_GROUP_NAME_LENGTH) {
+        res.status(400).json({ error: `Nome do grupo deve ter no máximo ${MAX_GROUP_NAME_LENGTH} caracteres` });
         return;
       }
       // Verificar duplicidade (exceto o proprio grupo)
       const duplicate = await BroadcasterGroup.findOne({
         broadcasterId: req.userId,
-        name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+        name: exactNameFilter(trimmedName),
         _id: { $ne: group._id }
       });
       if (duplicate) {
         res.status(400).json({ error: 'Já existe um grupo com este nome' });
         return;
       }
-      group.name = name.trim();
+      group.name = trimmedName;
     }
 
     if (permissions !== undefined) {

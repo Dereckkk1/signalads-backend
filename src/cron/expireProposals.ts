@@ -4,6 +4,18 @@ import Order from '../models/Order';
 import SponsorshipBooking from '../models/SponsorshipBooking';
 
 /**
+ * Teto por execucao (item 4.11 do plano 2026-07-20).
+ *
+ * Estas queries nao tinham `.limit()` e usam `populate`: conforme a base
+ * cresce, o job carregaria a colecao inteira em memoria num unico tick e
+ * dispararia um e-mail por item em loop sequencial — pico de RAM e risco de
+ * bloqueio pelo provedor de e-mail. Processar em lote e preferivel a
+ * processar tudo e cair.
+ */
+const CRON_BATCH_SIZE = 500;
+
+
+/**
  * Cron Job — Expira propostas vencidas + alertas de expiração + libera bookings de patrocinio
  * Roda diariamente a meia-noite (00:00).
  */
@@ -54,7 +66,7 @@ export function startExpireProposalsCron(): void {
       const expiringProposals = await Proposal.find({
         validUntil: { $gte: today, $lte: threeDaysFromNow },
         status: { $in: ['sent', 'viewed'] }
-      }).populate('agencyId', 'email companyName').populate('broadcasterId', 'email companyName').lean();
+      }).limit(CRON_BATCH_SIZE).populate('agencyId', 'email companyName').populate('broadcasterId', 'email companyName').lean();
 
       if (expiringProposals.length > 0) {
         try {

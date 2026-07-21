@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import SystemMetric from '../models/SystemMetric';
 import { blockedIPsSet } from '../utils/ipBlockList';
+import { getClientIp } from '../utils/clientIp';
 
 // ─────────────────────────────────────────────────────────────
 // Tipos
@@ -93,7 +94,7 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
         const routeKey = `${req.method} ${routePath}`;
         const isError = res.statusCode >= 500;
         const isSlow = duration > 2000;
-        const ip = req.ip || req.socket.remoteAddress || '';
+        const ip = getClientIp(req);
         const userId = (req as any).userId?.toString() || undefined;
         const userEmail = (req as any).user?.email || undefined;
 
@@ -245,7 +246,7 @@ export const checkBlockedIP = (req: Request, res: Response, next: NextFunction):
         next();
         return;
     }
-    const ip = req.ip || req.socket.remoteAddress || '';
+    const ip = getClientIp(req);
     if (blockedIPsSet.has(ip)) {
         res.status(403).json({ error: 'Acesso bloqueado' });
         return;

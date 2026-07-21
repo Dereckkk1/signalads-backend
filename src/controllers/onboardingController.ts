@@ -17,6 +17,26 @@ const VALID_STEPS = [1, 2, 3, 4];
  * Converte um subdocumento Mongoose (ou undefined) em plain object,
  * removendo chaves com valor `undefined` que quebram o cast do Mongoose.
  */
+/**
+ * Subcampos de `broadcasterProfile` que a PROPRIA emissora pode editar.
+ *
+ * Fora da lista, deliberadamente:
+ *   - `slug` — URL publica /emissora/:slug, indice unico (sequestro de SEO)
+ *   - `pmm`  — alimenta CPM e a ordenacao do marketplace (autodeclarar-se lider)
+ * Ambos so mudam por acao de admin.
+ */
+const BROADCASTER_PROFILE_EDITABLE_FIELDS = new Set([
+  'generalInfo',
+  'logo',
+  'comercialEmail',
+  'website',
+  'socialMedia',
+  'categories',
+  'audienceProfile',
+  'coverage',
+  'businessRules',
+]);
+
 function toPlainProfile(profile: any): Record<string, any> {
   const plain = profile?.toObject?.() ?? (profile && typeof profile === 'object' ? { ...profile } : {});
   return JSON.parse(JSON.stringify(plain));
@@ -153,9 +173,34 @@ export const updateBroadcasterProfile = async (req: AuthRequest, res: Response):
     }
 
     if (profile && typeof profile === 'object' && !Array.isArray(profile)) {
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      // SEGURANCA (item 5.4 do plano 2026-07-20): allowlist em vez de merge cego.
+      //
+      // O spread `{ ...current, ...incoming }` aceitava QUALQUER subcampo do
+      // schema, incluindo dois que nao pertencem ao usuario:
+      //   - `pmm`: alimenta o calculo de CPM e a ordenacao do /mapa e do
+      //     comparador. A emissora se autodeclarava lider do marketplace.
+      //   - `slug`: e a URL publica /emissora/:slug (indice unico). Dava para
+      //     sequestrar um slug de SEO ainda nao atribuido.
+      // Ambos so podem ser alterados pelo admin (reportController).
       const current = toPlainProfile(user.broadcasterProfile);
       const incoming = JSON.parse(JSON.stringify(profile));
-      user.broadcasterProfile = { ...current, ...incoming } as any;
+
+      const filtered: Record<string, any> = {};
+      for (const key of Object.keys(incoming)) {
+        if (BROADCASTER_PROFILE_EDITABLE_FIELDS.has(key)) {
+          filtered[key] = incoming[key];
+        }
+      }
+
+      user.broadcasterProfile = {
+        ...current,
+        ...filtered,
+        // Reafirma os campos derivados/administrativos a partir do valor atual,
+        // para que nem um bug futuro na allowlist consiga sobrescreve-los.
+        slug: (current as any)?.slug,
+        pmm: (current as any)?.pmm,
+      } as any;
     }
 
     user.onboardingCompleted = true;

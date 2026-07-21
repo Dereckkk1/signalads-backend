@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import { Request, Response, NextFunction } from 'express';
 import { User } from '../../models/User';
+import { JWT_ISSUER, JWT_AUDIENCE } from '../../utils/tokenService';
 
 // ─── Constantes ────────────────────────────────────────────────
 export const TEST_JWT_SECRET = 'test-secret-key-for-testing-12345';
@@ -66,11 +67,12 @@ export async function createTestBroadcaster(overrides: CreateUserOptions = {}) {
 }
 
 // ─── JWT Helper ────────────────────────────────────────────────
+// issuer/audience obrigatorios desde a FASE 7.6 — sem eles o middleware rejeita.
 export function generateTestToken(userId: string, secret?: string): string {
     return jwt.sign(
         { userId },
         secret || process.env.JWT_SECRET || TEST_JWT_SECRET,
-        { expiresIn: '15m' }
+        { expiresIn: '15m', issuer: JWT_ISSUER, audience: JWT_AUDIENCE }
     );
 }
 
@@ -78,7 +80,7 @@ export function generateExpiredToken(userId: string): string {
     return jwt.sign(
         { userId },
         process.env.JWT_SECRET || TEST_JWT_SECRET,
-        { expiresIn: '0s' }
+        { expiresIn: '0s', issuer: JWT_ISSUER, audience: JWT_AUDIENCE }
     );
 }
 

@@ -30,7 +30,30 @@ export const getOrderById = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    res.status(200).json(order);
+    // Admin ve o documento completo.
+    if (isAdmin) {
+      res.status(200).json(order);
+      return;
+    }
+
+    // SEGURANCA (3.2): o COMPRADOR nao pode ver a composicao interna do
+    // preco. Devolver o documento inteiro expunha broadcasterAmount (75%
+    // liquido da emissora), platformSplit, techFee e splits[] — ou seja,
+    // exatamente quanto a emissora recebe. Risco comercial de
+    // desintermediacao (negociar direto, fora do marketplace).
+    const o = order.toObject() as any;
+    delete o.broadcasterAmount;
+    delete o.platformSplit;
+    delete o.techFee;
+    delete o.splits;
+    delete o.webhookLogs;
+    delete o.broadcasterInvoices;
+    if (o.payment) {
+      delete o.payment.asaasPaymentId;
+      delete o.payment.processedEvents;
+    }
+
+    res.status(200).json(o);
   } catch (err) {
     console.error('[getOrderById] error', err);
     res.status(500).json({ error: 'Erro ao buscar pedido' });

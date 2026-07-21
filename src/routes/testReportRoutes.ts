@@ -5,6 +5,16 @@ import { authenticateToken, requireAdmin } from '../middleware/auth';
 
 const router = Router();
 
+// Defesa em profundidade (FASE 9.7): mesmo que alguem registre este router em
+// producao, ele nao responde. O registro em index.ts ja e condicional.
+router.use((_req: Request, res: Response, next) => {
+    if (process.env.NODE_ENV === 'production') {
+        res.status(404).json({ error: 'Rota não encontrada' });
+        return;
+    }
+    next();
+});
+
 // Diretorio base dos reports de teste
 const REPORTS_DIR = path.resolve(__dirname, '../../test-reports');
 const COVERAGE_DIR = path.resolve(__dirname, '../../coverage');

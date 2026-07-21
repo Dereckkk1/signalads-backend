@@ -3,6 +3,17 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { cacheGet, cacheSet, redis } from '../config/redis';
 import { isJtiDenied, getUserIatFloor } from '../utils/jwtDenylist';
+import { JWT_ISSUER, JWT_AUDIENCE } from '../utils/tokenService';
+
+/**
+ * Projecao usada ao carregar o usuario autenticado.
+ *
+ * FASE 7.4: os tokens de uso unico e o segredo de 2FA sao `select: false` no
+ * schema, entao nao chegam aqui — e, portanto, nao sao serializados para dentro
+ * do Redis pelo `cacheSet` abaixo. Este `-password` continua explicito porque
+ * `password` NAO e `select: false` (varios fluxos precisam dele).
+ */
+const AUTH_USER_PROJECTION = '-password';
 
 // TTL do cache de auth = 60s.
 // Reduzido de 900s para fechar a janela de status stale apos ban/troca-de-role.
@@ -53,7 +64,11 @@ export const authenticateToken = async (
       throw new Error('JWT_SECRET não está definido');
     }
 
-    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { userId: string; jti?: string; iat?: number };
+    const decoded = jwt.verify(token, jwtSecret, {
+      algorithms: ['HS256'],
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    }) as { userId: string; jti?: string; iat?: number };
 
     // Verifica denylist de JTI — token revogado por logout/troca-de-senha/admin reset
     if (decoded.jti && (await isJtiDenied(decoded.jti))) {
@@ -86,7 +101,7 @@ export const authenticateToken = async (
     }
 
     // Cache miss — busca no banco
-    const user = await User.findById(decoded.userId).select('-password');
+    const user = await User.findById(decoded.userId).select(AUTH_USER_PROJECTION);
     if (!user) {
       res.status(401).json({ error: 'Usuário não encontrado' });
       return;
@@ -129,7 +144,11 @@ export const optionalAuthenticateToken = async (
       return;
     }
 
-    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { userId: string; jti?: string; iat?: number };
+    const decoded = jwt.verify(token, jwtSecret, {
+      algorithms: ['HS256'],
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    }) as { userId: string; jti?: string; iat?: number };
 
     // Verifica denylist de JTI — mesmo no caminho opcional, token revogado nao deve autenticar
     if (decoded.jti && (await isJtiDenied(decoded.jti))) {
@@ -150,17 +169,24 @@ export const optionalAuthenticateToken = async (
     const cacheKey = `auth:user:${decoded.userId}`;
     const cachedUser = await cacheGet<any>(cacheKey);
     if (cachedUser) {
-      req.userId = decoded.userId;
-      req.user = cachedUser;
+      // FASE 7.5: conta nao aprovada (pending/blocked/rejected) segue como ANONIMA.
+      // Sem isto, um usuario banido continuava sendo tratado como identificado em
+      // toda rota de auth opcional (marketplace, propostas publicas, carrinho).
+      if (cachedUser.status === 'approved') {
+        req.userId = decoded.userId;
+        req.user = cachedUser;
+      }
       next();
       return;
     }
 
-    const user = await User.findById(decoded.userId).select('-password');
+    const user = await User.findById(decoded.userId).select(AUTH_USER_PROJECTION);
     if (user) {
       await cacheSet(cacheKey, user.toObject(), AUTH_CACHE_TTL);
-      req.userId = decoded.userId;
-      req.user = user;
+      if (user.status === 'approved') {
+        req.userId = decoded.userId;
+        req.user = user;
+      }
     }
 
     next();

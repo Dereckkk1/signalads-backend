@@ -618,3 +618,83 @@ export const unblockUser = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Erro ao reativar usuário' });
     }
 };
+
+/**
+ * GET /api/admin/monitoring/proxy-diagnostics
+ *
+ * Responde, com dados do request REAL em producao, a pergunta do item 10.1 do
+ * plano de seguranca: quantos proxies existem na frente do Node?
+ *
+ * POR QUE ISTO EXISTE
+ * `app.set('trust proxy', 1)` significa "confio em EXATAMENTE 1 salto". Se a
+ * topologia real tiver 2 saltos (ex.: Cloudflare -> Nginx -> Node), o Express
+ * escolhe o elemento errado do X-Forwarded-For e passa a confiar numa porcao
+ * da cadeia que o CLIENTE controla. Consequencia: `req.ip` vira spoofavel, e
+ * com ele o rate limit por IP e a blocklist de IP.
+ *
+ * Nao da para determinar isso pelo repositorio (nao ha Nginx nem Docker
+ * versionado) — so observando um request real.
+ *
+ * Admin-only. Nao expoe nada que o admin ja nao veja no painel de monitoramento.
+ */
+export const getProxyDiagnostics = async (req: Request, res: Response) => {
+    try {
+        const xff = req.headers['x-forwarded-for'];
+        const xffList = typeof xff === 'string'
+            ? xff.split(',').map((s) => s.trim()).filter(Boolean)
+            : Array.isArray(xff) ? xff : [];
+
+        const cfConnectingIp = req.headers['cf-connecting-ip'] as string | undefined;
+        const trustProxy = req.app.get('trust proxy');
+        const socketIp = req.socket?.remoteAddress;
+
+        // req.ips so e populado quando trust proxy esta ativo; representa a
+        // cadeia considerada CONFIAVEL pelo Express.
+        const trustedChain = req.ips || [];
+
+        // Numero de saltos observado = quantos IPs o XFF carrega.
+        const hopsObservados = xffList.length;
+
+        let veredito: string;
+        let acao: string;
+
+        if (hopsObservados === 0) {
+            veredito = 'Nenhum X-Forwarded-For recebido: o Node parece estar exposto direto, sem proxy.';
+            acao = "Se realmente nao ha proxy, `trust proxy` deve ser false. Hoje esta: " + JSON.stringify(trustProxy);
+        } else if (cfConnectingIp) {
+            veredito = `Cloudflare detectado (CF-Connecting-IP presente) com ${hopsObservados} IP(s) no X-Forwarded-For.`;
+            acao = hopsObservados > 1
+                ? 'CORRIGIR: ha mais de 1 salto. Derive o IP de CF-Connecting-IP em vez de contar saltos.'
+                : 'OK para trust proxy: 1 — mas usar CF-Connecting-IP e mais robusto.';
+        } else {
+            veredito = `Proxy sem Cloudflare, com ${hopsObservados} IP(s) no X-Forwarded-For.`;
+            acao = hopsObservados === 1
+                ? 'trust proxy: 1 esta CORRETO para esta topologia.'
+                : `CORRIGIR: trust proxy deveria ser ${hopsObservados} (ou o IP/faixa exata do proxy).`;
+        }
+
+        res.json({
+            veredito,
+            acao,
+            observado: {
+                reqIp: req.ip,
+                socketRemoteAddress: socketIp,
+                xForwardedFor: xffList,
+                hopsObservados,
+                cfConnectingIp: cfConnectingIp || null,
+                cadeiaConfiavel: trustedChain,
+            },
+            configuracaoAtual: {
+                trustProxy,
+                nodeEnv: process.env.NODE_ENV,
+            },
+            comoInterpretar:
+                'hopsObservados e o numero de proxies que adicionaram seu IP ao X-Forwarded-For. ' +
+                'O valor de `trust proxy` precisa bater com esse numero. Se `trust proxy` for MENOR, ' +
+                'o Express confia em porcao do header controlada pelo cliente (req.ip spoofavel). ' +
+                'Chame este endpoint de fora da rede (nao de localhost) para o resultado valer.',
+        });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao coletar diagnostico de proxy' });
+    }
+};

@@ -22,14 +22,35 @@ async function resolveMaxSubUsers(managerId: string): Promise<number> {
 }
 
 /**
+ * ObjectId que nunca existe. Usado como resultado fail-closed.
+ *
+ * SEGURANCA (item 3.7 do plano 2026-07-20): esta funcao alimenta ~40 filtros
+ * Mongo do tipo `{ broadcasterId: getEffectiveBroadcasterId(req) }`. Quando
+ * ela devolvia `null`, o filtro virava `{ broadcasterId: null }` — que no
+ * MongoDB casa documentos em que o campo esta AUSENTE, exatamente o caso das
+ * propostas com `ownerType: 'agency'`. Um sub-usuario 'sales' sem
+ * `parentBroadcasterId` (registro legado, importacao, campo removido a mao)
+ * passaria a enxergar e editar propostas de agencias arbitrarias.
+ *
+ * Devolver um ObjectId impossivel faz TODOS esses filtros nao casarem nada,
+ * sem depender de cada call site lembrar de checar null.
+ */
+const NO_BROADCASTER_SENTINEL = '000000000000000000000000';
+
+/**
  * Retorna o broadcasterId efetivo (para manager = req.userId, para sales = parentBroadcasterId).
+ *
+ * Para usuarios que NAO sao broadcaster devolve `null` (os call sites usam
+ * isso para decidir fluxo). Para um broadcaster cujo id efetivo nao pode ser
+ * resolvido, devolve o sentinel — nunca `null` — para que o filtro resultante
+ * falhe fechado em vez de casar documentos sem o campo.
  */
 function getEffectiveBroadcasterId(req: AuthRequest): string | null {
   if (req.user?.userType !== 'broadcaster') return null;
   if (req.user?.broadcasterRole === 'sales') {
-    return req.user?.parentBroadcasterId?.toString() || null;
+    return req.user?.parentBroadcasterId?.toString() || NO_BROADCASTER_SENTINEL;
   }
-  return req.userId || null;
+  return req.userId || NO_BROADCASTER_SENTINEL;
 }
 
 /**

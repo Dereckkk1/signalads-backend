@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { User } from '../models/User';
+import { User, hashLookupToken, MAX_FAILED_LOGIN_ATTEMPTS, ACCOUNT_LOCK_MINUTES } from '../models/User';
 import BlockedDomain from '../models/BlockedDomain';
 import BroadcasterGroup, { DEFAULT_SALES_PERMISSIONS, PagePermission } from '../models/BroadcasterGroup';
 import { sendTwoFactorEnableEmail, sendTwoFactorLoginEmail, sendTwoFactorCodeEmail, sendEmailConfirmation, sendPasswordResetEmail } from '../services/emailService';
@@ -11,6 +11,7 @@ import { isFreeEmailDomain, getEmailDomain } from '../utils/freeEmailDomains';
 import { generateAccessToken, generateRefreshToken, setAuthCookies, clearAuthCookies, rotateRefreshToken, revokeAllUserTokens } from '../utils/tokenService';
 import { denyAccessToken, setUserIatFloor } from '../utils/jwtDenylist';
 import AuditLog from '../models/AuditLog';
+import { getClientIp } from '../utils/clientIp';
 
 /**
  * Retorna as permissoes de pagina efetivas de um sub-usuario.
@@ -23,6 +24,31 @@ async function getSalesPermissions(groupId?: any): Promise<PagePermission[]> {
     return (group?.permissions as PagePermission[]) || DEFAULT_SALES_PERMISSIONS;
   } catch {
     return DEFAULT_SALES_PERMISSIONS;
+  }
+}
+
+/**
+ * Hash bcrypt fixo (custo 12) usado como alvo de comparacao quando o usuario
+ * NAO existe (FASE 7.3).
+ *
+ * Sem isto, o ramo "usuario inexistente" responde em ~1ms enquanto o ramo
+ * "senha errada" gasta os ~250ms do bcrypt — diferenca medivel remotamente que
+ * transforma o login numa API de enumeracao de contas, apesar da mensagem de erro
+ * ser identica nos dois casos. Comparar contra este hash iguala o custo.
+ *
+ * Gerado uma unica vez no boot do modulo (nao por request).
+ */
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('e-radios::dummy::compare::target', 12);
+
+/**
+ * Consome o tempo de um bcrypt.compare real sem revelar nada.
+ * Retorno ignorado de proposito — a chamada existe pelo custo, nao pelo resultado.
+ */
+async function burnPasswordCompare(password: unknown): Promise<void> {
+  try {
+    await bcrypt.compare(typeof password === 'string' ? password : '', DUMMY_PASSWORD_HASH);
+  } catch {
+    // nunca deve falhar; se falhar, o 401 abaixo continua valendo
   }
 }
 
@@ -84,7 +110,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Verificar se usuario ja existe — mensagem generica para evitar enumeracao de contas
-    const existingUser = await User.findOne({ email });
+    // `+emailConfirmToken`: campo e `select: false` (FASE 7.4) e o reenvio
+    // silencioso abaixo precisa saber se ja existe um token pendente.
+    const existingUser = await User.findOne({ email }).select('+emailConfirmToken');
     if (existingUser) {
       // Se existe mas nao confirmou email, reenvia silenciosamente
       if (!existingUser.emailConfirmed && existingUser.emailConfirmToken) {
@@ -158,9 +186,12 @@ export const confirmEmail = async (req: Request, res: Response): Promise<void> =
     const { token } = req.params;
 
     // Atomic operation to prevent race conditions (e.g. React StrictMode double-mount)
+    // O banco guarda apenas o SHA-256 do token (FASE 7.1) — a busca e pelo hash.
+    // Sem fallback pelo valor cru: aceitar o valor cru anularia a correcao, pois
+    // um dump do banco voltaria a render links de confirmacao utilizaveis.
     const user = await User.findOneAndUpdate(
       {
-        emailConfirmToken: token,
+        emailConfirmToken: hashLookupToken(token || ''),
         emailConfirmTokenExpires: { $gt: new Date() }
       },
       {
@@ -196,18 +227,44 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       ? { email: emailOrCnpj.toLowerCase().trim() }
       : { cpfOrCnpj: emailOrCnpj };
 
-    // Buscar usuário por email ou CNPJ/CPF
-    const user = await User.findOne(searchQuery);
+    // Buscar usuário por email ou CNPJ/CPF.
+    // `+twoFactorCode +twoFactorSessionToken`: sao `select: false` (FASE 7.4) e o
+    // fluxo de 2FA abaixo depende deles (cooldown de reenvio + token de sessao).
+    const user = await User.findOne(searchQuery)
+      .select('+twoFactorCode +twoFactorSessionToken +failedLoginAttempts +lockUntil');
 
     if (!user) {
+      // FASE 7.3: gasta o mesmo tempo de um bcrypt.compare real antes de responder,
+      // para que "conta inexistente" e "senha errada" sejam indistinguiveis no relogio.
+      await burnPasswordCompare(password);
       // Log forense: tentativa com identificador inexistente
       await AuditLog.create({
         action: 'auth.login_failed',
         resource: 'user',
         details: { emailOrCnpj, reason: 'user_not_found' },
-        ipAddress: req.ip,
+        ipAddress: getClientIp(req),
         userAgent: req.headers['user-agent'],
       }).catch(() => {});
+      res.status(401).json({ error: 'Credenciais inválidas' });
+      return;
+    }
+
+    // FASE 4.5: conta bloqueada por excesso de tentativas.
+    // Verificado ANTES do bcrypt.compare — se ja esta travada, nem gasta CPU.
+    // Ainda assim queima o tempo do compare para nao criar um canal de timing
+    // que revele "esta conta esta bloqueada".
+    if (user.lockUntil && user.lockUntil.getTime() > Date.now()) {
+      await burnPasswordCompare(password);
+      await AuditLog.create({
+        userId: user._id,
+        action: 'auth.login_blocked',
+        resource: 'user',
+        details: { emailOrCnpj, reason: 'account_locked', lockUntil: user.lockUntil },
+        ipAddress: getClientIp(req),
+        userAgent: req.headers['user-agent'],
+      }).catch(() => {});
+      // Resposta identica a de credencial invalida: informar o bloqueio
+      // confirmaria a existencia da conta para quem nao tem a senha.
       res.status(401).json({ error: 'Credenciais inválidas' });
       return;
     }
@@ -215,17 +272,39 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Verificar senha
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      // Incrementa o contador e trava a conta ao atingir o teto.
+      const attempts = (user.failedLoginAttempts ?? 0) + 1;
+      const update: Record<string, any> = { failedLoginAttempts: attempts };
+      if (attempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+        update.lockUntil = new Date(Date.now() + ACCOUNT_LOCK_MINUTES * 60 * 1000);
+        update.failedLoginAttempts = 0; // zera o ciclo junto com o bloqueio
+      }
+      await User.updateOne({ _id: user._id }, { $set: update }).catch(() => {});
+
       // Log forense: senha errada para usuario existente
       await AuditLog.create({
         userId: user._id,
         action: 'auth.login_failed',
         resource: 'user',
-        details: { emailOrCnpj, reason: 'invalid_password' },
-        ipAddress: req.ip,
+        details: {
+          emailOrCnpj,
+          reason: 'invalid_password',
+          attempts,
+          locked: attempts >= MAX_FAILED_LOGIN_ATTEMPTS,
+        },
+        ipAddress: getClientIp(req),
         userAgent: req.headers['user-agent'],
       }).catch(() => {});
       res.status(401).json({ error: 'Credenciais inválidas' });
       return;
+    }
+
+    // Senha correta: zera o contador de falhas (se havia algum).
+    if (user.failedLoginAttempts || user.lockUntil) {
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { failedLoginAttempts: 0 }, $unset: { lockUntil: 1 } }
+      ).catch(() => {});
     }
 
     // Email nao confirmado: sinal acionavel SO depois da senha correta. Como a
@@ -251,18 +330,41 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verificar se 2FA está habilitado
-    if (user.twoFactorEnabled && user.twoFactorConfirmedAt) {
+    // FASE 7.5: qualquer status != 'approved' (pending, blocked, ou valor futuro)
+    // nao recebe sessao. Antes so 'rejected' era barrado aqui, entao uma conta
+    // 'pending'/'blocked' saia do login com access+refresh token validos e so
+    // esbarrava no 403 do middleware — tokens emitidos que nao deveriam existir.
+    if (user.status !== 'approved') {
+      res.status(403).json({
+        error: 'account_not_approved',
+        message: 'Sua conta ainda não está aprovada. Aguarde a liberação ou entre em contato com o suporte.'
+      });
+      return;
+    }
+
+    // FASE 7.9: 2FA e OBRIGATORIO para admin.
+    //
+    // Escolha de implementacao: em vez de BLOQUEAR o admin sem 2FA habilitado
+    // (que criaria um deadlock — habilitar 2FA exige estar logado, e nao ha fluxo
+    // de habilitacao anonimo), o admin e SEMPRE encaminhado ao segundo fator por
+    // e-mail, independentemente de `twoFactorEnabled`. O resultado de seguranca e o
+    // mesmo (senha sozinha nunca abre sessao de admin) sem risco de lockout nem
+    // necessidade de UI nova. Dispositivo confiavel tambem nao pula o fator para admin.
+    const isAdmin = user.userType === 'admin';
+    const requiresSecondFactor = isAdmin || !!(user.twoFactorEnabled && user.twoFactorConfirmedAt);
+
+    if (requiresSecondFactor) {
 
       // Device fingerprint: cookie persistente + user-agent + IP (#31)
       const userAgent = req.headers['user-agent'] || 'unknown';
-      const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+      const ipAddress = getClientIp(req);
       const cookieFingerprint = req.cookies?.device_fp || '';
       const deviceId = crypto.createHash('sha256').update(`${cookieFingerprint}${userAgent}${ipAddress}`).digest('hex');
 
       // Trusted device expiry: 90 dias (#32)
       const TRUSTED_DEVICE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-      const isTrustedDevice = user.trustedDevices?.some(d => {
+      // Admin nunca pula o segundo fator, nem em dispositivo confiavel (FASE 7.9).
+      const isTrustedDevice = !isAdmin && user.trustedDevices?.some(d => {
         if (d.deviceId !== deviceId) return false;
         const createdAt = d.createdAt ? new Date(d.createdAt).getTime() : 0;
         return (Date.now() - createdAt) < TRUSTED_DEVICE_TTL_MS;
@@ -279,15 +381,21 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         }
       } else {
 
-        // Cooldown por email: impede envio de multiplos codigos em menos de 60s
+        // Cooldown por email: impede envio de multiplos codigos em menos de 60s.
+        // O codigo anterior segue valido; emitimos um NOVO token de sessao opaco
+        // (o antigo esta apenas hasheado no banco — FASE 7.1 — e nao pode ser
+        // devolvido ao cliente).
         if (user.twoFactorCodeExpires && user.twoFactorCode) {
           const codeCreatedAt = new Date(user.twoFactorCodeExpires.getTime() - 10 * 60 * 1000); // expiry - 10min = created
           const secondsSinceLastCode = (Date.now() - codeCreatedAt.getTime()) / 1000;
           if (secondsSinceLastCode < 60) {
+            const renewedSessionToken = crypto.randomBytes(32).toString('hex');
+            user.twoFactorSessionToken = renewedSessionToken;
+            await user.save();
             res.json({
               requiresTwoFactor: true,
               message: 'Código de verificação já enviado. Verifique seu email.',
-              userId: user.twoFactorSessionToken
+              userId: renewedSessionToken
             });
             return;
           }
@@ -297,20 +405,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         const twoFactorCode = crypto.randomInt(100000, 999999).toString();
         const codeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
 
-        // Hash do codigo antes de salvar no banco — protege contra leak de DB
-        const codeHash = crypto.createHash('sha256').update(twoFactorCode).digest('hex');
-        user.twoFactorCode = codeHash;
+        // Atribui o codigo CRU: o hook de `save` no schema grava o SHA-256 (FASE 7.1)
+        user.twoFactorCode = twoFactorCode;
         user.twoFactorCodeExpires = codeExpires;
-        await user.save();
 
-        // Envia email com código em plaintext (hash fica no banco)
-        await sendTwoFactorCodeEmail(user.email, user.name || user.companyName || 'Usuário', twoFactorCode);
-
-        // Token opaco em vez de ObjectId real — evita enumeracao de usuarios
+        // Token opaco em vez de ObjectId real — evita enumeracao de usuarios.
+        // Tambem hasheado no banco pelo hook; o valor cru so existe aqui e no cliente.
         const twoFactorSessionToken = crypto.randomBytes(32).toString('hex');
         user.twoFactorSessionToken = twoFactorSessionToken;
         user.twoFactorAttempts = 0;
         await user.save();
+
+        // Envia email com código em plaintext (apenas o hash fica no banco)
+        await sendTwoFactorCodeEmail(user.email, user.name || user.companyName || 'Usuário', twoFactorCode);
 
         res.json({
           requiresTwoFactor: true,
@@ -576,14 +683,11 @@ export const enableTwoFactor = async (req: AuthRequest, res: Response): Promise<
     const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
 
+    // Valor cru vai por e-mail; o hook do schema grava o SHA-256 (FASE 7.1)
     user.twoFactorPendingToken = confirmToken;
     user.twoFactorPendingTokenExpires = tokenExpires;
     user.twoFactorEnabled = false; // Será true após confirmação
     await user.save();
-
-
-    // Verifica se foi realmente salvo
-    const savedUser = await User.findById(user._id).select('email twoFactorPendingToken twoFactorPendingTokenExpires');
 
     // Envia email de confirmação
     await sendTwoFactorEnableEmail(user.email, user.name || user.companyName || 'Usuário', confirmToken);
@@ -602,23 +706,14 @@ export const confirmTwoFactorEnable = async (req: Request, res: Response): Promi
     const { token } = req.params;
 
 
-    // Busca usuario pelo token pendente de confirmacao
-    let user = await User.findOne({
-      twoFactorPendingToken: token,
+    // Busca pelo HASH do token (FASE 7.1). O fallback antigo que aceitava o mesmo
+    // valor gravado em `twoFactorSecret` foi REMOVIDO: era um segundo campo capaz
+    // de servir como credencial de habilitacao de 2FA, ampliando a superficie sem
+    // necessidade (nenhum fluxo atual grava token em `twoFactorSecret`).
+    const user = await User.findOne({
+      twoFactorPendingToken: hashLookupToken(token || ''),
       twoFactorPendingTokenExpires: { $gt: new Date() }
     });
-
-    // Fallback: busca em twoFactorSecret (tokens antigos antes da correcao)
-    if (!user) {
-      user = await User.findOne({
-        twoFactorSecret: token,
-        twoFactorPendingTokenExpires: { $gt: new Date() }
-      });
-    }
-
-
-
-
 
     if (!user) {
       res.status(400).json({ error: 'Token inválido ou expirado' });
@@ -673,86 +768,37 @@ export const disableTwoFactor = async (req: AuthRequest, res: Response): Promise
 };
 
 /**
- * Validar código 2FA no login
- */
-export const validateTwoFactorLogin = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { userId, token } = req.body;
-
-
-    const user = await User.findOne({
-      _id: userId,
-      twoFactorPendingToken: token,
-      twoFactorPendingTokenExpires: { $gt: new Date() }
-    });
-
-    if (!user) {
-      res.status(400).json({ error: 'Código inválido ou expirado' });
-      return;
-    }
-
-    // Limpa token temporário
-    user.twoFactorPendingToken = undefined;
-    user.twoFactorPendingTokenExpires = undefined;
-    await user.save();
-
-    // Device fingerprint + tokens (access 15min + refresh 7d em cookies httpOnly)
-    ensureDeviceFingerprintCookie(req, res);
-    const accessToken = generateAccessToken(user._id.toString());
-    const { rawToken: refreshTokenRaw } = await generateRefreshToken(user._id.toString(), req);
-    setAuthCookies(res, accessToken, refreshTokenRaw);
-
-    let twoFaLoginPerms: PagePermission[] | undefined;
-    if (user.broadcasterRole === 'sales') {
-      twoFaLoginPerms = await getSalesPermissions(user.groupId);
-    }
-
-    res.json({
-      message: 'Login realizado com sucesso!',
-      user: {
-        id: user._id,
-        email: user.email,
-        userType: user.userType,
-        status: user.status,
-        companyName: user.companyName,
-        fantasyName: user.fantasyName,
-        phone: user.phone,
-        cpfOrCnpj: user.cpfOrCnpj,
-        cnpj: user.cnpj,
-        address: user.address,
-        onboardingCompleted: user.onboardingCompleted || false,
-        broadcasterRole: user.broadcasterRole || undefined,
-        parentBroadcasterId: user.parentBroadcasterId || undefined,
-        groupId: user.groupId || undefined,
-        groupPermissions: twoFaLoginPerms || undefined
-      }
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: 'Erro ao validar código de verificação' });
-  }
-};
-
-/**
  * Verifica código de 6 dígitos e finaliza login
  */
 export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId: sessionToken, code, trustDevice } = req.body;
 
-    // Busca por session token opaco (nao por ObjectId)
+    if (typeof sessionToken !== 'string' || !sessionToken || typeof code !== 'string' || !code) {
+      res.status(400).json({ error: 'Código inválido ou expirado' });
+      return;
+    }
+
+    // Busca pelo HASH do session token opaco (FASE 7.1).
+    // `+twoFactorCode +twoFactorSessionToken`: campos `select: false` (FASE 7.4).
     const user = await User.findOne({
-      twoFactorSessionToken: sessionToken,
+      twoFactorSessionToken: hashLookupToken(sessionToken),
       twoFactorCodeExpires: { $gt: new Date() }
-    });
+    }).select('+twoFactorCode +twoFactorSessionToken');
 
     if (!user) {
       res.status(400).json({ error: 'Código inválido ou expirado' });
       return;
     }
 
-    // Compara hash do codigo informado com hash armazenado no banco
-    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
-    if (user.twoFactorCode !== codeHash) {
+    // Compara hash do codigo informado com hash armazenado, em tempo constante
+    const codeHash = hashLookupToken(code);
+    const storedHash = user.twoFactorCode || '';
+    const codeMatches =
+      storedHash.length === codeHash.length &&
+      crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(codeHash));
+
+    if (!codeMatches) {
       user.twoFactorAttempts = (user.twoFactorAttempts || 0) + 1;
       if (user.twoFactorAttempts >= 5) {
         user.twoFactorCode = undefined;
@@ -772,7 +818,7 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
     // Se usuário marcou "Confiar neste dispositivo"
     if (trustDevice) {
       const userAgent = req.headers['user-agent'] || 'unknown';
-      const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+      const ipAddress = getClientIp(req);
       const deviceId = crypto.createHash('sha256').update(`${userAgent}${ipAddress}`).digest('hex');
 
       // Extrai nome do dispositivo do user-agent
@@ -957,6 +1003,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     const resetToken = crypto.randomBytes(32).toString('hex');
     const tokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
 
+    // Valor cru vai por e-mail; o hook do schema grava o SHA-256 (FASE 7.1)
     user.passwordResetToken = resetToken;
     user.passwordResetTokenExpires = tokenExpires;
     await user.save();
@@ -998,10 +1045,12 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     // Hash da nova senha
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Operacao atomica para prevenir race conditions (#33)
+    // Operacao atomica para prevenir race conditions (#33).
+    // Busca pelo HASH (FASE 7.1) — sem fallback pelo valor cru: quem le o banco
+    // ve so o hash, e o hash nao serve como link de redefinicao.
     const user = await User.findOneAndUpdate(
       {
-        passwordResetToken: token,
+        passwordResetToken: hashLookupToken(token || ''),
         passwordResetTokenExpires: { $gt: new Date() }
       },
       {
@@ -1018,6 +1067,12 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
 
     // Revoga todos os refresh tokens existentes por segurança
     await revokeAllUserTokens(user._id.toString());
+
+    // FASE 7.2: este e justamente o fluxo de quem JA foi comprometido. Revogar so
+    // o refresh deixava o access token do atacante valido por ate 15min (mais o TTL
+    // do cache de auth). Espelha o que `changePassword` ja fazia.
+    await invalidateUserCache(user._id.toString()).catch(() => {});
+    await setUserIatFloor(user._id.toString()).catch(() => {});
 
     res.json({ message: 'Senha redefinida com sucesso! Faça login com sua nova senha.' });
   } catch (error) {

@@ -819,7 +819,9 @@ describe('GET /api/auth/2fa/confirm/:token', () => {
 
     await request(app).get(`/api/auth/2fa/confirm/${token}`);
 
-    const updated = await User.findById(user._id);
+    // `+twoFactorPendingToken`: campo e `select: false` desde a FASE 7.4 — sem o
+    // `+` a assercao passaria trivialmente e deixaria de provar a limpeza.
+    const updated = await User.findById(user._id).select('+twoFactorPendingToken');
     expect(updated!.twoFactorEnabled).toBe(true);
     expect(updated!.twoFactorConfirmedAt).toBeDefined();
     expect(updated!.twoFactorPendingToken).toBeUndefined();

@@ -6,8 +6,10 @@
  */
 
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { User } from '../../models/User';
+import { JWT_ISSUER, JWT_AUDIENCE } from '../../utils/tokenService';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key-for-testing-12345';
 
@@ -43,7 +45,13 @@ export interface AuthCookies {
  * Generates a valid JWT access token for the given userId.
  */
 export function generateTestToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '15m' });
+  // issuer/audience obrigatorios desde a FASE 7.6 — sem eles o middleware rejeita.
+  // jti presente para espelhar o token real (denylist + derivacao do CSRF).
+  return jwt.sign({ userId, jti: crypto.randomUUID() }, JWT_SECRET, {
+    expiresIn: '15m',
+    issuer: JWT_ISSUER,
+    audience: JWT_AUDIENCE,
+  });
 }
 
 /**

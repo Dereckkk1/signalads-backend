@@ -1,4 +1,43 @@
 import { Schema, model, Document } from 'mongoose';
+import crypto from 'crypto';
+
+/**
+ * Campos que guardam credenciais de uso unico (tokens de e-mail e 2FA).
+ *
+ * SEGURANCA (FASE 7.1): estes campos NUNCA sao persistidos em plaintext. O valor
+ * cru e enviado ao usuario (e-mail/link) e o banco guarda apenas o SHA-256 — o
+ * mesmo padrao ja usado pelo refresh token (`utils/tokenService.ts`). Assim, um
+ * dump/leitura do Mongo (backup, replica, log de query, admin curioso) nao rende
+ * credenciais utilizaveis: o atacante ve o hash, e o hash nao passa na verificacao.
+ *
+ * O hashing acontece nos hooks abaixo (save + update), e nao nos controllers, para
+ * que QUALQUER caminho de escrita — inclusive controllers fora do fluxo de auth
+ * (sub-usuarios de emissora, emissoras-catalogo) — seja coberto automaticamente.
+ */
+export const HASHED_TOKEN_FIELDS = [
+  'passwordResetToken',
+  'emailConfirmToken',
+  'twoFactorPendingToken',
+  'twoFactorSessionToken',
+  'twoFactorCode',
+] as const;
+
+/** SHA-256 hex de um token de uso unico. Usado na escrita (hooks) e na busca. */
+export const hashLookupToken = (raw: string): string =>
+  crypto.createHash('sha256').update(String(raw)).digest('hex');
+
+/**
+ * Politica de bloqueio de conta por falhas de senha (item 4.5 do plano
+ * 2026-07-20).
+ *
+ * O rate limit do /login e chaveado por (IP | e-mail), entao um atacante que
+ * ROTACIONA e-mails — o padrao de credential stuffing / password spraying —
+ * nunca atinge o teto por par. O lockout por conta e a segunda linha de
+ * defesa: mesmo distribuindo IPs e alvos, cada conta so aceita N tentativas
+ * dentro da janela.
+ */
+export const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+export const ACCOUNT_LOCK_MINUTES = 15;
 
 export interface IUser extends Document {
   name?: string; // Nome completo (advertiser)
@@ -96,6 +135,10 @@ export interface IUser extends Document {
 
   createdAt: Date;
   updatedAt: Date;
+
+  // Bloqueio por tentativas de senha (item 4.5)
+  failedLoginAttempts?: number;
+  lockUntil?: Date;
 
   // Autenticação em duas etapas (2FA)
   twoFactorEnabled?: boolean;
@@ -286,14 +329,25 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: false
     },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+      select: false
+    },
+    lockUntil: {
+      type: Date,
+      select: false
+    },
     twoFactorSecret: {
-      type: String
+      type: String,
+      select: false
     },
     twoFactorConfirmedAt: {
       type: Date
     },
     twoFactorPendingToken: {
-      type: String
+      type: String,
+      select: false
     },
     twoFactorPendingTokenExpires: {
       type: Date
@@ -301,13 +355,15 @@ const userSchema = new Schema<IUser>(
 
     // Código de verificação 6 dígitos (usado no login)
     twoFactorCode: {
-      type: String
+      type: String,
+      select: false
     },
     twoFactorCodeExpires: {
       type: Date
     },
     twoFactorSessionToken: {
-      type: String
+      type: String,
+      select: false
     },
     twoFactorAttempts: {
       type: Number,
@@ -340,7 +396,8 @@ const userSchema = new Schema<IUser>(
       default: false
     },
     emailConfirmToken: {
-      type: String
+      type: String,
+      select: false
     },
     emailConfirmTokenExpires: {
       type: Date
@@ -348,7 +405,8 @@ const userSchema = new Schema<IUser>(
 
     // Password reset
     passwordResetToken: {
-      type: String
+      type: String,
+      select: false
     },
     passwordResetTokenExpires: {
       type: Date
@@ -442,5 +500,45 @@ userSchema.index({ userType: 1, status: 1, 'broadcasterProfile.pmm': -1 });
 
 // Sub-usuários: busca por emissora pai
 userSchema.index({ parentBroadcasterId: 1, broadcasterRole: 1 });
+
+// ─────────────────────────────────────────────────────────────
+// FASE 7.1 — Hash automatico dos tokens de uso unico
+// ─────────────────────────────────────────────────────────────
+// Ponto unico de aplicacao: qualquer escrita (save, create, findOneAndUpdate,
+// updateOne, updateMany) que atribua um valor a um destes campos grava o SHA-256.
+// Quem gera o token guarda o valor CRU numa variavel local e o envia por e-mail;
+// quem verifica busca por `hashLookupToken(tokenRecebido)`.
+//
+// Idempotencia: no `save` so re-hasheia quando o path foi modificado, entao um
+// segundo `save()` do mesmo documento nao aplica hash duas vezes.
+
+userSchema.pre('save', function (this: any) {
+  for (const field of HASHED_TOKEN_FIELDS) {
+    if (!this.isModified(field)) continue;
+    const value = this[field];
+    if (typeof value === 'string' && value.length > 0) {
+      this[field] = hashLookupToken(value);
+    }
+  }
+});
+
+function hashTokensInUpdate(this: any): void {
+  const update = this.getUpdate();
+  // Pipeline de agregacao ([{ $set: ... }]) nao e suportado — nenhum caminho usa.
+  if (!update || Array.isArray(update)) return;
+  for (const field of HASHED_TOKEN_FIELDS) {
+    if (update.$set && typeof update.$set[field] === 'string' && update.$set[field]) {
+      update.$set[field] = hashLookupToken(update.$set[field]);
+    }
+    if (typeof update[field] === 'string' && update[field]) {
+      update[field] = hashLookupToken(update[field]);
+    }
+  }
+  this.setUpdate(update);
+}
+
+(userSchema as any).pre('findOneAndUpdate', hashTokensInUpdate);
+(userSchema as any).pre('updateOne', hashTokensInUpdate);
+(userSchema as any).pre('updateMany', hashTokensInUpdate);
 
 export const User = model<IUser>('User', userSchema);
