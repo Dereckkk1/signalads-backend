@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 
 /**
@@ -80,6 +81,25 @@ const ORIGIN_PROTECTED_EXEMPT_ROUTES = [
   '/api/contact-messages',
 ];
 
+/**
+ * Compara dois tokens em tempo constante.
+ *
+ * `timingSafeEqual` exige buffers do MESMO tamanho — chamar com tamanhos
+ * diferentes LANCA. Por isso o tamanho e conferido antes, e quando difere
+ * fazemos um compare-dummy para nao criar um canal de timing pelo proprio
+ * atalho ("tamanho errado" responderia mais rapido que "tamanho certo,
+ * conteudo errado").
+ */
+function tokensIguais(a: string, b: string): boolean {
+  const bufA = Buffer.from(String(a), 'utf8');
+  const bufB = Buffer.from(String(b), 'utf8');
+  if (bufA.length !== bufB.length) {
+    timingSafeEqual(bufB, bufB);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
+
 const requiresOriginCheck = (path: string): boolean => {
   return ORIGIN_PROTECTED_EXEMPT_ROUTES.some(route => path === route || path.startsWith(route + '/'));
 };
@@ -118,8 +138,15 @@ export const csrfProtection = (req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  // Valida que header corresponde ao cookie
-  if (!csrfFromHeader || csrfFromHeader !== csrfFromCookie) {
+  // Valida que header corresponde ao cookie, em TEMPO CONSTANTE (item 7.7).
+  //
+  // `!==` em string curto-circuita no primeiro byte diferente. O tempo de
+  // resposta passa a depender de quantos caracteres iniciais o atacante
+  // acertou, o que permite descobrir o token byte a byte com medicoes
+  // repetidas. Aqui o valor tem 32 bytes aleatorios e o ataque e dificil na
+  // pratica — mas comparacao de segredo em tempo constante e barata e nao
+  // depende de o ataque ser "dificil o suficiente".
+  if (!csrfFromHeader || !tokensIguais(csrfFromHeader, csrfFromCookie)) {
     res.status(403).json({ error: 'CSRF token inválido' });
     return;
   }
